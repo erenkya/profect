@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_VIDEO_BYTES, isVideoKey } from "./video-key.ts";
 
 const money = z.coerce.number().min(0).max(1_000_000);
 
@@ -36,11 +37,25 @@ export const createCourseSchema = z.object({
 
 export const updateCourseSchema = z.object(courseFields).partial();
 
-export const lessonSchema = z.object({
-  title: z.string().trim().min(1).max(255),
-  lesson_type: z.enum(["video", "text"]),
-  content: z.string().min(1, "İçerik boş olamaz."),
-  duration_minutes: z.coerce.number().int().min(0).max(100000).nullable().optional(),
+export const lessonSchema = z
+  .object({
+    title: z.string().trim().min(1).max(255),
+    lesson_type: z.enum(["video", "text"]),
+    content: z.string().min(1, "İçerik boş olamaz."), // video: R2 nesne anahtarı · text: Markdown
+    duration_minutes: z.coerce.number().int().min(0).max(100000).nullable().optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.lesson_type === "video" && !isVideoKey(d.content)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["content"], message: "Geçersiz video." });
+    }
+  });
+
+/** Yönetici video yüklemesi başlatırken gönderilir (dosyanın kendisi değil, meta bilgisi). */
+export const videoUploadSchema = z.object({
+  module_id: z.coerce.number().int().positive(),
+  lesson_title: z.string().trim().min(1).max(255),
+  content_type: z.literal("video/mp4", { errorMap: () => ({ message: "Yalnızca MP4 yüklenebilir." }) }),
+  size: z.number().int().min(1).max(MAX_VIDEO_BYTES, "Video en çok 2 GB olabilir."),
 });
 
 export const quizSchema = z.object({

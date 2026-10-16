@@ -3,6 +3,8 @@ import pool from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { getCourseAdminTree } from "@/lib/lms";
+import { listVideoKeys } from "@/lib/lesson-video";
+import { deleteVideos } from "@/lib/r2";
 import { updateCourseSchema } from "@/lib/admin-schemas";
 
 type Ctx = { params: Promise<{ courseId: string }> };
@@ -56,8 +58,10 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   if (!courseId) return fail("Geçersiz kurs.", 400);
   try {
     // Modüller, dersler, sınavlar, kayıtlar, ilerleme ve sertifikalar FK CASCADE ile silinir.
+    const keys = await listVideoKeys("course", courseId);
     const [res] = await pool.execute<ResultSetHeader>("DELETE FROM courses WHERE id = ?", [courseId]);
     if (res.affectedRows === 0) return fail("Kurs bulunamadı.", 404);
+    await deleteVideos(keys);
     return ok({ message: "Kurs silindi." });
   } catch (err) {
     return serverError("[DELETE /api/admin/courses/:id]", err);

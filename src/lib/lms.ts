@@ -256,14 +256,13 @@ export function shuffle<T>(input: T[]): T[] {
   return a;
 }
 
-/** YouTube/Vimeo URL'sinden ID ayıklar; zaten ID ise aynen döner. */
-export function extractVideoId(input: string): string {
-  const v = input.trim();
-  const yt = v.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/);
-  if (yt) return yt[1];
-  const vm = v.match(/vimeo\.com\/(?:video\/)?(\d+)/);
-  if (vm) return `vimeo:${vm[1]}`;
-  return v;
+/** Modülün başlığı ve kursunun slug'ı (R2 klasör yolu için). */
+export async function getModuleForKey(moduleId: number): Promise<{ id: number; title: string; course_slug: string } | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT m.id, m.title, c.slug AS course_slug FROM modules m JOIN courses c ON c.id = m.course_id WHERE m.id = ?",
+    [moduleId],
+  );
+  return (rows[0] as { id: number; title: string; course_slug: string } | undefined) ?? null;
 }
 
 // ── Siparişler ────────────────────────────────────────────────────────────────

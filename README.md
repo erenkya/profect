@@ -32,8 +32,30 @@ npm run dev
 
 - Geçme notu varsayılan **%70**, sınırsız deneme; soru ve şık sırası her oturumda karıştırılır, doğru cevap istemciye gönderilmez.
 - Sertifika yalnızca **final sınavı** geçilince, kurs başına bir kez verilir; `/sertifika/[kod]` herkese açıktır.
-- İlerleme: YouTube videosu bitince/%95'te, metin dersi sonuna kaydırılınca otomatik tamamlanır.
+- İlerleme: Video bitince/%95'te, metin dersi sonuna kaydırılınca otomatik tamamlanır.
 - Erişim: `enrollments` satırı **veya** aktif Profect Plus (`users.plus_until`). Yönetici atayabilir; kullanıcı satın alabilir.
+
+## Ders videoları (Cloudflare R2)
+
+Video dersler yönetici panelinden **doğrudan R2'ye** yüklenir (tarayıcı → R2, sunucudan geçmez) ve yalnızca kursa kayıtlı oturumlu kullanıcılara, sitenin kendi adresi (`/api/client/lessons/[id]/video`) üzerinden akıtılır. Tarayıcıya hiçbir R2 adresi verilmez.
+
+**Kurulum**
+1. `.env`: `CLOUDFLARE_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (Vercel'de de tanımlı olmalı; `NEXT_PUBLIC_` öneki **kullanma**).
+2. `npm run db:migrate` — kota tablosu (`video_stream_usage`) için.
+3. `npm run r2:setup` — yazma yetkisini doğrular ve yönetici yüklemesi için CORS kuralını (yalnızca `PUT`, `APP_URL` + `http://localhost:3000`) uygular. Token'ın CORS yetkisi yoksa betik, Cloudflare panelinde yapıştırılacak JSON'u basar.
+
+**Kapalı bucket kontrol listesi** (Cloudflare paneli)
+- *Public Development URL (r2.dev)* **kapalı**, bucket'a bağlı herkese açık özel alan adı **yok**.
+- R2 API token'ı yalnızca bu bucket'a ve *Object Read & Write* yetkisine sahip.
+- Önerilen: bucket'ta tamamlanmamış çok parçalı yüklemeleri otomatik silen bir *Object lifecycle* kuralı. Yönetici bir videoyu yükleyip dersi kaydetmeden çıkarsa dosya R2'de kalır; periyodik olarak `kurslar/` altındaki, DB'de karşılığı olmayan nesneler elle temizlenebilir.
+
+**Klasör düzeni:** `kurslar/{kurs-slug}/{modül-id}-{modül-adı}/{rastgele}-{ders-adı}.mp4`. Yol DB'de saklanır; kurs/modül yeniden adlandırılırsa dosya taşınmaz.
+
+**Güvenlik modeli ve sınırlar**
+- Her video isteğinde oturum, hesap durumu ve kurs erişimi doğrulanır; yanıt en çok 4 MiB'lık `Range` dilimidir. Bağlantıyı kopyalayan, giriş yapmadıkça izleyemez.
+- Kullanıcı × ders × gün başına video boyutunun 5 katı bayt sınırı vardır (aşılınca `429`). Ekranda kullanıcıya özel filigran gösterilir.
+- Giriş yapmış bir öğrencinin ekran kaydı almasını veya kendi oturumuyla dosyayı indirmesini **engelleyemez**, caydırır ve izlenebilir kılar.
+- Video trafiği Vercel fonksiyonundan geçer; her izlenme (~video boyutu kadar) veri aktarımı ve fonksiyon süresi olarak faturalanır.
 
 ## Ödeme
 

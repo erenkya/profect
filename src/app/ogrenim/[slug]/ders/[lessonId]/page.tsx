@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { LessonPlayer } from "@/components/learn/LessonPlayer";
 import { getCurrentUser } from "@/lib/auth";
 import { parseId } from "@/lib/http";
+import { isVideoKey } from "@/lib/video-key";
 import { canAccessCourse, flattenTree, getCourseBySlug, getCourseTree, getLesson } from "@/lib/lms";
 
 export const metadata: Metadata = { title: "Ders" };
@@ -32,7 +33,9 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
         key={lesson.id}
         lessonId={lesson.id}
         type={lesson.lesson_type}
-        content={lesson.content}
+        videoReady={lesson.lesson_type === "video" && isVideoKey(lesson.content)}
+        markdown={lesson.lesson_type === "text" ? lesson.content : ""}
+        watermark={`${user.full_name} · ${user.email}`}
         initiallyCompleted={done}
         canTrack={enrolled}
         nextHref={next ? `/ogrenim/${slug}/${next.kind === "lesson" ? "ders" : "sinav"}/${next.id}` : null}

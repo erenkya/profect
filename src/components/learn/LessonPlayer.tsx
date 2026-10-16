@@ -4,32 +4,31 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check } from "lucide-react";
+import { Check, Maximize } from "lucide-react";
 import { Corners } from "@/components/Corners";
 
 type Props = {
   lessonId: number;
   type: "video" | "text";
-  content: string; // video: YouTube ID veya "vimeo:ID" · text: Markdown
+  videoReady: boolean; // video: R2'ye yüklenmiş mi (anahtarın kendisi istemciye gönderilmez)
+  markdown: string; // text: Markdown içeriği
+  watermark: string; // "Ad Soyad · e-posta" — ekran kaydı sızıntısında kaynağı gösterir
   initiallyCompleted: boolean;
   canTrack: boolean; // yönetici önizlemesinde ilerleme kaydedilmez
   nextHref: string | null;
   nextLabel: string | null;
 };
 
-type YTPlayer = { getCurrentTime(): number; getDuration(): number; destroy(): void };
-declare global {
-  interface Window {
-    YT?: { Player: new (el: HTMLElement, opts: unknown) => YTPlayer; PlayerState: { ENDED: number; PLAYING: number } };
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
+const COMPLETE_RATIO = 0.95;
 
-export function LessonPlayer({ lessonId, type, content, initiallyCompleted, canTrack, nextHref, nextLabel }: Props) {
+export function LessonPlayer({ lessonId, type, videoReady, markdown, watermark, initiallyCompleted, canTrack, nextHref, nextLabel }: Props) {
   const [completed, setCompleted] = useState(initiallyCompleted);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const [pos, setPos] = useState({ top: 12, left: 8 });
   const sent = useRef(initiallyCompleted);
   const sentinel = useRef<HTMLDivElement>(null);
-  const ytHost = useRef<HTMLDivElement>(null);
+  const stage = useRef<HTMLDivElement>(null);
+  const videoSrc = `/api/client/lessons/${lessonId}/video`;
 
   async function markComplete() {
     if (sent.current) return;
@@ -61,88 +60,87 @@ export function LessonPlayer({ lessonId, type, content, initiallyCompleted, canT
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, lessonId]);
 
-  // Video dersi (YouTube): bitişte ya da %95'e ulaşınca tamamlandı say.
-  const isYouTube = type === "video" && !content.startsWith("vimeo:");
+  // Filigran 20 sn'de bir yer değiştirir (sabit kalırsa kırpılabilir).
   useEffect(() => {
-    if (!isYouTube || !ytHost.current) return;
-    let player: YTPlayer | null = null;
-    let timer: ReturnType<typeof setInterval> | undefined;
-    let cancelled = false;
+    if (type !== "video" || !videoReady) return;
+    const t = setInterval(() => setPos({ top: 8 + Math.random() * 72, left: 4 + Math.random() * 52 }), 20_000);
+    return () => clearInterval(t);
+  }, [type, videoReady]);
 
-    const create = () => {
-      if (cancelled || !window.YT || !ytHost.current) return;
-      const mount = document.createElement("div");
-      ytHost.current.innerHTML = "";
-      ytHost.current.appendChild(mount);
-      player = new window.YT.Player(mount, {
-        videoId: content,
-        width: "100%",
-        height: "100%",
-        playerVars: { rel: 0, modestbranding: 1 },
-        events: {
-          onStateChange: (e: { data: number }) => {
-            if (e.data === window.YT!.PlayerState.ENDED) markComplete();
-          },
-        },
-      });
-      timer = setInterval(() => {
-        try {
-          const d = player?.getDuration() ?? 0;
-          if (d > 0 && player!.getCurrentTime() / d >= 0.95) markComplete();
-        } catch {
-          /* oynatıcı henüz hazır değil */
-        }
-      }, 2000);
-    };
-
-    if (window.YT?.Player) create();
-    else {
-      window.onYouTubeIframeAPIReady = create;
-      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
-        const s = document.createElement("script");
-        s.src = "https://www.youtube.com/iframe_api";
-        document.head.appendChild(s);
-      }
+  // Oynatma hatasının nedenini sunucunun durum kodundan anla (oturum bitti / erişim yok / kota doldu).
+  async function explainVideoError() {
+    let msg = "Video yüklenemedi. Sayfayı yenileyip tekrar dene.";
+    try {
+      const res = await fetch(videoSrc, { headers: { Range: "bytes=0-0" }, cache: "no-store" });
+      if (res.status === 401) msg = "Oturumun sona erdi. Lütfen yeniden giriş yap.";
+      else if (res.status === 403) msg = "Bu kursa erişimin yok.";
+      else if (res.status === 404) msg = "Bu dersin video dosyası bulunamadı.";
+      else if (res.status === 429) msg = "Bu video için günlük izleme sınırına ulaşıldı. Daha sonra tekrar dene.";
+    } catch {
+      /* ağ hatası: genel mesaj */
     }
-    return () => {
-      cancelled = true;
-      if (timer) clearInterval(timer);
-      try {
-        player?.destroy();
-      } catch {
-        /* yok say */
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isYouTube, content, lessonId]);
+    setVideoError(msg);
+  }
 
   return (
     <div>
       {type === "video" ? (
-        <div style={{ aspectRatio: "16/9", background: "#0b0b14", maxWidth: 960 }}>
-          {isYouTube ? (
-            <div ref={ytHost} style={{ width: "100%", height: "100%" }} />
-          ) : (
-            <iframe
-              title="Ders videosu"
-              src={`https://player.vimeo.com/video/${content.slice(6)}`}
-              allow="autoplay; fullscreen; picture-in-picture"
-              allowFullScreen
-              style={{ width: "100%", height: "100%", border: 0 }}
+        videoReady ? (
+          <div ref={stage} style={{ position: "relative", aspectRatio: "16/9", background: "#0b0b14", maxWidth: 960 }}>
+            <video
+              key={lessonId}
+              src={videoSrc}
+              controls
+              controlsList="nodownload noremoteplayback nofullscreen"
+              disablePictureInPicture
+              playsInline
+              preload="metadata"
+              onContextMenu={(e) => e.preventDefault()}
+              onEnded={markComplete}
+              onTimeUpdate={(e) => {
+                const v = e.currentTarget;
+                if (v.duration > 0 && v.currentTime / v.duration >= COMPLETE_RATIO) markComplete();
+              }}
+              onError={explainVideoError}
+              style={{ width: "100%", height: "100%", display: "block" }}
             />
-          )}
-        </div>
+            <span
+              aria-hidden
+              style={{
+                position: "absolute", top: `${pos.top}%`, left: `${pos.left}%`, pointerEvents: "none", userSelect: "none",
+                color: "rgba(255,255,255,0.28)", fontSize: 14, fontFamily: "monospace", textShadow: "0 0 2px rgba(0,0,0,0.5)",
+                transition: "top 2s, left 2s", whiteSpace: "nowrap",
+              }}
+            >
+              {watermark}
+            </span>
+            <button
+              type="button"
+              aria-label="Tam ekran"
+              onClick={() => stage.current?.requestFullscreen?.()}
+              style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.45)", color: "#fff", border: 0, padding: 6, cursor: "pointer" }}
+            >
+              <Maximize size={16} strokeWidth={1.5} />
+            </button>
+            {videoError && (
+              <div role="alert" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(11,11,20,0.92)", color: "#fff", padding: 24, textAlign: "center" }}>
+                {videoError}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div role="status" style={{ aspectRatio: "16/9", maxWidth: 960, display: "grid", placeItems: "center", background: "#0b0b14", color: "#fff", padding: 24, textAlign: "center" }}>
+            Bu dersin videosu henüz yüklenmedi.
+          </div>
+        )
       ) : (
         <article className="md">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
           <div ref={sentinel} style={{ height: 1 }} />
         </article>
       )}
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 32 }}>
-        {!completed && type === "video" && !isYouTube && (
-          <button className="btn btn-secondary" onClick={markComplete}>Dersi tamamladım</button>
-        )}
         {completed && (
           <span style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 14, color: "var(--color-accent-700)" }}>
             <Check size={18} strokeWidth={1.5} /> Ders tamamlandı

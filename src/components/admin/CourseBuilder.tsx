@@ -8,6 +8,7 @@ import { Corners } from "@/components/Corners";
 import { FormMessage } from "@/components/auth/AuthShell";
 import type { AdminLesson, AdminModule, AdminQuizRef, CourseRow } from "@/lib/lms";
 import { adminApi } from "./api";
+import { VideoUploadField } from "./VideoUploadField";
 
 type Props = { course: CourseRow; modules: AdminModule[]; finalQuiz: AdminQuizRef | null };
 type Flash = { kind: "ok" | "error"; text: string } | null;
@@ -168,7 +169,7 @@ function ModuleCard({ mod, index, courseId, siblings, run }: { mod: AdminModule;
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {mod.lessons.map((l, i) =>
           editing === l.id ? (
-            <LessonForm key={l.id} initial={l} submitLabel="Kaydet" onCancel={() => setEditing(null)} onSubmit={async (v) => (await run(adminApi("PATCH", `/api/admin/lessons/${l.id}`, v), "Ders güncellendi.")).ok && setEditing(null)} />
+            <LessonForm key={l.id} moduleId={mod.id} initial={l} submitLabel="Kaydet" onCancel={() => setEditing(null)} onSubmit={async (v) => (await run(adminApi("PATCH", `/api/admin/lessons/${l.id}`, v), "Ders güncellendi.")).ok && setEditing(null)} />
           ) : (
             <div key={l.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px", border: "1px solid var(--color-divider)" }}>
               {l.lesson_type === "video" ? <CirclePlay size={16} strokeWidth={1.5} /> : <FileText size={16} strokeWidth={1.5} />}
@@ -181,7 +182,7 @@ function ModuleCard({ mod, index, courseId, siblings, run }: { mod: AdminModule;
           ),
         )}
         {adding ? (
-          <LessonForm submitLabel="Ders ekle" onCancel={() => setAdding(false)} onSubmit={async (v) => (await run(adminApi("POST", `/api/admin/modules/${mod.id}/lessons`, v), "Ders eklendi.")).ok && setAdding(false)} />
+          <LessonForm moduleId={mod.id} submitLabel="Ders ekle" onCancel={() => setAdding(false)} onSubmit={async (v) => (await run(adminApi("POST", `/api/admin/modules/${mod.id}/lessons`, v), "Ders eklendi.")).ok && setAdding(false)} />
         ) : (
           <button className="btn btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => setAdding(true)}>+ Ders ekle</button>
         )}
@@ -195,35 +196,48 @@ function ModuleCard({ mod, index, courseId, siblings, run }: { mod: AdminModule;
   );
 }
 
-function LessonForm({ initial, submitLabel, onSubmit, onCancel }: { initial?: AdminLesson; submitLabel: string; onSubmit: (v: { title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null }) => void; onCancel: () => void }) {
+function LessonForm({ moduleId, initial, submitLabel, onSubmit, onCancel }: { moduleId: number; initial?: AdminLesson; submitLabel: string; onSubmit: (v: { title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null }) => void; onCancel: () => void }) {
   const [v, setV] = useState({ title: initial?.title ?? "", lesson_type: initial?.lesson_type ?? ("text" as "video" | "text"), content: initial?.content ?? "", duration: initial?.duration_minutes == null ? "" : String(initial.duration_minutes) });
+  const [uploading, setUploading] = useState(false);
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        if (v.lesson_type === "video" && !v.content) return;
         onSubmit({ title: v.title, lesson_type: v.lesson_type, content: v.content, duration_minutes: v.duration === "" ? null : Number(v.duration) });
       }}
       style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, background: "var(--color-accent-100)" }}
     >
       <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px", gap: 10 }}>
         <input className="input" required placeholder="Ders başlığı" value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} style={input} />
-        <select className="input" value={v.lesson_type} onChange={(e) => setV({ ...v, lesson_type: e.target.value as "video" | "text" })} style={input}>
+        <select className="input" value={v.lesson_type} onChange={(e) => { const t = e.target.value as "video" | "text"; setV({ ...v, lesson_type: t, content: initial?.lesson_type === t ? initial.content : "" }); }} style={input}>
           <option value="text">Metin (Markdown)</option>
           <option value="video">Video</option>
         </select>
         <input className="input" type="number" min={0} placeholder="Süre (dk)" value={v.duration} onChange={(e) => setV({ ...v, duration: e.target.value })} style={input} />
       </div>
-      <textarea
-        className="input"
-        required
-        rows={v.lesson_type === "text" ? 8 : 2}
-        placeholder={v.lesson_type === "video" ? "YouTube bağlantısı ya da video ID (Vimeo için vimeo.com bağlantısı)" : "Ders içeriği — Markdown desteklenir"}
-        value={v.content}
-        onChange={(e) => setV({ ...v, content: e.target.value })}
-        style={{ background: "#fff", fontSize: 14, fontFamily: v.lesson_type === "text" ? "ui-monospace, monospace" : undefined }}
-      />
+      {v.lesson_type === "video" ? (
+        <VideoUploadField
+          moduleId={moduleId}
+          lessonTitle={v.title}
+          value={v.content}
+          onChange={(key) => setV((cur) => ({ ...cur, content: key }))}
+          onDuration={(m) => setV((cur) => (cur.duration === "" ? { ...cur, duration: String(m) } : cur))}
+          onBusyChange={setUploading}
+        />
+      ) : (
+        <textarea
+          className="input"
+          required
+          rows={8}
+          placeholder="Ders içeriği — Markdown desteklenir"
+          value={v.content}
+          onChange={(e) => setV({ ...v, content: e.target.value })}
+          style={{ background: "#fff", fontSize: 14, fontFamily: "ui-monospace, monospace" }}
+        />
+      )}
       <div style={{ display: "flex", gap: 10 }}>
-        <button type="submit" className="btn btn-primary">{submitLabel}</button>
+        <button type="submit" className="btn btn-primary" disabled={uploading || (v.lesson_type === "video" && !v.content)}>{submitLabel}</button>
         <button type="button" className="btn btn-secondary" onClick={onCancel}>Vazgeç</button>
       </div>
     </form>
