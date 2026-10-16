@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Corners } from "@/components/Corners";
 import { FOUNDERS } from "@/data/courses";
 
@@ -35,8 +36,8 @@ export default function AboutPage() {
               <div className="blueprint" style={{ aspectRatio: "4/5", maxWidth: 460, position: "relative", overflow: "visible" }}>
                 <Corners />
                 <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
-                  <div data-fx="1" data-py="0.12" style={{ position: "absolute", inset: "-15% 0", background: `repeating-linear-gradient(45deg, color-mix(in srgb,${f.color} 14%,transparent) 0 1px, transparent 1px 12px)`, display: "grid", placeItems: "center", fontSize: 12, letterSpacing: ".14em", textTransform: "uppercase", color: f.color }}>
-                    Kurucu fotoğrafı
+                  <div data-fx="1" data-py="0.12" style={{ position: "absolute", inset: "-15% 0" }}>
+                    <Image src={f.photo} alt={f.name} fill sizes="(max-width: 520px) 100vw, 460px" style={{ objectFit: "cover" }} />
                   </div>
                 </div>
                 <div aria-hidden data-fx="1" data-py="-0.2" data-br="45" style={{ position: "absolute", right: -28, bottom: 40, width: 56, height: 56, background: f.color, transform: "rotate(45deg)" }} />

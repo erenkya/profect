@@ -240,8 +240,8 @@ export default async function HomePage() {
               <div key={f.n} data-reveal="1" data-delay={i * 150} className="founder-row">
                 <div className="blueprint" style={{ aspectRatio: "4/5", overflow: "visible" }}>
                   <Corners />
-                  <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: `repeating-linear-gradient(45deg, color-mix(in srgb,${f.color} 14%,transparent) 0 1px, transparent 1px 10px)`, display: "grid", placeItems: "center", fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: f.color }}>
-                    Fotoğraf
+                  <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+                    <Image src={f.photo} alt={f.name} fill sizes="(max-width: 520px) 100vw, 160px" style={{ objectFit: "cover" }} />
                   </div>
                 </div>
                 <div>
