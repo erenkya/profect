@@ -1,0 +1,172 @@
+[
+  {
+    "slug": "veri",
+    "code": "PRF-101",
+    "title": "Veri Analitiğine Giriş",
+    "description": "Veriyi toplamaktan görselleştirmeye kadar bir analistin günlük işini adım adım öğren. Excel, SQL ve temel istatistikle gerçek iş sorularına cevap ver.",
+    "category": "Veri Bilimi",
+    "level": "Başlangıç",
+    "instructor": "Dr. Selin Aksoy",
+    "hours": 24,
+    "rating": "4.8",
+    "price": 1490,
+    "old_price": 2290,
+    "outcomes": [
+      "Veri setlerini temizleyip analize hazırlamak",
+      "SQL ile sorgu yazmak ve tabloları birleştirmek",
+      "Pivot tablolar ve temel istatistikle içgörü çıkarmak",
+      "Bulgularını anlaşılır grafiklerle sunmak"
+    ],
+    "modules": [
+      "Analitik düşünce",
+      "Excel ile veri hazırlama",
+      "Pivot tablolar",
+      "SQL temelleri",
+      "Temel istatistik",
+      "Görselleştirme ve raporlama"
+    ],
+    "sort_order": 0
+  },
+  {
+    "slug": "python",
+    "code": "PRF-114",
+    "title": "Python ile Programlamanın Temelleri",
+    "description": "Hiç kod yazmamış olsan bile Python ile değişkenlerden fonksiyonlara, dosya işlemlerinden küçük otomasyonlara kadar sağlam bir temel kur.",
+    "category": "Yazılım",
+    "level": "Başlangıç",
+    "instructor": "Mert Demirel",
+    "hours": 32,
+    "rating": "4.9",
+    "price": 1690,
+    "old_price": 2490,
+    "outcomes": [
+      "Python sözdizimini ve veri tiplerini kullanmak",
+      "Fonksiyon ve modüllerle düzenli kod yazmak",
+      "Dosya ve API ile çalışmak",
+      "Küçük otomasyon projeleri geliştirmek"
+    ],
+    "modules": [
+      "Kurulum ve ilk program",
+      "Veri tipleri",
+      "Koşullar ve döngüler",
+      "Fonksiyonlar",
+      "Listeler ve sözlükler",
+      "Dosya işlemleri",
+      "Hata yönetimi",
+      "Bitirme projesi"
+    ],
+    "sort_order": 1
+  },
+  {
+    "slug": "proje",
+    "code": "PRF-203",
+    "title": "Proje Yönetimi Profesyoneli",
+    "description": "Planlamadan kapanışa proje yaşam döngüsünü, çevik ve klasik yöntemleri öğren; uluslararası sertifikasyon sınavlarına hazırlan.",
+    "category": "İş & Yönetim",
+    "level": "Orta",
+    "instructor": "Ayşe Karaca, PMP",
+    "hours": 28,
+    "rating": "4.7",
+    "price": 1890,
+    "old_price": 2790,
+    "outcomes": [
+      "Kapsam, zaman ve bütçe planı hazırlamak",
+      "Risk ve paydaş yönetimi yapmak",
+      "Scrum ve Kanban ile çevik ekip yönetmek",
+      "Proje raporlaması ve kapanış süreçlerini yürütmek"
+    ],
+    "modules": [
+      "Proje yaşam döngüsü",
+      "Kapsam ve planlama",
+      "Zaman ve maliyet",
+      "Risk yönetimi",
+      "Çevik yöntemler",
+      "Paydaş iletişimi",
+      "Sınav hazırlığı"
+    ],
+    "sort_order": 2
+  },
+  {
+    "slug": "ux",
+    "code": "PRF-152",
+    "title": "UX Tasarım: Araştırmadan Prototipe",
+    "description": "Kullanıcı araştırması, bilgi mimarisi ve prototipleme ile bir ürünün deneyimini baştan sona tasarla, portföyüne bir vaka çalışması ekle.",
+    "category": "Tasarım",
+    "level": "Başlangıç",
+    "instructor": "Deniz Öztürk",
+    "hours": 20,
+    "rating": "4.8",
+    "price": 1390,
+    "old_price": 1990,
+    "outcomes": [
+      "Kullanıcı görüşmeleri planlayıp yürütmek",
+      "Persona ve kullanıcı yolculuğu çıkarmak",
+      "Wireframe ve etkileşimli prototip hazırlamak",
+      "Kullanılabilirlik testi yapmak"
+    ],
+    "modules": [
+      "UX nedir",
+      "Kullanıcı araştırması",
+      "Bilgi mimarisi",
+      "Wireframe",
+      "Prototip ve test"
+    ],
+    "sort_order": 3
+  },
+  {
+    "slug": "pazarlama",
+    "code": "PRF-231",
+    "title": "Dijital Pazarlama ve Performans Analizi",
+    "description": "Arama, sosyal medya ve e-posta kanallarında kampanya kurmayı, bütçe dağıtmayı ve sonuçları ölçerek optimize etmeyi öğren.",
+    "category": "Pazarlama",
+    "level": "Orta",
+    "instructor": "Can Yıldız",
+    "hours": 18,
+    "rating": "4.6",
+    "price": 1290,
+    "old_price": 1890,
+    "outcomes": [
+      "Kanal bazlı pazarlama stratejisi kurmak",
+      "Reklam kampanyası oluşturup yönetmek",
+      "Dönüşüm hunisini analiz etmek",
+      "Performans raporu hazırlamak"
+    ],
+    "modules": [
+      "Strateji ve hedef kitle",
+      "Arama motoru pazarlaması",
+      "Sosyal medya reklamları",
+      "E-posta ve otomasyon",
+      "Ölçümleme ve raporlama"
+    ],
+    "sort_order": 4
+  },
+  {
+    "slug": "finans",
+    "code": "PRF-305",
+    "title": "Finansal Modelleme ve Değerleme",
+    "description": "Üç tablo modelinden indirgenmiş nakit akışına kadar profesyonel finansal modeller kur, şirket değerlemesi yap.",
+    "category": "Finans",
+    "level": "İleri",
+    "instructor": "Burak Şen, CFA",
+    "hours": 30,
+    "rating": "4.9",
+    "price": 2190,
+    "old_price": 3190,
+    "outcomes": [
+      "Üç tablo finansal model kurmak",
+      "İndirgenmiş nakit akışı ile değerleme yapmak",
+      "Senaryo ve duyarlılık analizi hazırlamak",
+      "Yatırım sunumu oluşturmak"
+    ],
+    "modules": [
+      "Finansal tablolar",
+      "Model mimarisi",
+      "Gelir ve gider projeksiyonu",
+      "Nakit akışı",
+      "DCF değerleme",
+      "Çarpan analizi",
+      "Senaryo analizi"
+    ],
+    "sort_order": 5
+  }
+]

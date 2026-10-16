@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CourseCard } from "@/components/CourseCard";
-import { CATEGORIES, COURSES, courseColor, courseDelay } from "@/data/courses";
+import { courseColor, courseDelay } from "@/data/courses";
+import { listPublishedCourses } from "@/lib/lms";
 
 export const metadata: Metadata = {
   title: "Tüm kurslar",
@@ -10,8 +11,10 @@ export const metadata: Metadata = {
 
 export default async function CoursesPage({ searchParams }: { searchParams: Promise<{ kategori?: string }> }) {
   const { kategori } = await searchParams;
+  const courses = await listPublishedCourses();
+  const CATEGORIES = ["Tümü", ...Array.from(new Set(courses.map((c) => c.category).filter(Boolean)))];
   const cat = kategori && CATEGORIES.includes(kategori) ? kategori : "Tümü";
-  const list = COURSES.map((course, index) => ({ course, index })).filter(({ course }) => cat === "Tümü" || course.cat === cat);
+  const list = courses.map((course, index) => ({ course, index })).filter(({ course }) => cat === "Tümü" || course.category === cat);
 
   return (
     <>

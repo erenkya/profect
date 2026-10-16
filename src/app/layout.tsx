@@ -6,6 +6,7 @@ import { Nav } from "@/components/Nav";
 import { Cta } from "@/components/Cta";
 import { Footer } from "@/components/Footer";
 import { Motion } from "@/components/Motion";
+import { getCurrentUser } from "@/lib/auth";
 import { SmoothScroll } from "@/components/SmoothScroll";
 
 const barlow = Barlow({
@@ -30,13 +31,14 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#ffffff" };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const user = await getCurrentUser();
   return (
     <html lang="tr" className={`${barlow.variable} ${barlowCondensed.variable}`}>
       <body>
         <Motion />
         <SmoothScroll />
-        <Nav />
+        <Nav user={user} />
         {children}
         <Cta />
         <Footer />

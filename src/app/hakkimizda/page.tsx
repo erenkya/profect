@@ -50,6 +50,7 @@ export default function AboutPage() {
               <blockquote style={{ margin: 0, padding: "4px 0 4px 20px", borderLeft: `1px solid ${f.color}`, fontFamily: "var(--font-heading)", fontSize: 24, lineHeight: 1.25, fontWeight: 500 }}>
                 “{f.quote}”
               </blockquote>
+              <a href={f.linkedin} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 15, marginTop: 24 }} aria-label={`${f.name} LinkedIn profili`}>LinkedIn →</a>
             </div>
           </div>
         ))}

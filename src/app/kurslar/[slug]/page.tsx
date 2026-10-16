@@ -2,23 +2,64 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
-import { Curriculum } from "@/components/Curriculum";
+import { Curriculum, type CurriculumModule } from "@/components/Curriculum";
 import { PurchasePanel } from "@/components/PurchasePanel";
 import { Corners } from "@/components/Corners";
-import { COURSES, EXAM_RULES, INCLUDES, buildCurriculum, getCourse } from "@/data/courses";
+import { BLUE, EXAM_RULES, PURP } from "@/data/courses";
+import { getCurrentUser } from "@/lib/auth";
+import { formatPrice } from "@/lib/format";
+import { PLUS_PRICE, canAccessCourse, getCourseBySlug, getCourseTree, paymentMode } from "@/lib/lms";
 
-export function generateStaticParams() {
-  return COURSES.map((c) => ({ id: c.id }));
+type Props = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const course = await getCourseBySlug((await params).slug);
+  return course ? { title: course.title, description: course.description } : {};
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const course = getCourse((await params).id);
-  return course ? { title: course.title, description: course.desc } : {};
-}
-
-export default async function CoursePage({ params }: { params: Promise<{ id: string }> }) {
-  const course = getCourse((await params).id);
+export default async function CoursePage({ params }: Props) {
+  const course = await getCourseBySlug((await params).slug);
   if (!course) notFound();
+
+  const user = await getCurrentUser();
+  const hasAccess = user ? await canAccessCourse(user.id, course.id) : false;
+  const tree = await getCourseTree(course.id);
+
+  const modules: CurriculumModule[] = tree.modules.map((m, i) => {
+    const minutes = m.lessons.reduce((sum, l) => sum + (l.duration_minutes ?? 0), 0);
+    return {
+      n: String(i + 1).padStart(2, "0"),
+      title: m.title,
+      meta: `${m.lessons.length} ders${minutes ? ` · ${minutes} dk` : ""}`,
+      items: [
+        ...m.lessons.map((l) => ({
+          t: l.title,
+          d: `${l.lesson_type === "video" ? "Video" : "Okuma"}${l.duration_minutes ? ` · ${l.duration_minutes} dk` : ""}`,
+          c: BLUE,
+        })),
+        ...(m.quiz ? [{ t: m.quiz.title, d: `${m.quiz.question_count} soru`, c: PURP }] : []),
+      ],
+    };
+  });
+  if (tree.finalQuiz) {
+    modules.push({
+      n: "◆",
+      title: "Final sınavı ve sertifika",
+      meta: `${tree.finalQuiz.question_count} soru`,
+      items: [
+        { t: tree.finalQuiz.title, d: `${tree.finalQuiz.question_count} soru`, c: PURP },
+        { t: "Sertifika düzenleme", d: `%${tree.finalQuiz.passing_score_percentage} ve üzeri`, c: PURP },
+      ],
+    });
+  }
+
+  const includes = [
+    `${course.hours} saat video ders`,
+    `${course.module_count} modül sınavı + final sınavı`,
+    "Doğrulanabilir sertifika",
+    "Ömür boyu erişim",
+    "Mobil ve masaüstü",
+  ];
 
   return (
     <main>
@@ -28,7 +69,7 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
           <nav aria-label="Konum" style={{ display: "flex", gap: 8, fontSize: 14, marginBottom: 40, color: "var(--muted-55)" }}>
             <Link href="/kurslar" style={{ color: "inherit" }}>Kurslar</Link>
             <span aria-hidden>/</span>
-            <span>{course.cat}</span>
+            <span>{course.category}</span>
           </nav>
           <div style={{ maxWidth: 760 }}>
             <div data-reveal="1" style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
@@ -37,11 +78,11 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
               <span className="tag tag-outline">Sertifikalı</span>
             </div>
             <h1 data-reveal="1" data-delay="100" style={{ fontSize: "clamp(48px,6vw,84px)", lineHeight: 0.94, textTransform: "uppercase", margin: "0 0 22px" }}>{course.title}</h1>
-            <p data-reveal="1" data-delay="200" style={{ fontSize: 19, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", textWrap: "pretty", marginBottom: 28 }}>{course.desc}</p>
+            <p data-reveal="1" data-delay="200" style={{ fontSize: 19, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", textWrap: "pretty", marginBottom: 28 }}>{course.description}</p>
             <div data-reveal="1" data-delay="300" style={{ display: "flex", gap: 28, flexWrap: "wrap", fontSize: 15 }}>
-              <span><strong style={{ fontWeight: 600 }}>Eğitmen:</strong> {course.inst}</span>
-              <span>★ {course.rating}</span>
-              <span>{course.hours} saat · {course.mods.length} modül</span>
+              {course.instructor && <span><strong style={{ fontWeight: 600 }}>Eğitmen:</strong> {course.instructor}</span>}
+              {course.rating && <span>★ {course.rating}</span>}
+              <span>{course.hours} saat · {course.module_count} modül</span>
             </div>
           </div>
         </div>
@@ -49,24 +90,26 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
 
       <section className="wrap detail-grid" style={{ paddingBlock: "64px clamp(80px,10vw,140px)" }}>
         <div className="detail-main">
-          <div data-reveal="1">
-            <h2 style={{ fontSize: 36, textTransform: "uppercase", marginBottom: 24 }}>Neler öğreneceksin</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,260px),1fr))", gap: "16px 32px" }}>
-              {course.outcomes.map((o) => (
-                <div key={o} style={{ display: "flex", gap: 12, fontSize: 16, alignItems: "flex-start" }}>
-                  <Check size={20} strokeWidth={1.5} color="#3a5fdc" style={{ flex: "none", marginTop: 2 }} />
-                  <span>{o}</span>
-                </div>
-              ))}
+          {course.outcomes.length > 0 && (
+            <div data-reveal="1">
+              <h2 style={{ fontSize: 36, textTransform: "uppercase", marginBottom: 24 }}>Neler öğreneceksin</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,260px),1fr))", gap: "16px 32px" }}>
+                {course.outcomes.map((o) => (
+                  <div key={o} style={{ display: "flex", gap: 12, fontSize: 16, alignItems: "flex-start" }}>
+                    <Check size={20} strokeWidth={1.5} color="#3a5fdc" style={{ flex: "none", marginTop: 2 }} />
+                    <span>{o}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div data-reveal="1">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
               <h2 style={{ fontSize: 36, textTransform: "uppercase", margin: 0 }}>Müfredat</h2>
-              <span style={{ fontSize: 14, color: "var(--muted-55)" }}>{course.mods.length} modül · {course.hours} saat</span>
+              <span style={{ fontSize: 14, color: "var(--muted-55)" }}>{course.module_count} modül · {course.hours} saat</span>
             </div>
-            <Curriculum modules={buildCurriculum(course)} />
+            <Curriculum modules={modules} />
           </div>
 
           <div data-reveal="1">
@@ -84,7 +127,17 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        <PurchasePanel title={course.title} price={course.price} oldPrice={course.oldPrice} includes={INCLUDES(course)} />
+        <PurchasePanel
+          slug={course.slug}
+          title={course.title}
+          priceLabel={formatPrice(course.price)}
+          oldPriceLabel={course.old_price ? formatPrice(course.old_price) : null}
+          plusPriceLabel={formatPrice(PLUS_PRICE)}
+          includes={includes}
+          loggedIn={!!user}
+          hasAccess={hasAccess}
+          paymentMode={paymentMode()}
+        />
       </section>
     </main>
   );

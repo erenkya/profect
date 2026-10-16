@@ -3,7 +3,8 @@ import { ArrowRight, Award } from "lucide-react";
 import { Corners } from "@/components/Corners";
 import { CourseCard } from "@/components/CourseCard";
 import { CertVerify } from "@/components/CertVerify";
-import { COURSES, DEMO_CERT, FOUNDERS, MARQUEE, STEPS, BLUE, PURP, courseColor, courseDelay } from "@/data/courses";
+import { DEMO_CERT, FOUNDERS, MARQUEE, STEPS, BLUE, PURP, courseColor, courseDelay } from "@/data/courses";
+import { listPublishedCourses } from "@/lib/lms";
 import Image from "next/image";
 
 // Sertifika üzerindeki sahte QR deseni — tasarımdaki sabit tohumlu üreteçle aynı.
@@ -20,7 +21,8 @@ function qrCells() {
 
 const gridMask = "radial-gradient(ellipse 80% 70% at 70% 40%, #000 30%, transparent 80%)";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const courses = (await listPublishedCourses()).slice(0, 6);
   const marquee = [...MARQUEE, ...MARQUEE].map((t, i) => ({ t, c: i % 2 ? PURP : BLUE }));
   const qr = qrCells();
 
@@ -104,7 +106,7 @@ export default function HomePage() {
                   <Award size={34} strokeWidth={1.5} color="#4a2a9e" />
                   <div>
                     <div style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600 }}>Sertifikan hazır</div>
-                    <div style={{ fontSize: 12, color: "var(--muted-55)" }}>{DEMO_CERT.number} · Doğrulandı</div>
+                    <div style={{ fontSize: 12, color: "var(--muted-55)" }}>{DEMO_CERT.number} · Örnek</div>
                   </div>
                 </div>
               </div>
@@ -178,7 +180,7 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="course-grid">
-            {COURSES.map((c, i) => <CourseCard key={c.id} course={c} color={courseColor(i)} delay={courseDelay(i)} />)}
+            {courses.map((c, i) => <CourseCard key={c.id} course={c} color={courseColor(i)} delay={courseDelay(i)} />)}
           </div>
         </section>
 
@@ -247,6 +249,7 @@ export default function HomePage() {
                   <h3 style={{ fontSize: 32, textTransform: "uppercase", marginBottom: 10 }}>{f.name}</h3>
                   <p style={{ fontSize: 15, color: "var(--muted-72)", textWrap: "pretty" }}>{f.short}</p>
                   <Link href="/hakkimizda" className="btn btn-ghost" style={{ fontSize: 15 }}>Hikâyemizi oku →</Link>
+                  <a href={f.linkedin} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 15 }} aria-label={`${f.name} LinkedIn profili`}>LinkedIn →</a>
                 </div>
               </div>
             ))}

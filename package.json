@@ -6,17 +6,32 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "node --env-file=.env scripts/migrate.mjs",
+    "db:seed": "node --env-file=.env scripts/seed.mjs",
+    "db:create-admin": "node --env-file=.env scripts/create-admin.mjs",
+    "test:api": "node --env-file=.env scripts/test-api.mjs"
   },
   "dependencies": {
+    "@marsidev/react-turnstile": "^1.6.2",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.12",
     "lenis": "^1.3.27",
     "lucide-react": "^1.58.0",
+    "mysql2": "^3.24.6",
     "next": "^16.4.2",
+    "nodemailer": "^10.1.1",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "server-only": "^0.0.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "typescript": "^5"

@@ -3,20 +3,29 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { Corners } from "./Corners";
-import { DEMO_CERT } from "@/data/courses";
+import { formatDate } from "@/lib/format";
 
-type Result = "ok" | "bad" | null;
+type Found = { student_name: string; course_title: string; issued_at: string };
+type Result = { kind: "ok"; cert: Found } | { kind: "bad"; message: string } | null;
 
 export function CertVerify() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<Result>(null);
+  const [busy, setBusy] = useState(false);
 
-  const verify = () => {
-    const q = query.trim();
-    // Demo: yalnızca örnek sertifika numarası geçerli; boş bırakılırsa örnek doldurulur.
-    const ok = q === "" || /PRF-?2026-?08431/i.test(q);
-    setQuery(q || DEMO_CERT.number);
-    setResult(ok ? "ok" : "bad");
+  const verify = async () => {
+    const code = query.trim();
+    if (!code) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/public/certificates/${encodeURIComponent(code)}`);
+      const json = await res.json();
+      setResult(res.ok ? { kind: "ok", cert: json.data } : { kind: "bad", message: json.message ?? "Doğrulanamadı." });
+    } catch {
+      setResult({ kind: "bad", message: "Bağlantı hatası. Lütfen tekrar deneyin." });
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -34,7 +43,7 @@ export function CertVerify() {
           <input
             id="cert-no"
             className="input"
-            placeholder={DEMO_CERT.number}
+            placeholder="PRF-2026-000000"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -42,24 +51,20 @@ export function CertVerify() {
             }}
             style={{ background: "#ffffff", fontSize: 16, minHeight: 46 }}
           />
-          <button type="submit" className="btn btn-primary blueprint" style={{ fontSize: 16, padding: "0 22px", minHeight: 46 }}>
+          <button type="submit" disabled={busy || !query.trim()} className="btn btn-primary blueprint" style={{ fontSize: 16, padding: "0 22px", minHeight: 46 }}>
             <Corners />
-            Doğrula
+            {busy ? "…" : "Doğrula"}
           </button>
         </div>
       </form>
       <div aria-live="polite">
-        {result === "ok" && (
+        {result?.kind === "ok" && (
           <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", fontSize: 15, color: "var(--color-accent-700)" }}>
-            <Check size={18} strokeWidth={1.5} />
-            Geçerli sertifika · {DEMO_CERT.holder} · {DEMO_CERT.course} · {DEMO_CERT.date}
+            <Check size={18} strokeWidth={1.5} style={{ flex: "none" }} />
+            Geçerli sertifika · {result.cert.student_name} · {result.cert.course_title} · {formatDate(result.cert.issued_at)}
           </div>
         )}
-        {result === "bad" && (
-          <div style={{ marginTop: 16, fontSize: 15, color: "var(--color-accent-2-700)" }}>
-            Bu numarayla kayıtlı bir sertifika bulunamadı.
-          </div>
-        )}
+        {result?.kind === "bad" && <div style={{ marginTop: 16, fontSize: 15, color: "var(--color-accent-2-700)" }}>{result.message}</div>}
       </div>
     </>
   );
