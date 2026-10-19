@@ -131,6 +131,41 @@ try {
   r = await api("user", "GET", `/api/public/certificates/${code.toLowerCase()}`); check("herkese açık doğrulama (küçük harf kabul)", r.status === 200 && r.json.data.student_name === "E2E Test" && !("user_id" in r.json.data) && !("email" in r.json.data));
   r = await fetch(`${B}/api/public/certificates/PRF-2026-000000`); check("olmayan sertifika 404", r.status === 404);
 
+  // — soru tipleri: çok cevaplı, sürükle-bırak (kategorize), senaryo
+  const opt = (t, c = false) => ({ option_text: t, is_correct: c });
+  const typed = { title: "Final", passing_score_percentage: 70, duration_minutes: 30, questions: [
+    { question_text: "Tek?", options: [opt("a", true), opt("b")] },
+    { kind: "multiple", question_text: "Çok?", options: [opt("a", true), opt("b", true), opt("c")] },
+    { kind: "categorize", question_text: "Ayır", categories: ["Meyve", "Sebze"], cards: [{ card_text: "Elma", category_index: 0 }, { card_text: "Armut", category_index: 0 }, { card_text: "Pırasa", category_index: 1 }] },
+    { kind: "scenario", scenario_text: "Bir proje gecikiyor.", scenario_prompt: "Ne yaparsınız?", questions: [{ question_text: "S1", options: [opt("x", true), opt("y")] }, { kind: "multiple", question_text: "S2", options: [opt("x", true), opt("y", true), opt("z")] }] } ] };
+  r = await api("admin", "PUT", `/api/admin/quizzes/${qid}`, { ...typed, questions: [{ kind: "categorize", question_text: "x", categories: ["A", "B", "C"], cards: [{ card_text: "1", category_index: 0 }, { card_text: "2", category_index: 1 }] }] });
+  check("tipler: boş kategori reddedildi", r.status === 400);
+  r = await api("admin", "PUT", `/api/admin/quizzes/${qid}`, typed); check("tipler: sınav kaydedildi", r.status === 200, JSON.stringify(r.json));
+  r = await api("admin", "GET", `/api/admin/quizzes/${qid}`); check("tipler: editör geri okuma (4 öğe, senaryoda 2 soru)", r.json.quiz.questions.length === 4 && r.json.quiz.questions[3].questions?.length === 2);
+  r = await api("user", "GET", `/api/client/quizzes/${qid}`);
+  const tq = r.json.data.questions; const tjson = JSON.stringify(r.json);
+  check("tipler: 5 puanlanan soru", tq.length === 5, String(tq.length));
+  check("tipler: doğru bilgisi sızmıyor", !/is_correct|category_id|correctOption|cardCategory/.test(tjson));
+  const scIdx = tq.findIndex((q) => q.scenario); check("tipler: senaryo alt soruları bitişik", tq[scIdx + 1]?.scenario?.id === tq[scIdx].scenario.id && tq[scIdx].scenario.prompt === "Ne yaparsınız?");
+  check("tipler: çok cevaplıda correctCount 2", tq.filter((q) => q.kind === "multiple").every((q) => q.correctCount === 2));
+  const tids = tq.map((q) => q.id);
+  const [topts] = await db.query("SELECT id, question_id, is_correct, category_id FROM options WHERE question_id IN (?)", [tids]);
+  const right = {};
+  for (const q of tq) {
+    const os = topts.filter((o) => o.question_id === q.id);
+    if (q.kind === "single") right[q.id] = os.find((o) => o.is_correct).id;
+    else if (q.kind === "multiple") right[q.id] = os.filter((o) => o.is_correct).map((o) => o.id);
+    else right[q.id] = Object.fromEntries(os.map((o) => [o.id, o.category_id]));
+  }
+  r = await api("user", "POST", `/api/client/quizzes/${qid}/submit`, { answers: right }); check("tipler: tümü doğru 100", r.json.score === 100, JSON.stringify(r.json));
+  const cq = tq.find((q) => q.kind === "categorize"); const [c0, c1] = cq.categories.map((c) => c.id);
+  const oneOff = { ...right, [cq.id]: Object.fromEntries(Object.entries(right[cq.id]).map(([card, cat], i) => [card, i === 0 ? (cat === c0 ? c1 : c0) : cat])) };
+  await api("user", "GET", `/api/client/quizzes/${qid}`); // süreli sınav: yeni oturum
+  r = await api("user", "POST", `/api/client/quizzes/${qid}/submit`, { answers: oneOff });
+  const cr = r.json.results?.[cq.id];
+  check("tipler: 1 kart yanlış → kısmi puan (93)", r.json.score === Math.round(((4 + 2 / 3) / 5) * 100), String(r.json.score));
+  check("tipler: kart başına sonuç, doğru kategori sızmıyor", cr && Object.keys(cr.cardResults).length === 3 && Object.values(cr.cardResults).filter((v) => !v).length === 1);
+
   // — hesap devre dışı → mevcut JWT hemen geçersiz
   await api("admin", "PATCH", `/api/admin/users/${userId}`, { is_active: false });
   r = await api("user", "GET", "/api/auth/me"); check("pasifleştirilen kullanıcının JWT'si geçersiz (401)", r.status === 401);

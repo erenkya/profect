@@ -3,10 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Check, Clock, ListChecks, Target, Trophy, X } from "lucide-react";
+import { Check, Clock, ListChecks, Target, Trophy } from "lucide-react";
 import { Corners } from "@/components/Corners";
 import { CertificateButton } from "./CertificateButton";
-import { QuizExplanation, QuizReviewSection, type QuizReview } from "./QuizReview";
+import { QuestionResultView, QuizReviewSection, ResultTag, type QuizReview } from "./QuizReview";
+import { ChoiceQuestion } from "./quiz/ChoiceQuestion";
+import { CategorizeQuestion } from "./quiz/CategorizeQuestion";
+import { ScenarioCard } from "./quiz/ScenarioCard";
+import { isAnswered, type Answer, type GradeResult, type PublicQuestion } from "@/lib/quiz-model";
 
 type Quiz = {
   id: number;
@@ -18,9 +22,9 @@ type Quiz = {
   remainingSeconds: number | null;
   isPassed: boolean;
   bestScore: number | null;
-  questions: { id: number; text: string; options: { id: number; text: string }[] }[];
+  questions: PublicQuestion[];
 };
-type Result = { score: number; isPassed: boolean; correctCount: number; totalQuestions: number; results: Record<string, { isCorrect: boolean; selectedOptionId: number | null; explanation?: string }> };
+type Result = { score: number; isPassed: boolean; correctCount: number; points: number; totalQuestions: number; results: Record<string, GradeResult> };
 
 /** Başlangıç ekranı bilgileri sunucudan gelir; sınav API'si çağrılınca süre başladığı için o ana kadar çağrılmaz. */
 export type QuizIntro = {
@@ -45,7 +49,7 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
   const [showReview, setShowReview] = useState(false);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [error, setError] = useState("");
-  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [answers, setAnswers] = useState<Record<number, Answer>>({});
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState(0); // "Tekrar dene" → soruları yeniden karıştırarak yükler
@@ -131,11 +135,11 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
     setCurrent(i);
   }
 
-  function choose(questionId: number, optionId: number, index: number, total: number) {
-    const firstAnswer = !answers[questionId];
-    setAnswers((a) => ({ ...a, [questionId]: optionId }));
-    // İlk kez cevaplanan soruda kısa bir beklemeden sonra sıradakine geç (cevap değiştirirken geçme).
-    if (firstAnswer && index < total - 1) {
+  function answer(q: PublicQuestion, value: Answer, index: number, total: number) {
+    const firstAnswer = answers[q.id] === undefined;
+    setAnswers((a) => ({ ...a, [q.id]: value }));
+    // Tek cevaplıda ilk kez cevaplanınca kısa bir beklemeden sonra sıradakine geç (cevap değiştirirken geçme).
+    if (q.kind === "single" && firstAnswer && index < total - 1) {
       if (advanceTimer.current) clearTimeout(advanceTimer.current);
       advanceTimer.current = setTimeout(() => goTo(index + 1), AUTO_ADVANCE_MS);
     }
@@ -286,7 +290,7 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
 
   const total = quiz.questions.length;
   const isFinal = quiz.module_id === null;
-  const answeredCount = quiz.questions.filter((q) => answers[q.id]).length;
+  const answeredCount = quiz.questions.filter((q) => isAnswered(q, answers[q.id])).length;
   const allAnswered = answeredCount === total;
   const q = quiz.questions[Math.min(current, total - 1)];
   const r = result?.results[q.id];
@@ -310,7 +314,7 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
           <Corners />
           <div className="card-kicker" style={{ color: result.isPassed ? "var(--color-accent-700)" : "var(--color-accent-2)" }}>{result.isPassed ? "Geçtin" : "Geçemedin"}</div>
           <div style={{ fontFamily: "var(--font-heading)", fontSize: 64, lineHeight: 1, fontWeight: 700, color: "var(--color-accent-2)" }}>%{result.score}</div>
-          <div style={{ fontSize: 14, color: "var(--muted-72)" }}>{result.correctCount} / {result.totalQuestions} doğru · cevaplarını aşağıdan soru soru inceleyebilirsin</div>
+          <div style={{ fontSize: 14, color: "var(--muted-72)" }}>{result.correctCount} / {result.totalQuestions} tam doğru · cevaplarını aşağıdan soru soru inceleyebilirsin</div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
             {!result.isPassed && (
               <button className="btn btn-primary blueprint" onClick={() => setRound((n) => n + 1)}><Corners />Tekrar dene</button>
@@ -336,7 +340,7 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
       <nav aria-label="Sorular" className="quiz-dots">
         {quiz.questions.map((item, i) => {
           const res = result?.results[item.id];
-          const state = res ? (res.isCorrect ? "correct" : "wrong") : answers[item.id] ? "answered" : "empty";
+          const state = res ? (res.isCorrect ? "correct" : res.points > 0 ? "partial" : "wrong") : isAnswered(item, answers[item.id]) ? "answered" : "empty";
           return (
             <button
               key={item.id}
@@ -344,7 +348,7 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
               className="quiz-dot"
               data-state={state}
               aria-current={i === current ? "step" : undefined}
-              aria-label={`Soru ${i + 1}${state === "correct" ? ", doğru" : state === "wrong" ? ", yanlış" : state === "answered" ? ", cevaplandı" : ", cevaplanmadı"}`}
+              aria-label={`Soru ${i + 1}${state === "correct" ? ", doğru" : state === "wrong" ? ", yanlış" : state === "partial" ? ", kısmen doğru" : state === "answered" ? ", cevaplandı" : ", cevaplanmadı"}`}
               onClick={() => goTo(i)}
             >
               {i + 1}
@@ -354,24 +358,19 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
       </nav>
 
       <div key={q.id} className="quiz-question" data-dir={dir} style={{ marginTop: 24 }}>
+        {q.scenario && <ScenarioCard scenario={q.scenario} />}
         <div style={{ fontFamily: "var(--font-heading)", fontSize: 26, fontWeight: 600, marginBottom: 16, display: "flex", gap: 10, alignItems: "flex-start" }}>
           <span style={{ color: "var(--color-accent)" }}>{String(current + 1).padStart(2, "0")}</span>
           <span style={{ flex: 1 }}>{q.text}</span>
-          {r && (r.isCorrect ? <Check className="side-check" size={24} strokeWidth={1.5} color="#3a5fdc" /> : <X className="side-check" size={24} strokeWidth={1.5} color="#4a2a9e" />)}
+          {r && <ResultTag result={r} />}
         </div>
-        <div role="radiogroup" aria-label={q.text} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {q.options.map((o, oi) => {
-            const selected = (r?.selectedOptionId ?? answers[q.id]) === o.id;
-            return (
-              <label key={o.id} className="blueprint quiz-option" data-selected={selected || undefined} style={{ "--i": oi, display: "flex", gap: 12, alignItems: "center", padding: "14px 16px", cursor: result ? "default" : "pointer", background: selected ? "var(--color-accent-100)" : "#fff", borderColor: selected ? "var(--color-accent)" : undefined } as React.CSSProperties}>
-                <input type="radio" name={`q-${q.id}`} disabled={!!result} checked={selected} onChange={() => choose(q.id, o.id, current, total)} />
-                <span>{o.text}</span>
-              </label>
-            );
-          })}
-        </div>
-        {r && !r.selectedOptionId && <p style={{ margin: "12px 0 0", fontSize: 14, color: "var(--color-accent-2)" }}>Bu soru cevapsız bırakıldı.</p>}
-        {r?.explanation && <QuizExplanation text={r.explanation} />}
+        {r ? (
+          <QuestionResultView question={q} result={r} />
+        ) : q.kind === "categorize" ? (
+          <CategorizeQuestion question={q} value={answers[q.id] as Record<string, number> | undefined} onChange={(v) => answer(q, v, current, total)} disabled={busy} />
+        ) : (
+          <ChoiceQuestion question={q} value={answers[q.id] as number | number[] | undefined} onChange={(v) => answer(q, v, current, total)} disabled={busy} />
+        )}
       </div>
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 32 }}>
@@ -379,7 +378,7 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
         <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {!result && isLast && !allAnswered && <span style={{ fontSize: 13, color: "var(--muted-55)" }}>{total - answeredCount} soru cevapsız</span>}
           {!isLast && (
-            <button type="button" className={`btn ${answers[q.id] || result ? "btn-primary" : "btn-secondary"} lesson-next`} onClick={() => goTo(current + 1)}>
+            <button type="button" className={`btn ${isAnswered(q, answers[q.id]) || result ? "btn-primary" : "btn-secondary"} lesson-next`} onClick={() => goTo(current + 1)}>
               Sonraki <span className="lesson-arrow" aria-hidden>→</span>
             </button>
           )}

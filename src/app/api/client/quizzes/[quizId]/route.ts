@@ -2,9 +2,13 @@ import type { RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { fail, ok, parseId, serverError } from "@/lib/http";
-import { canAccessCourse, shuffle } from "@/lib/lms";
+import { canAccessCourse } from "@/lib/lms";
+import { loadQuiz, studentQuestions } from "@/lib/quiz-data";
 
-/** Soru ve şık sırası HER oturumda Fisher-Yates ile karıştırılır; doğru cevap bilgisi gönderilmez. */
+/**
+ * Soru, şık ve kart sırası HER oturumda karıştırılır (senaryo alt soruları kendi sırasında);
+ * doğru cevap bilgisi gönderilmez, çok cevaplıda yalnızca doğru şık sayısı.
+ */
 export async function GET(_req: Request, { params }: { params: Promise<{ quizId: string }> }) {
   const guard = await requireUser();
   if (guard.error) return guard.error;
@@ -42,19 +46,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ quizId:
       [guard.payload.userId, quizId],
     );
 
-    const [questions] = await pool.query<RowDataPacket[]>("SELECT id, question_text FROM questions WHERE quiz_id = ?", [quizId]);
-    const ids = questions.map((q) => q.id);
-    const [options] = ids.length
-      ? await pool.query<RowDataPacket[]>("SELECT id, question_id, option_text FROM options WHERE question_id IN (?)", [ids])
-      : [[] as RowDataPacket[]];
-
-    const result = shuffle(
-      questions.map((q) => ({
-        id: q.id,
-        text: q.question_text,
-        options: shuffle(options.filter((o) => o.question_id === q.id).map((o) => ({ id: o.id, text: o.option_text }))),
-      })),
-    );
+    const result = studentQuestions((await loadQuiz(quizId)).items);
 
     return ok({
       data: {

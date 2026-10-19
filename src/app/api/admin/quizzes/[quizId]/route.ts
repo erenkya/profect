@@ -3,7 +3,8 @@ import pool from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { quizSchema } from "@/lib/admin-schemas";
-import { writeQuestions } from "@/lib/quiz-admin";
+import { deleteQuestions, writeQuestions } from "@/lib/quiz-admin";
+import { loadQuizForEditor } from "@/lib/quiz-data";
 
 type Ctx = { params: Promise<{ quizId: string }> };
 
@@ -16,22 +17,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   try {
     const [quiz] = await pool.query<RowDataPacket[]>("SELECT * FROM quizzes WHERE id = ?", [id]);
     if (!quiz[0]) return fail("Sınav bulunamadı.", 404);
-    const [questions] = await pool.query<RowDataPacket[]>("SELECT id, question_text, explanation FROM questions WHERE quiz_id = ? ORDER BY id", [id]);
-    const [options] = await pool.query<RowDataPacket[]>(
-      "SELECT o.id, o.question_id, o.option_text, o.is_correct FROM options o JOIN questions q ON q.id = o.question_id WHERE q.quiz_id = ? ORDER BY o.id",
-      [id],
-    );
-    return ok({
-      quiz: {
-        ...quiz[0],
-        questions: questions.map((q) => ({
-          id: q.id,
-          question_text: q.question_text,
-          explanation: q.explanation ?? "",
-          options: options.filter((o) => o.question_id === q.id).map((o) => ({ id: o.id, option_text: o.option_text, is_correct: !!o.is_correct })),
-        })),
-      },
-    });
+    return ok({ quiz: { ...quiz[0], questions: await loadQuizForEditor(id) } });
   } catch (err) {
     return serverError("[GET /api/admin/quizzes/:id]", err);
   }
@@ -54,7 +40,7 @@ export async function PUT(request: Request, { params }: Ctx) {
       await conn.rollback();
       return fail("Sınav bulunamadı.", 404);
     }
-    await conn.execute("DELETE FROM questions WHERE quiz_id = ?", [id]); // şıklar CASCADE
+    await deleteQuestions(conn, id);
     await writeQuestions(conn, id, d.questions);
     await conn.commit();
     return ok({ message: "Sınav güncellendi." });

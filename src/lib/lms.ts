@@ -105,7 +105,7 @@ export async function getCourseTree(courseId: number, userId?: number): Promise<
   );
   const [quizRows] = await pool.query<RowDataPacket[]>(
     `SELECT q.id, q.title, q.module_id, q.passing_score_percentage,
-            (SELECT COUNT(*) FROM questions qu WHERE qu.quiz_id = q.id) AS question_count
+            (SELECT COUNT(*) FROM questions qu WHERE qu.quiz_id = q.id AND qu.type <> 'scenario') AS question_count
        FROM quizzes q WHERE q.course_id = ? ORDER BY q.id`,
     [courseId],
   );
@@ -205,10 +205,10 @@ export async function isPreviewLesson(courseId: number, lessonId: number): Promi
 
 /** Sınav sayısı (soru içeren) ve kullanıcının geçtiği sınav sayısı; soru içermeyen sınav geçilemez, sayılmaz. */
 const QUIZ_TOTAL_SQL = `(SELECT COUNT(*) FROM quizzes q WHERE q.course_id = c.id
-    AND EXISTS (SELECT 1 FROM questions qu WHERE qu.quiz_id = q.id))`;
+    AND EXISTS (SELECT 1 FROM questions qu WHERE qu.quiz_id = q.id AND qu.type <> 'scenario'))`;
 const QUIZ_PASSED_SQL = `(SELECT COUNT(DISTINCT qa.quiz_id) FROM quiz_attempts qa JOIN quizzes q ON q.id = qa.quiz_id
     WHERE qa.user_id = ? AND q.course_id = c.id AND qa.is_passed = 1
-      AND EXISTS (SELECT 1 FROM questions qu WHERE qu.quiz_id = q.id))`;
+      AND EXISTS (SELECT 1 FROM questions qu WHERE qu.quiz_id = q.id AND qu.type <> 'scenario'))`;
 
 // ── İlerleme ──────────────────────────────────────────────────────────────────
 /** İlerleme = (tamamlanan ders + geçilen sınav) / (toplam ders + toplam sınav). */
@@ -464,7 +464,7 @@ export async function getCourseAdminTree(courseId: number) {
   );
   const [quizzes] = await pool.query<RowDataPacket[]>(
     `SELECT q.id, q.title, q.module_id, q.passing_score_percentage,
-            (SELECT COUNT(*) FROM questions x WHERE x.quiz_id = q.id) AS question_count
+            (SELECT COUNT(*) FROM questions x WHERE x.quiz_id = q.id AND x.type <> 'scenario') AS question_count
        FROM quizzes q WHERE q.course_id = ?`,
     [courseId],
   );

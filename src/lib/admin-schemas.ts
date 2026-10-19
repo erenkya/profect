@@ -59,23 +59,64 @@ export const videoUploadSchema = z.object({
   size: z.number().int().min(1).max(MAX_VIDEO_BYTES, "Video en çok 2 GB olabilir."),
 });
 
+// — Sınav soruları: tek cevaplı, çok cevaplı, sürükle-bırak (categorize) ve senaryo —
+const questionText = z.string().trim().min(1, "Soru metni boş olamaz.");
+const explanation = z.string().trim().max(5000, "Açıklama en çok 5000 karakter olabilir.").optional(); // yanlış cevaplayana gösterilir
+const choiceOptions = z
+  .array(z.object({ option_text: z.string().trim().min(1, "Şık metni boş olamaz."), is_correct: z.boolean() }))
+  .min(2, "Her soruda en az 2 şık olmalı.")
+  .max(12, "Bir soruda en çok 12 şık olabilir.");
+
+const singleQ = z.object({ kind: z.literal("single"), question_text: questionText, explanation, options: choiceOptions });
+const multipleQ = z.object({ kind: z.literal("multiple"), question_text: questionText, explanation, options: choiceOptions });
+const categorizeQ = z.object({
+  kind: z.literal("categorize"),
+  question_text: questionText,
+  explanation,
+  categories: z.array(z.string().trim().min(1, "Kategori adı boş olamaz.").max(500)).min(2, "En az 2 kategori olmalı.").max(8, "En çok 8 kategori olabilir."),
+  cards: z
+    .array(z.object({ card_text: z.string().trim().min(1, "Kart metni boş olamaz."), category_index: z.number().int().min(0, "Her kartın bir kategorisi olmalı.") }))
+    .min(2, "En az 2 kart olmalı.")
+    .max(30, "En çok 30 kart olabilir."),
+});
+
+/** Doğru şık / kategori kuralları (discriminatedUnion üyeleri refine taşıyamadığı için ayrı). */
+function checkQuestion(q: z.infer<typeof singleQ> | z.infer<typeof multipleQ> | z.infer<typeof categorizeQ>, ctx: z.RefinementCtx) {
+  if (q.kind === "single" && q.options.filter((o) => o.is_correct).length !== 1) {
+    ctx.addIssue({ code: "custom", message: "Tek cevaplı soruda tam olarak 1 doğru şık olmalı." });
+  }
+  if (q.kind === "multiple" && !q.options.some((o) => o.is_correct)) {
+    ctx.addIssue({ code: "custom", message: "Çok cevaplı soruda en az bir doğru şık olmalı." });
+  }
+  if (q.kind === "categorize") {
+    if (q.cards.some((c) => c.category_index >= q.categories.length)) ctx.addIssue({ code: "custom", message: "Her kartın bir kategorisi olmalı." });
+    else if (q.categories.some((_, i) => !q.cards.some((c) => c.category_index === i))) ctx.addIssue({ code: "custom", message: "Her kategoride en az bir kart olmalı." });
+  }
+}
+
+// kind belirtilmeyen (eski) soru girdisi tek cevaplı sayılır.
+const withDefaultKind = (v: unknown) => (v && typeof v === "object" && !("kind" in v) ? { ...v, kind: "single" } : v);
+
+const scenarioChild = z.preprocess(withDefaultKind, z.discriminatedUnion("kind", [singleQ, multipleQ]).superRefine(checkQuestion));
+const scenarioQ = z.object({
+  kind: z.literal("scenario"),
+  scenario_text: z.string().trim().min(1, "Senaryo metni boş olamaz."),
+  scenario_prompt: z.string().trim().max(5000).optional(),
+  questions: z.array(scenarioChild).min(1, "Senaryoda en az bir soru olmalı.").max(20, "Bir senaryoda en çok 20 soru olabilir."),
+});
+
+const quizItemSchema = z.preprocess(
+  withDefaultKind,
+  z.discriminatedUnion("kind", [singleQ, multipleQ, categorizeQ, scenarioQ]).superRefine((q, ctx) => {
+    if (q.kind !== "scenario") checkQuestion(q, ctx);
+  }),
+);
+
 export const quizSchema = z.object({
   title: z.string().trim().min(1).max(255),
   passing_score_percentage: z.coerce.number().int().min(1).max(100).default(70),
   duration_minutes: z.coerce.number({ invalid_type_error: "Sınav süresi zorunlu." }).int().min(1, "Sınav süresi en az 1 dk olmalı.").max(100000),
-  questions: z
-    .array(
-      z.object({
-        question_text: z.string().trim().min(1, "Soru metni boş olamaz."),
-        explanation: z.string().trim().max(5000, "Açıklama en çok 5000 karakter olabilir.").optional(), // yanlış cevaplayana gösterilir
-        options: z
-          .array(z.object({ option_text: z.string().trim().min(1, "Şık metni boş olamaz."), is_correct: z.boolean() }))
-          .min(2, "Her soruda en az 2 şık olmalı.")
-          .max(8)
-          .refine((o) => o.filter((x) => x.is_correct).length === 1, "Her soruda tam olarak 1 doğru şık olmalı."),
-      }),
-    )
-    .max(200),
+  questions: z.array(quizItemSchema).max(200),
 });
 
 export const reorderSchema = z.object({ ids: z.array(z.coerce.number().int().positive()).min(1).max(500) });

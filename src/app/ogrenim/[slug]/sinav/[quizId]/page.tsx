@@ -7,12 +7,14 @@ import { getCurrentUser } from "@/lib/auth";
 import pool from "@/lib/db";
 import { parseId } from "@/lib/http";
 import { canAccessCourse, flattenTree, getCourseBySlug, getCourseTree } from "@/lib/lms";
+import { loadQuiz } from "@/lib/quiz-data";
+import { gradeQuestion, parseStoredAnswers } from "@/lib/quiz-grading";
 
 export const metadata: Metadata = { title: "Sınav" };
 
 /**
- * Son denemenin cevap incelemesi. Doğru/yanlış burada hesaplanır; doğru şıkkın kendisi istemciye gönderilmez
- * (sınav API'siyle aynı kural). Cevapları kaydedilmemiş eski denemeler için null döner.
+ * Son denemenin cevap incelemesi. Puanlama sunucuda yeniden yapılır; doğru şık / kategori istemciye gönderilmez
+ * (sınav API'siyle aynı kural). Cevapları kaydedilmemiş ya da soruları sonradan değişmiş denemeler için null döner.
  */
 async function loadReview(userId: number, quizId: number): Promise<QuizReview | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -21,37 +23,21 @@ async function loadReview(userId: number, quizId: number): Promise<QuizReview | 
   );
   const attempt = rows[0];
   if (!attempt) return null;
-  // MySQL JSON kolonu nesne, MariaDB metin döndürür.
-  const answers: Record<string, number | null> = typeof attempt.answers === "string" ? JSON.parse(attempt.answers) : attempt.answers;
+  const answers = parseStoredAnswers(attempt.answers);
 
   // Yönetici sınavı kaydedince sorular yeniden oluşturulur (yeni ID'ler); yalnızca denemedeki sorular incelenebilir.
-  const [allQuestions] = await pool.query<RowDataPacket[]>("SELECT id, question_text, explanation FROM questions WHERE quiz_id = ? ORDER BY id", [quizId]);
-  const questions = allQuestions.filter((r) => String(r.id) in answers);
+  const { items, grading } = await loadQuiz(quizId);
+  const questions = items
+    .flatMap((it) => (it.kind === "question" ? [it.question] : it.questions))
+    .filter((q) => String(q.id) in answers)
+    .map((q) => ({ ...q, result: gradeQuestion(grading.get(q.id)!, answers[String(q.id)]) }));
   if (questions.length === 0) return null;
-  const ids = questions.map((r) => r.id);
-  const [options] = ids.length
-    ? await pool.query<RowDataPacket[]>("SELECT id, question_id, option_text, is_correct FROM options WHERE question_id IN (?) ORDER BY id", [ids])
-    : [[] as RowDataPacket[]];
-
-  const items = questions.map((qr) => {
-    const opts = options.filter((o) => o.question_id === qr.id);
-    const selectedOptionId = answers[String(qr.id)] ?? null;
-    const isCorrect = selectedOptionId !== null && opts.some((o) => o.id === selectedOptionId && o.is_correct === 1);
-    return {
-      id: qr.id as number,
-      text: qr.question_text as string,
-      options: opts.map((o) => ({ id: o.id as number, text: o.option_text as string })),
-      selectedOptionId,
-      isCorrect,
-      explanation: !isCorrect ? ((qr.explanation as string | null) ?? null) : null, // yalnızca yanlışlarda
-    };
-  });
 
   return {
     score: attempt.score,
     attemptedAt: new Date(attempt.attempted_at).toISOString(),
-    correctCount: items.filter((i) => i.isCorrect).length,
-    questions: items,
+    correctCount: questions.filter((q) => q.result.isCorrect).length,
+    questions,
   };
 }
 
@@ -68,7 +54,7 @@ export default async function QuizPage({ params }: { params: Promise<{ slug: str
 
   const [q] = await pool.query<RowDataPacket[]>(
     `SELECT course_id, title, module_id, passing_score_percentage, duration_minutes,
-            (SELECT COUNT(*) FROM questions WHERE quiz_id = quizzes.id) AS question_count
+            (SELECT COUNT(*) FROM questions WHERE quiz_id = quizzes.id AND type <> 'scenario') AS question_count
        FROM quizzes WHERE id = ?`,
     [id],
   );

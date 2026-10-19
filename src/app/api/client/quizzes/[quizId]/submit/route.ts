@@ -4,10 +4,14 @@ import pool from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { canAccessCourse } from "@/lib/lms";
+import { loadQuiz } from "@/lib/quiz-data";
+import { gradeQuestion, scoreAttempt } from "@/lib/quiz-grading";
+import type { GradeResult } from "@/lib/quiz-model";
 
 const GRACE_SECONDS = 15; // ağ gecikmesi / otomatik gönderim toleransı
 
-const schema = z.object({ answers: z.record(z.string(), z.coerce.number().int()) }); // { soruId: seçenekId }
+// { soruId: şıkId | şıkId[] | { kartId: kategoriId } } — biçim soru tipine göre gradeQuestion'da doğrulanır.
+const schema = z.object({ answers: z.record(z.string(), z.unknown()) });
 
 export async function POST(request: Request, { params }: { params: Promise<{ quizId: string }> }) {
   const guard = await requireUser();
@@ -43,31 +47,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
       }
     }
 
-    const [questions] = await pool.query<RowDataPacket[]>("SELECT id, explanation FROM questions WHERE quiz_id = ?", [quizId]);
-    if (questions.length === 0) return fail("Bu sınavda soru yok.", 400);
+    const { grading } = await loadQuiz(quizId);
+    if (grading.size === 0) return fail("Bu sınavda soru yok.", 400);
 
-    const [correct] = await pool.query<RowDataPacket[]>(
-      `SELECT o.question_id, o.id AS option_id FROM options o
-         JOIN questions q ON q.id = o.question_id WHERE q.quiz_id = ? AND o.is_correct = 1`,
-      [quizId],
-    );
-    const correctMap = new Map<number, number>(correct.map((r) => [r.question_id, r.option_id]));
-
-    let correctCount = 0;
-    const results: Record<number, { isCorrect: boolean; selectedOptionId: number | null; explanation?: string }> = {};
-    for (const q of questions) {
-      const selected = body.data.answers[String(q.id)] ?? null;
-      const isCorrect = selected !== null && correctMap.get(q.id) === selected;
-      if (isCorrect) correctCount++;
-      // Doğru şık bilgisi bilerek DÖNMEZ: yanlış yapılan sorunun cevabı sızmasın.
-      // Yöneticinin yazdığı açıklama ise yalnızca yanlış cevaplanan soruda gönderilir.
-      results[q.id] = { isCorrect, selectedOptionId: selected, ...(!isCorrect && q.explanation ? { explanation: q.explanation } : {}) };
-    }
-
-    const score = Math.round((correctCount / questions.length) * 100);
+    // Doğru şık / kategori bilgisi BİLEREK dönmez (yanlış yapılan sorunun cevabı sızmasın);
+    // açıklama yalnızca tam doğru olmayan soruda döner (gradeQuestion).
+    const results: Record<string, GradeResult> = {};
+    for (const q of grading.values()) results[q.id] = gradeQuestion(q, body.data.answers[String(q.id)]);
+    const { score, points, correctCount } = scoreAttempt(Object.values(results));
     const isPassed = score >= quiz.passing_score_percentage;
 
-    const answers = Object.fromEntries(Object.entries(results).map(([qid, r]) => [qid, r.selectedOptionId]));
+    const answers = Object.fromEntries(Object.entries(results).map(([qid, r]) => [qid, r.answer]));
     await pool.execute("INSERT INTO quiz_attempts (user_id, quiz_id, score, is_passed, answers) VALUES (?, ?, ?, ?, ?)", [
       userId,
       quizId,
@@ -79,7 +69,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
       await pool.execute("UPDATE enrollments SET status = 'completed' WHERE user_id = ? AND course_id = ?", [userId, quiz.course_id]);
     }
 
-    return ok({ score, isPassed, correctCount, totalQuestions: questions.length, results });
+    return ok({ score, isPassed, correctCount, points, totalQuestions: grading.size, results });
   } catch (err) {
     return serverError("[POST /api/client/quizzes/:id/submit]", err);
   }
