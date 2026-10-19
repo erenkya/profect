@@ -238,6 +238,59 @@ body:not(:has(.site-nav)) .learn-side { top: 0; max-height: 100vh; }
 .progress-track { height: 6px; background: var(--color-accent-100); position: relative; }
 .progress-fill { position: absolute; inset: 0 auto 0 0; background: var(--color-accent); }
 
+/* — Öğrenme alanı: hareketler — */
+.side-link { transition: background-color .25s var(--ease), border-color .25s var(--ease); }
+.side-link > span:not(.tag) { transition: transform .25s var(--ease); }
+.side-exit svg { transition: transform .3s var(--ease); }
+.lesson-next .lesson-arrow { display: inline-block; transition: transform .3s var(--ease); }
+.lesson-video { transition: box-shadow .4s var(--ease); }
+@media (prefers-reduced-motion: no-preference) {
+  /* Kenar çubuğu: layout'ta kalıcı olduğundan giriş yalnızca kursa ilk girişte oynar. */
+  .learn-side { animation: learn-side-in .6s var(--ease) both; }
+  .side-group { animation: learn-rise .5s var(--ease) both; animation-delay: calc(120ms + var(--i, 0) * 70ms); }
+  .side-link:hover > span:not(.tag) { transform: translateX(4px); }
+  .side-link[aria-current="page"] { animation: side-current .5s var(--ease); }
+  .side-check { animation: side-check-pop .5s cubic-bezier(.3,1.6,.5,1) both; }
+  .side-exit:hover svg { transform: rotate(90deg); }
+  .progress-fill { transition: width .9s var(--ease); }
+  .learn-side .progress-fill { animation: progress-grow 1.1s var(--ease) .3s both; }
+
+  /* Ders başlığı ve içerik: her ders değişiminde (yeni DOM) yeniden oynar. */
+  .lesson-head .eyebrow { animation: learn-rise .5s var(--ease) both; }
+  .lesson-title { animation: lesson-title-in .8s var(--ease) .08s both; }
+  .lesson-video { animation: lesson-video-in .8s var(--ease) .2s both; }
+  .lesson-video:hover { box-shadow: 0 24px 60px -24px rgba(58, 95, 220, .45); }
+  .lesson-md > * { animation: learn-rise .6s var(--ease) both; }
+  .lesson-md > :nth-child(1) { animation-delay: .2s; }
+  .lesson-md > :nth-child(2) { animation-delay: .27s; }
+  .lesson-md > :nth-child(3) { animation-delay: .34s; }
+  .lesson-md > :nth-child(4) { animation-delay: .41s; }
+  .lesson-md > :nth-child(5) { animation-delay: .48s; }
+  .lesson-md > :nth-child(n+6) { animation-delay: .55s; }
+  /* Destekleyen tarayıcılarda metin blokları kaydırdıkça belirir. */
+  @supports (animation-timeline: view()) {
+    .lesson-md > :nth-child(n+6) { animation: learn-rise linear both; animation-delay: 0s; animation-timeline: view(); animation-range: entry 0% entry 60%; }
+  }
+  .lesson-foot { animation: learn-rise .6s var(--ease) .35s both; }
+  .lesson-done { animation: lesson-done-in .6s cubic-bezier(.3,1.5,.5,1) both; }
+  .lesson-done svg { animation: lesson-check-draw .5s var(--ease) .2s both; }
+  .lesson-next .lesson-arrow { animation: lesson-arrow-nudge 2.4s var(--ease) 1.2s infinite; }
+  .lesson-next:hover .lesson-arrow { animation: none; transform: translateX(6px); }
+  .lesson-card { animation: learn-rise .6s var(--ease) .45s both; }
+
+  @keyframes learn-side-in { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+  @keyframes learn-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  @keyframes lesson-title-in { from { opacity: 0; transform: translateY(24px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0 0 -10% 0); } }
+  @keyframes lesson-video-in { from { opacity: 0; transform: translateY(24px) scale(.97); } to { opacity: 1; transform: none; } }
+  @keyframes side-current { from { border-left-color: transparent; background-color: transparent; } }
+  @keyframes side-check-pop { 0% { transform: scale(0) rotate(-45deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+  @keyframes progress-grow { from { transform: scaleX(0); } to { transform: none; } }
+  @keyframes lesson-done-in { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+  @keyframes lesson-check-draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+  @keyframes lesson-arrow-nudge { 0%, 70%, 100% { transform: none; } 80% { transform: translateX(5px); } 90% { transform: translateX(0); } }
+}
+.learn-side .progress-fill { transform-origin: left; }
+
 /* — Admin — */
 .admin-shell { max-width: 1280px; margin: 0 auto; padding: 32px clamp(20px, 4vw, 48px) 96px; }
 .admin-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 32px; }

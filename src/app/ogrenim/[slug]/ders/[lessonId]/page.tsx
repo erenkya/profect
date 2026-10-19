@@ -36,8 +36,10 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div>
-      <div className="eyebrow">{lesson.module_title}</div>
-      <h1 style={{ fontSize: "clamp(36px,4.5vw,56px)", lineHeight: 1, textTransform: "uppercase", margin: "0 0 28px" }}>{lesson.title}</h1>
+      <div className="lesson-head">
+        <div className="eyebrow">{lesson.module_title}</div>
+        <h1 className="lesson-title" style={{ fontSize: "clamp(36px,4.5vw,56px)", lineHeight: 1, textTransform: "uppercase", margin: "0 0 28px" }}>{lesson.title}</h1>
+      </div>
       <LessonPlayer
         key={lesson.id}
         lessonId={lesson.id}
@@ -50,7 +52,7 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
         nextLabel={next && nextOpen ? (next.kind === "quiz" ? "Sınava geç" : "Sonraki ders") : null}
       />
       {previewing && !nextOpen && (
-        <div className="card blueprint" style={{ background: "#fff", padding: 24, gap: 12, marginTop: 32, maxWidth: 560 }}>
+        <div className="card blueprint lesson-card" style={{ background: "#fff", padding: 24, gap: 12, marginTop: 32, maxWidth: 560 }}>
           <div className="card-kicker" style={{ fontSize: 11 }}>Ücretsiz önizleme sona erdi</div>
           <p style={{ margin: 0, fontSize: 16 }}>Devam etmek, sınavlara girmek ve sertifika almak için kursa kaydol.</p>
           <div><Link href={`/kurslar/${slug}`} className="btn btn-primary">Kursa kaydol</Link></div>

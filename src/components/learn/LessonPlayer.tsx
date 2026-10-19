@@ -81,7 +81,7 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
     <div>
       {type === "video" ? (
         videoReady ? (
-          <div style={{ position: "relative", aspectRatio: "16/9", background: "#0b0b14", maxWidth: 960 }}>
+          <div className="lesson-video" style={{ position: "relative", aspectRatio: "16/9", background: "#0b0b14", maxWidth: 960 }}>
             <video
               key={lessonId}
               src={videoSrc}
@@ -106,27 +106,27 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
             )}
           </div>
         ) : (
-          <div role="status" style={{ aspectRatio: "16/9", maxWidth: 960, display: "grid", placeItems: "center", background: "#0b0b14", color: "#fff", padding: 24, textAlign: "center" }}>
+          <div role="status" className="lesson-video" style={{ aspectRatio: "16/9", maxWidth: 960, display: "grid", placeItems: "center", background: "#0b0b14", color: "#fff", padding: 24, textAlign: "center" }}>
             Bu dersin videosu henüz yüklenmedi.
           </div>
         )
       ) : (
-        <article className="md">
+        <article className="md lesson-md">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
           <div ref={sentinel} style={{ height: 1 }} />
         </article>
       )}
 
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 32 }}>
+      <div className="lesson-foot" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 32 }}>
         {completed && (
-          <span style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 14, color: "var(--color-accent-700)" }}>
+          <span className="lesson-done" style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 14, color: "var(--color-accent-700)" }}>
             <Check size={18} strokeWidth={1.5} /> Ders tamamlandı
           </span>
         )}
         {nextHref && (
-          <Link href={nextHref} className="btn btn-primary blueprint" style={{ fontSize: 16, padding: "10px 22px", marginLeft: "auto" }}>
+          <Link href={nextHref} className="btn btn-primary blueprint lesson-next" style={{ fontSize: 16, padding: "10px 22px", marginLeft: "auto" }}>
             <Corners />
-            {nextLabel ?? "Sonraki"} →
+            {nextLabel ?? "Sonraki"} <span className="lesson-arrow" aria-hidden>→</span>
           </Link>
         )}
       </div>

@@ -11,7 +11,7 @@ export function CourseSidebar({ slug, title, tree, percentage, previewIds }: { s
   const base = `/ogrenim/${slug}`;
 
   const icon = (done: boolean | undefined, Fallback: typeof FileText) =>
-    done ? <Check size={16} strokeWidth={1.5} color="#3a5fdc" style={{ flex: "none", marginTop: 2 }} /> : <Fallback size={16} strokeWidth={1.5} style={{ flex: "none", marginTop: 2, opacity: 0.6 }} />;
+    done ? <Check className="side-check" size={16} strokeWidth={1.5} color="#3a5fdc" style={{ flex: "none", marginTop: 2 }} /> : <Fallback size={16} strokeWidth={1.5} style={{ flex: "none", marginTop: 2, opacity: 0.6 }} />;
 
   const lockedHref = `/kurslar/${slug}`;
   const lock = <Lock size={16} strokeWidth={1.5} style={{ flex: "none", marginTop: 2, opacity: 0.6 }} />;
@@ -20,7 +20,7 @@ export function CourseSidebar({ slug, title, tree, percentage, previewIds }: { s
     <aside className="learn-side" aria-label="Kurs müfredatı">
       {/* Ders sayfasında üst menü gizli; dersten çıkış buradan yapılır. */}
       {pathname.startsWith(`${base}/ders/`) && (
-        <Link href={previewIds ? lockedHref : "/hesabim/kurslarim"} className="btn btn-secondary" style={{ padding: "6px 12px", fontSize: 14, marginBottom: 20, display: "inline-flex", gap: 6, alignItems: "center" }}>
+        <Link href={previewIds ? lockedHref : "/hesabim/kurslarim"} className="btn btn-secondary side-exit" style={{ padding: "6px 12px", fontSize: 14, marginBottom: 20, display: "inline-flex", gap: 6, alignItems: "center" }}>
           <X size={16} strokeWidth={1.5} />
           Dersten çık
         </Link>
@@ -42,7 +42,7 @@ export function CourseSidebar({ slug, title, tree, percentage, previewIds }: { s
 
       <nav style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         {tree.modules.map((m, i) => (
-          <div key={m.id}>
+          <div key={m.id} className="side-group" style={{ "--i": i } as React.CSSProperties}>
             <div style={{ fontFamily: "var(--font-heading)", fontSize: 16, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".03em", marginBottom: 4 }}>
               {String(i + 1).padStart(2, "0")} · {m.title}
             </div>
@@ -79,7 +79,7 @@ export function CourseSidebar({ slug, title, tree, percentage, previewIds }: { s
           </div>
         ))}
         {tree.finalQuiz && (
-          <div>
+          <div className="side-group" style={{ "--i": tree.modules.length } as React.CSSProperties}>
             <div style={{ fontFamily: "var(--font-heading)", fontSize: 16, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".03em", marginBottom: 4 }}>◆ Final</div>
             {previewIds ? (
               <Link href={lockedHref} className="side-link" title="Kursa kaydolunca açılır">
