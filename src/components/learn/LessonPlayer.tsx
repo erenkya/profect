@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -21,6 +22,7 @@ type Props = {
 const COMPLETE_RATIO = 0.95;
 
 export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCompleted, canTrack, nextHref, nextLabel }: Props) {
+  const router = useRouter();
   const [completed, setCompleted] = useState(initiallyCompleted);
   const [videoError, setVideoError] = useState<string | null>(null);
   const sent = useRef(initiallyCompleted);
@@ -41,7 +43,10 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
       if (!res.ok) {
         sent.current = false;
         setCompleted(false);
+        return;
       }
+      // Kenar çubuğu (tamamlandı işaretleri, ilerleme yüzdesi) sunucu layout'unda; yeniden çek.
+      router.refresh();
     } catch {
       sent.current = false;
       setCompleted(false);
