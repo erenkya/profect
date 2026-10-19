@@ -23,6 +23,7 @@ type Quiz = {
   isPassed: boolean;
   bestScore: number | null;
   questions: PublicQuestion[];
+  draftAnswers: Record<string, Answer>; // kaldığı yerden devam: oturumda kayıtlı cevaplar
 };
 type Result = { score: number; isPassed: boolean; correctCount: number; points: number; totalQuestions: number; results: Record<string, GradeResult> };
 
@@ -35,7 +36,7 @@ export type QuizIntro = {
   passingScore: number;
   durationMinutes: number | null;
   bestScore: number | null;
-  resumeSeconds: number | null; // açık süreli oturum varsa kalan saniye
+  resume: { seconds: number | null; answered: number } | null; // yarım kalan deneme: kalan süre (süreliyse), kayıtlı cevap sayısı
   passed: boolean; // daha önce geçilmiş mi
   review: QuizReview | null; // geçilmiş sınavda son denemenin cevapları
 };
@@ -59,6 +60,10 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
   const [dir, setDir] = useState<"next" | "prev">("next");
   const autoSent = useRef(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const answersRef = useRef(answers); // otomatik geçişteki gecikmeli goTo da en güncel cevapları kaydetsin
+  answersRef.current = answers;
+  const savedJson = useRef("{}");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   useEffect(() => {
     if (!started) return;
@@ -71,10 +76,22 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
     setError("");
     setCurrent(0);
     setDir("next");
+    setSaveState("idle");
     autoSent.current = false;
     fetch(`/api/client/quizzes/${quizId}`)
       .then(async (r) => ({ ok: r.ok, json: await r.json() }))
-      .then(({ ok, json }) => alive && (ok ? setQuiz(json.data) : setError(json.message ?? "Sınav yüklenemedi.")))
+      .then(({ ok, json }) => {
+        if (!alive) return;
+        if (!ok) return setError(json.message ?? "Sınav yüklenemedi.");
+        const data: Quiz = json.data;
+        // Kaydedilmiş cevaplarla ilk cevapsız sorudan devam.
+        const draft = Object.fromEntries(Object.entries(data.draftAnswers ?? {}).map(([k, v]) => [Number(k), v]));
+        savedJson.current = JSON.stringify(data.draftAnswers ?? {});
+        setAnswers(draft);
+        const firstOpen = data.questions.findIndex((q) => !isAnswered(q, draft[q.id]));
+        setCurrent(firstOpen === -1 ? Math.max(0, data.questions.length - 1) : firstOpen);
+        setQuiz(data);
+      })
       .catch(() => alive && setError("Bağlantı hatası. Lütfen tekrar deneyin."));
     return () => {
       alive = false;
@@ -129,7 +146,23 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
     }
   }
 
+  /** İlerlemeyi oturuma kaydeder (değişiklik varsa). Başarısızlık sınavı durdurmaz; gönderimde cevaplar zaten gider. */
+  async function saveProgress() {
+    const json = JSON.stringify(answersRef.current);
+    if (json === savedJson.current || result) return;
+    setSaveState("saving");
+    try {
+      const res = await fetch(`/api/client/quizzes/${quizId}/progress`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ answers: answersRef.current }) });
+      if (!res.ok) throw new Error();
+      savedJson.current = json;
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    }
+  }
+
   function goTo(i: number) {
+    void saveProgress(); // her soru geçişinde kaydet
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     setDir(i >= current ? "next" : "prev");
     setCurrent(i);
@@ -153,7 +186,7 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
   );
 
   // — Geçilmiş sınav: skor ve "Tekrar çöz" (yarım kalan bir tekrar varsa normal başlangıç ekranı gösterilir) —
-  if (!started && intro.passed && intro.resumeSeconds === null) {
+  if (!started && intro.passed && intro.resume === null) {
     return (
       <div style={{ maxWidth: 760 }}>
         {header}
@@ -222,7 +255,7 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
         <section className="card blueprint quiz-intro" aria-labelledby="quiz-intro-title" style={{ background: "#fff", padding: "clamp(20px,3vw,32px)", gap: 24 }}>
           <Corners />
           <div>
-            <div className="card-kicker" id="quiz-intro-title">{intro.resumeSeconds !== null ? "Yarım kalan sınav" : "Sınava başla"}</div>
+            <div className="card-kicker" id="quiz-intro-title">{intro.resume ? "Yarım kalan sınav" : "Sınava başla"}</div>
             <p style={{ margin: "8px 0 0", color: "var(--muted-72)" }}>
               Sorular tek tek gösterilir; aralarında ileri geri gidebilir, cevaplarını bitirmeden önce değiştirebilirsin.
             </p>
@@ -238,14 +271,16 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
           </div>
           {intro.durationMinutes !== null && (
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, color: "var(--muted-72)", display: "flex", flexDirection: "column", gap: 4 }}>
-              <li>Süre, &quot;{intro.resumeSeconds !== null ? "Sınava devam et" : "Sınava başla"}&quot; butonuna bastığın anda işlemeye başlar.</li>
+              <li>Süre, &quot;{intro.resume ? "Sınava devam et" : "Sınava başla"}&quot; butonuna bastığın anda işlemeye başlar.</li>
               <li>Sayfayı yenilemek ya da kapatmak süreyi durdurmaz.</li>
               <li>Süre dolduğunda o ana kadar işaretlediğin cevaplar otomatik gönderilir.</li>
             </ul>
           )}
-          {intro.resumeSeconds !== null && (
+          {intro.resume && (
             <p role="status" style={{ margin: 0, fontSize: 14, color: "var(--color-accent-2)" }}>
-              Bu sınavı daha önce başlattın; kalan süren yaklaşık {mmss(intro.resumeSeconds)}.
+              Bu sınavı daha önce başlattın
+              {intro.resume.answered > 0 && <>; {intro.resume.answered} cevabın kayıtlı</>}
+              {intro.resume.seconds !== null && <>; kalan süren yaklaşık {mmss(intro.resume.seconds)}</>}. Kaldığın yerden devam edeceksin.
             </p>
           )}
           {intro.questionCount === 0 ? (
@@ -254,7 +289,7 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
             <div>
               <button className="btn btn-primary blueprint lesson-next" onClick={() => setStarted(true)} style={{ fontSize: 17, padding: "12px 28px" }}>
                 <Corners />
-                {intro.resumeSeconds !== null ? "Sınava devam et" : "Sınava başla"} <span className="lesson-arrow" aria-hidden>→</span>
+                {intro.resume ? "Sınava devam et" : "Sınava başla"} <span className="lesson-arrow" aria-hidden>→</span>
               </button>
             </div>
           )}
@@ -332,7 +367,16 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
       {/* İlerleme: soru numaraları; tıklayınca o soruya gider. */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 10 }}>
         <span className="eyebrow" style={{ margin: 0 }}>Soru {current + 1} / {total}</span>
-        {!result && <span style={{ fontSize: 13, color: "var(--muted-55)" }}>{answeredCount} / {total} cevaplandı</span>}
+        {!result && (
+          <span style={{ fontSize: 13, color: "var(--muted-55)" }}>
+            {answeredCount} / {total} cevaplandı
+            {saveState !== "idle" && (
+              <span role="status" style={{ marginLeft: 8, color: saveState === "error" ? "var(--color-accent-2)" : undefined }}>
+                · {saveState === "saving" ? "Kaydediliyor…" : saveState === "saved" ? "Kaydedildi" : "Kaydedilemedi"}
+              </span>
+            )}
+          </span>
+        )}
       </div>
       <div className="progress-track" aria-hidden style={{ marginBottom: 14 }}>
         <div className="progress-fill" style={{ width: `${((result ? total : answeredCount) / total) * 100}%` }} />

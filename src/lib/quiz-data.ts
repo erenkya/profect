@@ -62,6 +62,11 @@ export async function loadQuiz(quizId: number): Promise<{ items: QuizItem[]; gra
   return { items, grading };
 }
 
+/** Puanlanan sorular editör sırasıyla (senaryolar alt sorularına açılır). */
+export function flatQuestions(items: QuizItem[]): PublicQuestion[] {
+  return items.flatMap((it) => (it.kind === "question" ? [it.question] : it.questions));
+}
+
 /** Öğrenciye gidecek sıra: üst düzey öğeler ve şıklar/kartlar karıştırılır, kategoriler sabit. */
 export function studentQuestions(items: QuizItem[]): PublicQuestion[] {
   return orderForStudent(items, shuffle).map((q) =>

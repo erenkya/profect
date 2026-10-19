@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import pool from "@/lib/db";
 import { parseId } from "@/lib/http";
 import { canAccessCourse, flattenTree, getCourseBySlug, getCourseTree } from "@/lib/lms";
-import { loadQuiz } from "@/lib/quiz-data";
+import { flatQuestions, loadQuiz } from "@/lib/quiz-data";
 import { gradeQuestion, parseStoredAnswers } from "@/lib/quiz-grading";
 
 export const metadata: Metadata = { title: "Sınav" };
@@ -27,8 +27,7 @@ async function loadReview(userId: number, quizId: number): Promise<QuizReview | 
 
   // Yönetici sınavı kaydedince sorular yeniden oluşturulur (yeni ID'ler); yalnızca denemedeki sorular incelenebilir.
   const { items, grading } = await loadQuiz(quizId);
-  const questions = items
-    .flatMap((it) => (it.kind === "question" ? [it.question] : it.questions))
+  const questions = flatQuestions(items)
     .filter((q) => String(q.id) in answers)
     .map((q) => ({ ...q, result: gradeQuestion(grading.get(q.id)!, answers[String(q.id)]) }));
   if (questions.length === 0) return null;
@@ -65,15 +64,16 @@ export default async function QuizPage({ params }: { params: Promise<{ slug: str
   const limitSeconds: number | null = q[0].duration_minutes ? q[0].duration_minutes * 60 : null;
   const [[attempts], [open]] = await Promise.all([
     pool.query<RowDataPacket[]>("SELECT MAX(score) AS best, MAX(is_passed) AS passed FROM quiz_attempts WHERE user_id = ? AND quiz_id = ?", [user.id, id]),
-    limitSeconds !== null
-      ? pool.query<RowDataPacket[]>(
-          `SELECT ? - TIMESTAMPDIFF(SECOND, started_at, NOW()) AS remaining FROM quiz_sessions
-            WHERE user_id = ? AND quiz_id = ? AND submitted_at IS NULL ORDER BY id DESC LIMIT 1`,
-          [limitSeconds, user.id, id],
-        )
-      : [[] as RowDataPacket[]],
+    pool.query<RowDataPacket[]>(
+      `SELECT TIMESTAMPDIFF(SECOND, started_at, NOW()) AS elapsed, draft_answers FROM quiz_sessions
+        WHERE user_id = ? AND quiz_id = ? AND submitted_at IS NULL ORDER BY id DESC LIMIT 1`,
+      [user.id, id],
+    ),
   ]);
-  const resumeSeconds = open[0] && Number(open[0].remaining) > 0 ? Number(open[0].remaining) : null;
+  // Yarım kalan deneme: süreli sınavda süresi dolmamış oturum, süresizde en az bir cevabı kaydedilmiş oturum.
+  const answered = open[0] ? Object.keys(parseStoredAnswers(open[0].draft_answers)).length : 0;
+  const remaining = open[0] && limitSeconds !== null ? limitSeconds - Number(open[0].elapsed) : null;
+  const resume = open[0] && (remaining !== null ? remaining > 0 : answered > 0) ? { seconds: remaining, answered } : null;
   const passed = attempts[0]?.passed === 1;
   const review = passed ? await loadReview(user.id, id) : null;
 
@@ -96,7 +96,7 @@ export default async function QuizPage({ params }: { params: Promise<{ slug: str
         durationMinutes: q[0].duration_minutes ?? null,
         bestScore: attempts[0]?.best ?? null,
         passed,
-        resumeSeconds,
+        resume,
         review,
       }}
       nextHref={next ? `/ogrenim/${slug}/${next.kind === "lesson" ? "ders" : "sinav"}/${next.id}` : null}

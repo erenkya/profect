@@ -45,6 +45,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
       if (Number(session.elapsed) > quiz.duration_minutes * 60 + GRACE_SECONDS) {
         return fail("Süre doldu. Bu deneme kabul edilmedi; sınavı yeniden başlatabilirsiniz.", 408);
       }
+    } else {
+      // Süresiz sınav: oturum yalnızca kaldığı yerden devam için; gönderimle kapanır (zorunlu değil).
+      await pool.execute("UPDATE quiz_sessions SET submitted_at = NOW() WHERE user_id = ? AND quiz_id = ? AND submitted_at IS NULL", [userId, quizId]);
     }
 
     const { grading } = await loadQuiz(quizId);

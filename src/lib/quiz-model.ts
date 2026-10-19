@@ -42,6 +42,35 @@ export function isAnswered(q: PublicQuestion, a: Answer | undefined): boolean {
   }
 }
 
+/** Bir sınav oturumunda öğrenciye gösterilen sıra: sorular ve her sorunun şık/kart id'leri. */
+export type SavedOrder = { id: number; choices: number[] }[];
+
+const choicesOf = (q: PublicQuestion) => (q.kind === "categorize" ? q.cards : q.options);
+
+export function snapshotOrder(qs: PublicQuestion[]): SavedOrder {
+  return qs.map((q) => ({ id: q.id, choices: choicesOf(q).map((c) => c.id) }));
+}
+
+/**
+ * Kaydedilmiş sırayı geri uygular (öğrenci sınava döndüğünde sorular yeniden karışmasın).
+ * Soru ya da şık kümesi değiştiyse (yönetici sınavı düzenlediyse) null döner.
+ */
+export function applySavedOrder(qs: PublicQuestion[], saved: SavedOrder): PublicQuestion[] | null {
+  if (saved.length !== qs.length) return null;
+  const byId = new Map(qs.map((q) => [q.id, q]));
+  const out: PublicQuestion[] = [];
+  for (const s of saved) {
+    const q = byId.get(s.id);
+    if (!q) return null;
+    const pool = new Map(choicesOf(q).map((c) => [c.id, c]));
+    if (s.choices.length !== pool.size || !s.choices.every((id) => pool.has(id))) return null;
+    const ordered = s.choices.map((id) => pool.get(id)!);
+    out.push(q.kind === "categorize" ? { ...q, cards: ordered } : { ...q, options: ordered });
+    byId.delete(s.id);
+  }
+  return out;
+}
+
 /** Üst düzey öğeler karıştırılır; senaryonun alt soruları kendi sırasında, bitişik kalır. */
 export function orderForStudent(items: QuizItem[], shuffle: <T>(a: T[]) => T[]): PublicQuestion[] {
   return shuffle(items).flatMap((it) => (it.kind === "question" ? [it.question] : it.questions));

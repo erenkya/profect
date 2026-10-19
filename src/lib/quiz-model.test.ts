@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isAnswered, orderForStudent, type PublicQuestion, type QuizItem, type ScenarioRef } from "./quiz-model.ts";
+import { applySavedOrder, isAnswered, orderForStudent, snapshotOrder, type PublicQuestion, type QuizItem, type ScenarioRef } from "./quiz-model.ts";
 
 const single = (id: number, scenario: ScenarioRef | null = null): PublicQuestion => ({ id, kind: "single", text: `S${id}`, scenario, options: [{ id: 1, text: "a" }, { id: 2, text: "b" }] });
 const multiple: PublicQuestion = { id: 10, kind: "multiple", text: "M", scenario: null, options: [{ id: 5, text: "a" }, { id: 6, text: "b" }, { id: 7, text: "c" }], correctCount: 2 };
@@ -30,6 +30,32 @@ test("orderForStudent: senaryo alt soruları bitişik ve sıralı kalır", () =>
   const out = orderForStudent(items, reverse);
   assert.deepEqual(out.map((q) => q.id), [2, 3, 4, 5, 1]);
   for (const q of out.slice(1, 4)) assert.equal(q.scenario, s);
+});
+
+test("applySavedOrder: kaydedilen soru ve şık/kart sırası geri uygulanır", () => {
+  const qs = [single(1), multiple, categorize];
+  const saved = [
+    { id: 20, choices: [2, 1] },
+    { id: 1, choices: [2, 1] },
+    { id: 10, choices: [7, 5, 6] },
+  ];
+  const out = applySavedOrder(qs, saved);
+  assert.ok(out);
+  assert.deepEqual(out.map((q) => q.id), [20, 1, 10]);
+  assert.deepEqual(out[0].kind === "categorize" && out[0].cards.map((c) => c.id), [2, 1]);
+  assert.deepEqual(out[2].kind === "multiple" && out[2].options.map((o) => o.id), [7, 5, 6]);
+});
+
+test("applySavedOrder: soru ya da şık kümesi değiştiyse null (yeniden karıştırılır)", () => {
+  const qs = [single(1), multiple];
+  assert.equal(applySavedOrder(qs, [{ id: 1, choices: [1, 2] }]), null); // eksik soru
+  assert.equal(applySavedOrder(qs, [{ id: 1, choices: [1, 2] }, { id: 10, choices: [5, 6] }]), null); // eksik şık
+  assert.equal(applySavedOrder(qs, [{ id: 1, choices: [1, 2] }, { id: 99, choices: [5, 6, 7] }]), null); // başka soru
+});
+
+test("snapshotOrder: applySavedOrder ile gidiş-dönüş aynı sırayı verir", () => {
+  const qs = [categorize, single(1), multiple];
+  assert.deepEqual(applySavedOrder([single(1), multiple, categorize], snapshotOrder(qs)), qs);
 });
 
 test("orderForStudent: alt sorusuz senaryo atlanır", () => {

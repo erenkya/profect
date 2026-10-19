@@ -165,6 +165,15 @@ try {
   const cr = r.json.results?.[cq.id];
   check("tipler: 1 kart yanlış → kısmi puan (93)", r.json.score === Math.round(((4 + 2 / 3) / 5) * 100), String(r.json.score));
   check("tipler: kart başına sonuç, doğru kategori sızmıyor", cr && Object.keys(cr.cardResults).length === 3 && Object.values(cr.cardResults).filter((v) => !v).length === 1);
+  // kaldığı yerden devam: ilerleme kaydı, aynı sıra, kayıtlı cevaplar
+  r = await api("user", "GET", `/api/client/quizzes/${qid}`); const order1 = r.json.data.questions.map((q) => q.id + ":" + (q.options ?? q.cards).map((c) => c.id).join(","));
+  const firstQ = r.json.data.questions[0];
+  r = await api("user", "PUT", `/api/client/quizzes/${qid}/progress`, { answers: { [firstQ.id]: right[firstQ.id], 999999: 1 } }); check("ilerleme kaydedildi", r.status === 200, JSON.stringify(r.json));
+  r = await api("user", "GET", `/api/client/quizzes/${qid}`);
+  check("dönüşte aynı soru/şık sırası", JSON.stringify(r.json.data.questions.map((q) => q.id + ":" + (q.options ?? q.cards).map((c) => c.id).join(","))) === JSON.stringify(order1));
+  check("dönüşte kayıtlı cevap var, yabancı soru atıldı", JSON.stringify(r.json.data.draftAnswers[firstQ.id]) === JSON.stringify(right[firstQ.id]) && !("999999" in r.json.data.draftAnswers));
+  r = await api("user", "POST", `/api/client/quizzes/${qid}/submit`, { answers: right }); check("devam edilen deneme gönderildi", r.json.score === 100);
+  r = await api("user", "PUT", `/api/client/quizzes/${qid}/progress`, { answers: {} }); check("gönderimden sonra ilerleme kaydı 409", r.status === 409);
 
   // — hesap devre dışı → mevcut JWT hemen geçersiz
   await api("admin", "PATCH", `/api/admin/users/${userId}`, { is_active: false });
