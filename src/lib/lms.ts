@@ -408,6 +408,29 @@ export async function listMyOrders(userId: number) {
   return rows as { id: number; plan: "single" | "plus"; amount: string; status: "pending" | "paid" | "rejected"; created_at: string; course_title: string | null }[];
 }
 
+export type AccountProfile = { full_name: string; email: string; phone: string | null; email_verified: boolean; created_at: string };
+
+export async function getAccountProfile(userId: number): Promise<AccountProfile | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT full_name, email, phone, email_verified, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at FROM users WHERE id = ?",
+    [userId],
+  );
+  const r = rows[0];
+  return r ? { full_name: r.full_name, email: r.email, phone: r.phone, email_verified: !!r.email_verified, created_at: r.created_at } : null;
+}
+
+/** Profect Plus durumu: bitiş tarihi + bekleyen (henüz onaylanmamış) Plus siparişi var mı. */
+export async function getPlusInfo(userId: number) {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT DATE_FORMAT(plus_until, '%Y-%m-%d %H:%i:%s') AS plus_until, (plus_until > NOW()) AS active,
+            EXISTS(SELECT 1 FROM orders o WHERE o.user_id = users.id AND o.plan = 'plus' AND o.status = 'pending') AS pending_order
+       FROM users WHERE id = ?`,
+    [userId],
+  );
+  const r = rows[0];
+  return { until: (r?.plus_until ?? null) as string | null, active: !!r?.active, pendingOrder: !!r?.pending_order };
+}
+
 // ── Yönetici görünümü (içerik dahil) ──────────────────────────────────────────
 export type AdminLesson = { id: number; module_id: number; title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null; sort_order: number };
 export type AdminQuizRef = { id: number; title: string; module_id: number | null; passing_score_percentage: number; question_count: number };

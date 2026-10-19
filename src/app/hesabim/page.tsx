@@ -1,96 +1,59 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { MyCourseCard } from "@/components/account/MyCourseCard";
+import { PageTitle } from "@/components/account/PageTitle";
 import { Corners } from "@/components/Corners";
-import { ChangePasswordForm } from "@/components/learn/ChangePasswordForm";
 import { getCurrentUser } from "@/lib/auth";
-import { formatDate, formatPrice } from "@/lib/format";
-import { hasPlus, listMyCertificates, listMyCourses, listMyOrders } from "@/lib/lms";
+import { formatDate } from "@/lib/format";
+import { getPlusInfo, listMyCertificates, listMyCourses, listMyOrders } from "@/lib/lms";
 
-export const metadata: Metadata = { title: "Hesabım" };
+export const metadata: Metadata = { title: "Genel bakış" };
 
-const ORDER_STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi" } as const;
-
-export default async function AccountPage() {
+export default async function AccountHome() {
   const user = await getCurrentUser();
   if (!user) redirect("/giris?next=/hesabim");
-  const [courses, certs, orders, plus] = await Promise.all([listMyCourses(user.id), listMyCertificates(user.id), listMyOrders(user.id), hasPlus(user.id)]);
+  const [courses, certs, orders, plus] = await Promise.all([listMyCourses(user.id), listMyCertificates(user.id), listMyOrders(user.id), getPlusInfo(user.id)]);
+  const current = courses.find((c) => c.status === "active");
+  const stats = [
+    { k: "Aktif kurs", v: courses.filter((c) => c.status === "active").length, href: "/hesabim/kurslarim" },
+    { k: "Tamamlanan", v: courses.filter((c) => c.status === "completed").length, href: "/hesabim/kurslarim" },
+    { k: "Sertifika", v: certs.length, href: "/hesabim/sertifikalarim" },
+    { k: "Sipariş", v: orders.length, href: "/hesabim/siparislerim" },
+  ];
 
   return (
-    <main className="wrap" style={{ paddingBlock: "clamp(40px,6vw,80px) 120px" }}>
-      <div className="eyebrow">Hesabım</div>
-      <h1 style={{ fontSize: "clamp(44px,6vw,80px)", lineHeight: 0.95, textTransform: "uppercase", margin: "0 0 8px" }}>Merhaba, {user.full_name.split(" ")[0]}</h1>
-      <p style={{ color: "var(--muted-72)", marginBottom: 48 }}>{user.email}{plus && <> · <span className="tag tag-accent">Profect Plus</span></>}</p>
+    <>
+      <PageTitle title={`Merhaba, ${user.full_name.split(" ")[0]}`} hint={<>{user.email}{plus.active && <> · <span className="tag tag-accent">Profect Plus</span></>}</>} />
 
-      <h2 style={{ fontSize: 36, textTransform: "uppercase", marginBottom: 20 }}>Kurslarım</h2>
-      {courses.length === 0 ? (
-        <p style={{ color: "var(--muted-72)", marginBottom: 56 }}>Henüz bir kursun yok. <Link href="/kurslar">Kursları keşfet →</Link></p>
-      ) : (
-        <div className="course-grid" style={{ marginBottom: 56 }}>
-          {courses.map((c) => (
-            <div key={c.id} className="card blueprint" style={{ background: "#fff", padding: 22, gap: 12 }}>
+      <div className="stat-grid">
+        {stats.map((s, i) => (
+          <Link key={s.k} href={s.href} data-reveal data-delay={i * 70} style={{ color: "inherit", textDecoration: "none" }}>
+            <div className="card blueprint acc-stat" style={{ background: "#fff", padding: 20, gap: 6, height: "100%" }}>
               <Corners />
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                <span className="card-kicker" style={{ fontSize: 11 }}>{c.category}</span>
-                <span className={`tag ${c.status === "completed" ? "tag-accent" : "tag-neutral"}`}>{c.status === "completed" ? "Tamamlandı" : "Devam ediyor"}</span>
-              </div>
-              <div className="card-title" style={{ fontSize: 24 }}>{c.title}</div>
-              <div className="progress-track"><div className="progress-fill" style={{ width: `${c.percentage}%` }} /></div>
-              <div className="card-meta" style={{ fontSize: 12, justifyContent: "space-between" }}><span>{c.completed_lessons} / {c.lesson_count} ders</span><span>%{c.percentage}</span></div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
-                <Link href={`/ogrenim/${c.slug}`} className="btn btn-primary blueprint" style={{ padding: "8px 18px" }}><Corners />{c.completed_lessons > 0 ? "Devam Et" : "Başla"}</Link>
-                {c.certificate_code && <Link href={`/sertifika/${c.certificate_code}`} className="btn btn-secondary" style={{ padding: "8px 18px" }}>Sertifika</Link>}
-              </div>
+              <div className="card-kicker" style={{ fontSize: 11 }}>{s.k}</div>
+              <div style={{ fontFamily: "var(--font-heading)", fontSize: 44, lineHeight: 1, fontWeight: 700 }}>{s.v}</div>
             </div>
-          ))}
-        </div>
-      )}
+          </Link>
+        ))}
+      </div>
 
-      <h2 style={{ fontSize: 36, textTransform: "uppercase", marginBottom: 20 }}>Sertifikalarım</h2>
-      {certs.length === 0 ? (
-        <p style={{ color: "var(--muted-72)", marginBottom: 56 }}>Final sınavını geçtiğinde sertifikaların burada görünür.</p>
+      <h2 style={{ fontSize: 32, textTransform: "uppercase", marginBottom: 16 }}>Kaldığın yerden devam et</h2>
+      {current ? (
+        <div style={{ maxWidth: 440, marginBottom: 40 }}><MyCourseCard c={current} /></div>
       ) : (
-        <div className="admin-table-wrap" style={{ marginBottom: 56 }}>
-          <table className="table">
-            <thead><tr><th>Kurs</th><th>Numara</th><th>Puan</th><th>Tarih</th></tr></thead>
-            <tbody>
-              {certs.map((c) => (
-                <tr key={c.certificate_code}>
-                  <td>{c.course_title}</td>
-                  <td><Link href={`/sertifika/${c.certificate_code}`}>{c.certificate_code}</Link></td>
-                  <td>{c.score !== null ? `%${c.score}` : "—"}</td>
-                  <td>{formatDate(c.issued_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <p style={{ color: "var(--muted-72)", marginBottom: 40 }}>Devam eden bir kursun yok. <Link href="/kurslar">Kursları keşfet →</Link></p>
+      )}
+
+      {!plus.active && (
+        <div className="card blueprint" style={{ background: "var(--color-accent-2-100)", padding: 22, gap: 8, maxWidth: 560 }}>
+          <Corners />
+          <div className="card-title" style={{ fontSize: 24 }}>Profect Plus ile tüm kurslar açık</div>
+          <p className="card-body" style={{ fontSize: 15 }}>Tüm kurslara ve sınırsız sertifikaya aylık erişim.</p>
+          <div><Link href="/hesabim/abonelik" className="btn btn-secondary" style={{ padding: "8px 18px" }}>Ayrıntılar</Link></div>
         </div>
       )}
-
-      {orders.length > 0 && (
-        <>
-          <h2 style={{ fontSize: 36, textTransform: "uppercase", marginBottom: 20 }}>Siparişlerim</h2>
-          <div className="admin-table-wrap" style={{ marginBottom: 56 }}>
-            <table className="table">
-              <thead><tr><th>#</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr></thead>
-              <tbody>
-                {orders.map((o) => (
-                  <tr key={o.id}>
-                    <td>{o.id}</td>
-                    <td>{o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—"}</td>
-                    <td>{formatPrice(o.amount)}</td>
-                    <td>{ORDER_STATUS[o.status]}</td>
-                    <td>{formatDate(o.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      <h2 style={{ fontSize: 36, textTransform: "uppercase", marginBottom: 20 }}>Şifre</h2>
-      <ChangePasswordForm />
-    </main>
+      {plus.active && plus.until && <p style={{ color: "var(--muted-72)" }}>Profect Plus erişimin {formatDate(plus.until)} tarihine kadar açık.</p>}
+    </>
   );
 }
