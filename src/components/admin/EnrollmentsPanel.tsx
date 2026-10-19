@@ -7,7 +7,7 @@ import { FormMessage } from "@/components/auth/AuthShell";
 import { formatDate } from "@/lib/format";
 import { adminApi } from "./api";
 
-export type EnrollmentRow = { id: number; user_id: number; user_name: string; user_email: string; course_title: string; status: string; source: string; enrolled_at: string; completed_lessons: number; total_lessons: number; certificate_code: string | null };
+export type EnrollmentRow = { id: number; user_id: number; course_id: number; user_name: string; user_email: string; course_title: string; status: string; source: string; enrolled_at: string; completed_lessons: number; total_lessons: number; certificate_code: string | null };
 type Opt = { id: number; label: string };
 
 const SOURCE: Record<string, string> = { admin: "Yönetici", purchase: "Satın alma", plus: "Plus" };
@@ -37,6 +37,11 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
     if (r.ok) router.refresh();
   }
 
+  // Zaten atanmış çiftler listeden düşsün: tüm kurslara atanmış kullanıcı ve tüm kullanıcılara atanmış kurs gösterilmez.
+  const enrolled = new Set(rows.map((r) => `${r.user_id}:${r.course_id}`));
+  const availableUsers = users.filter((u) => courses.some((c) => !enrolled.has(`${u.id}:${c.id}`)));
+  const availableCourses = courses.filter((c) => users.some((u) => !enrolled.has(`${u.id}:${c.id}`)));
+
   const box = { border: "1px solid var(--color-divider)", background: "#fff", maxHeight: 220, overflowY: "auto", padding: 8 } as const;
   const shown = rows.filter((r) => (r.user_name + r.user_email + r.course_title).toLocaleLowerCase("tr-TR").includes(filter.toLocaleLowerCase("tr-TR")));
 
@@ -49,7 +54,7 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
           <div>
             <div className="card-kicker" style={{ marginBottom: 6 }}>Kullanıcılar ({userIds.length})</div>
             <div style={box} role="group" aria-label="Kullanıcılar">
-              {users.map((u) => (
+              {availableUsers.map((u) => (
                 <label key={u.id} style={{ display: "flex", gap: 8, fontSize: 14, padding: "3px 0", cursor: "pointer" }}>
                   <input type="checkbox" checked={userIds.includes(u.id)} onChange={() => toggle(userIds, setUserIds, u.id)} />{u.label}
                 </label>
@@ -59,7 +64,7 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
           <div>
             <div className="card-kicker" style={{ marginBottom: 6 }}>Kurslar ({courseIds.length})</div>
             <div style={box} role="group" aria-label="Kurslar">
-              {courses.map((c) => (
+              {availableCourses.map((c) => (
                 <label key={c.id} style={{ display: "flex", gap: 8, fontSize: 14, padding: "3px 0", cursor: "pointer" }}>
                   <input type="checkbox" checked={courseIds.includes(c.id)} onChange={() => toggle(courseIds, setCourseIds, c.id)} />{c.label}
                 </label>

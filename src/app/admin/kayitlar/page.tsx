@@ -8,7 +8,7 @@ export const metadata = { title: "Kayıtlar" };
 export default async function AdminEnrollments() {
   const [[rows], [users], courses] = await Promise.all([
     pool.query<RowDataPacket[]>(
-      `SELECT e.id, e.user_id, e.status, e.source, e.enrolled_at, u.full_name AS user_name, u.email AS user_email,
+      `SELECT e.id, e.user_id, e.course_id, e.status, e.source, e.enrolled_at, u.full_name AS user_name, u.email AS user_email,
               c.title AS course_title, cert.certificate_code,
               (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id JOIN modules m ON m.id = l.module_id
                 WHERE lp.user_id = e.user_id AND m.course_id = e.course_id) AS completed_lessons,
