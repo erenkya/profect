@@ -1,7 +1,8 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { ChoiceEditor, blankChoice, switchChoiceKind, type ChoiceQ, type ScenQ } from "./ChoiceEditor";
+import { blankChoice, switchChoiceKind, type ChoiceQ, type ScenQ } from "@/lib/quiz-editor";
+import { ChoiceEditor } from "./ChoiceEditor";
 
 export const blankScenario = (): ScenQ => ({ kind: "scenario", scenario_text: "", scenario_prompt: "", questions: [blankChoice()] });
 

@@ -1,18 +1,11 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { ExplanationField, input, type CatQ } from "./ChoiceEditor";
+import type { CatQ } from "@/lib/quiz-editor";
+import { ExplanationField, input } from "./ChoiceEditor";
 
 const MAX_CATEGORIES = 8;
 const MAX_CARDS = 30;
-
-export const blankCategorize = (): CatQ => ({
-  kind: "categorize",
-  question_text: "",
-  explanation: "",
-  categories: ["", ""],
-  cards: [{ card_text: "", category_index: 0 }, { card_text: "", category_index: 1 }],
-});
 
 /** Sürükle-bırak sorusu: kategoriler ve her kartın doğru kategorisi. */
 export function CategorizeEditor({ idPrefix, value: q, onChange }: { idPrefix: string; value: CatQ; onChange: (q: CatQ) => void }) {

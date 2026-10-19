@@ -72,6 +72,11 @@ test("gradeQuestion: geçersiz cevap biçimleri 0 puan", () => {
   assert.equal("77" in (r.cardResults ?? {}), false);
 });
 
+test("gradeQuestion: categorize kaydedilen cevaba miras alınan anahtarlar girmez", () => {
+  const r = gradeQuestion(categorize, { "1": 10, constructor: 10, toString: 11 });
+  assert.deepEqual(r.answer, { "1": 10 });
+});
+
 test("gradeQuestion: açıklama yalnızca points < 1 iken döner", () => {
   assert.equal(gradeQuestion(single, 2).explanation, undefined);
   assert.equal(gradeQuestion(single, 1).explanation, "neden");

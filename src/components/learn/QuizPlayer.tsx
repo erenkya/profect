@@ -367,9 +367,9 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
         {r ? (
           <QuestionResultView question={q} result={r} />
         ) : q.kind === "categorize" ? (
-          <CategorizeQuestion question={q} value={answers[q.id] as Record<string, number> | undefined} onChange={(v) => answer(q, v, current, total)} disabled={busy} />
+          <CategorizeQuestion question={q} value={answers[q.id] as Record<string, number> | undefined} onChange={(v) => answer(q, v, current, total)} disabled={busy || !!result} />
         ) : (
-          <ChoiceQuestion question={q} value={answers[q.id] as number | number[] | undefined} onChange={(v) => answer(q, v, current, total)} disabled={busy} />
+          <ChoiceQuestion question={q} value={answers[q.id] as number | number[] | undefined} onChange={(v) => answer(q, v, current, total)} disabled={busy || !!result} />
         )}
       </div>
 

@@ -9,13 +9,13 @@ import { Corners } from "@/components/Corners";
 import { FormMessage } from "@/components/auth/AuthShell";
 import type { quizSchema } from "@/lib/admin-schemas";
 import { adminApi } from "./api";
-import { ChoiceEditor, blankChoice, switchChoiceKind, type ChoiceQ, type EditorItem } from "./quiz/ChoiceEditor";
-import { CategorizeEditor, blankCategorize } from "./quiz/CategorizeEditor";
+import { blankChoice, changeKind, type ChoiceQ, type EditorItem, type ItemKind } from "@/lib/quiz-editor";
+import { ChoiceEditor } from "./quiz/ChoiceEditor";
+import { CategorizeEditor } from "./quiz/CategorizeEditor";
 import { ScenarioEditor, blankScenario } from "./quiz/ScenarioEditor";
 
 type QuizInputQuestions = z.infer<typeof quizSchema>["questions"];
 type Props = { quizId: number; courseSlug: string; courseId: number; initial: { title: string; passing: number; duration: number | null; questions: QuizInputQuestions } };
-type ItemKind = "single" | "multiple" | "categorize";
 
 const KIND_LABEL: Record<EditorItem["kind"], string> = { single: "Tek cevaplı", multiple: "Çok cevaplı", categorize: "Sürükle-bırak", scenario: "Senaryo" };
 
@@ -41,14 +41,6 @@ function clean(items: EditorItem[]) {
       return cleanChoice(q);
     })
     .filter((q) => (q.kind === "scenario" ? q.scenario_text : q.question_text));
-}
-
-/** Soru tipi değişimi: metin ve açıklama korunur. */
-function changeKind(q: Exclude<EditorItem, { kind: "scenario" }>, kind: ItemKind): EditorItem {
-  if (kind === q.kind) return q;
-  if (kind === "categorize") return { ...blankCategorize(), question_text: q.question_text, explanation: q.explanation };
-  if (q.kind === "categorize") return { ...blankChoice(kind), question_text: q.question_text, explanation: q.explanation };
-  return switchChoiceKind(q, kind);
 }
 
 export function QuizEditor({ quizId, courseId, initial }: Props) {

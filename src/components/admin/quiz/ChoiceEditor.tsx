@@ -1,22 +1,10 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-
-export type Opt = { option_text: string; is_correct: boolean };
-export type ChoiceQ = { kind: "single" | "multiple"; question_text: string; explanation: string; options: Opt[] };
-export type CatQ = { kind: "categorize"; question_text: string; explanation: string; categories: string[]; cards: { card_text: string; category_index: number }[] };
-export type ScenQ = { kind: "scenario"; scenario_text: string; scenario_prompt: string; questions: ChoiceQ[] };
-export type EditorItem = ChoiceQ | CatQ | ScenQ;
+import type { ChoiceQ, Opt } from "@/lib/quiz-editor";
 
 const MAX_OPTIONS = 12;
 export const input = { background: "#fff", fontSize: 15, minHeight: 38 } as const;
-
-export const blankChoice = (kind: ChoiceQ["kind"] = "single"): ChoiceQ => ({
-  kind,
-  question_text: "",
-  explanation: "",
-  options: [{ option_text: "", is_correct: true }, { option_text: "", is_correct: false }, { option_text: "", is_correct: false }, { option_text: "", is_correct: false }],
-});
 
 /** Açıklama alanı (tüm puanlanan soru tiplerinde ortak). */
 export function ExplanationField({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
@@ -68,12 +56,4 @@ export function ChoiceEditor({ idPrefix, value: q, onChange }: { idPrefix: strin
       <ExplanationField id={`${idPrefix}-explanation`} value={q.explanation} onChange={(explanation) => onChange({ ...q, explanation })} />
     </>
   );
-}
-
-/** Tek ↔ çok cevaplı geçişi: tek cevaplıya dönerken yalnızca ilk doğru şık korunur. */
-export function switchChoiceKind(q: ChoiceQ, kind: ChoiceQ["kind"]): ChoiceQ {
-  if (kind === q.kind) return q;
-  if (kind === "multiple") return { ...q, kind };
-  const first = q.options.findIndex((o) => o.is_correct);
-  return { ...q, kind, options: q.options.map((o, k) => ({ ...o, is_correct: k === Math.max(first, 0) })) };
 }

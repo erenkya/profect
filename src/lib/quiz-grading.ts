@@ -23,7 +23,7 @@ export function gradeQuestion(q: GradingQuestion, raw: unknown): GradeResult {
     const placed: Record<string, number> = {};
     if (isPlainObject(raw)) {
       for (const [card, cat] of Object.entries(raw)) {
-        if (card in q.cardCategory && typeof cat === "number" && q.categoryIds.includes(cat)) placed[card] = cat;
+        if (Object.hasOwn(q.cardCategory, card) && typeof cat === "number" && q.categoryIds.includes(cat)) placed[card] = cat;
       }
     }
     cardResults = {};
