@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   // Sertifika PDF'i çalışma anında font ve logo dosyalarını okur; sunucu paketine dahil edilmeli.
   outputFileTracingIncludes: {
     "/api/public/certificates/[code]/pdf": ["src/assets/fonts/**/*", "public/profect-logo.jpeg"],
+    "/sertifika/[code]/opengraph-image": ["src/assets/fonts/**/*", "public/profect-logo.jpeg"],
   },
 };
 

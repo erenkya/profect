@@ -367,19 +367,27 @@ export type CertificateRow = {
   score: number | null;
   student_name: string;
   course_title: string;
-  course_hours: number;
+  course_minutes: number;
   instructor: string;
 };
+
+/** Kursun toplam süresi (dk): tüm derslerin + tüm sınavların süreleri. `cr` = courses takma adı. */
+export const COURSE_MINUTES_SQL = `(
+  (SELECT COALESCE(SUM(l.duration_minutes), 0) FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = cr.id) +
+  (SELECT COALESCE(SUM(q.duration_minutes), 0) FROM quizzes q WHERE q.course_id = cr.id)
+)`;
 
 export async function getCertificateByCode(code: string): Promise<CertificateRow | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT c.certificate_code, c.issued_at, c.score, u.full_name AS student_name,
-            cr.title AS course_title, cr.hours AS course_hours, cr.instructor
+            cr.title AS course_title, cr.instructor,
+            ${COURSE_MINUTES_SQL} AS course_minutes
        FROM certificates c JOIN users u ON u.id = c.user_id JOIN courses cr ON cr.id = c.course_id
       WHERE c.certificate_code = ?`,
     [code.trim().toUpperCase()],
   );
-  return (rows[0] as CertificateRow | undefined) ?? null;
+  const row = rows[0];
+  return row ? ({ ...row, course_minutes: Number(row.course_minutes) } as CertificateRow) : null;
 }
 
 export async function listMyCertificates(userId: number) {

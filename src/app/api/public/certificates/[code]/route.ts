@@ -1,5 +1,6 @@
 import type { RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
+import { COURSE_MINUTES_SQL } from "@/lib/lms";
 import { fail, ok, serverError } from "@/lib/http";
 
 /** Herkese açık, salt okunur doğrulama. Yalnızca ad, kurs, tarih ve puan döner. */
@@ -9,7 +10,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ code: s
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT c.certificate_code, c.issued_at, c.score, u.full_name AS student_name,
-              cr.title AS course_title, cr.hours AS course_hours
+              cr.title AS course_title,
+              ${COURSE_MINUTES_SQL} AS course_minutes
          FROM certificates c
          JOIN users u ON u.id = c.user_id
          JOIN courses cr ON cr.id = c.course_id

@@ -43,7 +43,7 @@ export const lessonSchema = z
     title: z.string().trim().min(1).max(255),
     lesson_type: z.enum(["video", "text"]),
     content: z.string().min(1, "İçerik boş olamaz."), // video: R2 nesne anahtarı · text: Markdown
-    duration_minutes: z.coerce.number().int().min(0).max(100000).nullable().optional(),
+    duration_minutes: z.coerce.number({ invalid_type_error: "Ders süresi zorunlu." }).int().min(1, "Ders süresi en az 1 dk olmalı.").max(100000),
   })
   .superRefine((d, ctx) => {
     if (d.lesson_type === "video" && !isVideoKey(d.content)) {
@@ -62,6 +62,7 @@ export const videoUploadSchema = z.object({
 export const quizSchema = z.object({
   title: z.string().trim().min(1).max(255),
   passing_score_percentage: z.coerce.number().int().min(1).max(100).default(70),
+  duration_minutes: z.coerce.number({ invalid_type_error: "Sınav süresi zorunlu." }).int().min(1, "Sınav süresi en az 1 dk olmalı.").max(100000),
   questions: z
     .array(
       z.object({

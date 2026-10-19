@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ mod
   if (guard.error) return guard.error;
   const moduleId = parseId((await params).moduleId);
   if (!moduleId) return fail("Geçersiz modül.", 400);
-  const body = await parseBody(request, quizSchema.partial({ questions: true }));
+  const body = await parseBody(request, quizSchema.partial({ questions: true, duration_minutes: true }));
   if (body.error) return body.error;
   const d = body.data;
   const conn = await pool.getConnection();
@@ -23,8 +23,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ mod
 
     await conn.beginTransaction();
     const [res] = await conn.execute<ResultSetHeader>(
-      "INSERT INTO quizzes (course_id, module_id, title, passing_score_percentage) VALUES (?, ?, ?, ?)",
-      [m[0].course_id, moduleId, d.title, d.passing_score_percentage],
+      "INSERT INTO quizzes (course_id, module_id, title, passing_score_percentage, duration_minutes) VALUES (?, ?, ?, ?, ?)",
+      [m[0].course_id, moduleId, d.title, d.passing_score_percentage, d.duration_minutes ?? null],
     );
     await writeQuestions(conn, res.insertId, d.questions ?? []);
     await conn.commit();

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { Corners } from "@/components/Corners";
 import { CertificateButton } from "./CertificateButton";
@@ -12,6 +12,8 @@ type Quiz = {
   course_id: number;
   module_id: number | null;
   passing_score_percentage: number;
+  durationMinutes: number | null;
+  remainingSeconds: number | null;
   isPassed: boolean;
   bestScore: number | null;
   questions: { id: number; text: string; options: { id: number; text: string }[] }[];
@@ -25,12 +27,19 @@ export function QuizPlayer({ quizId, nextHref, certificateCode }: { quizId: numb
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState(0); // "Tekrar dene" → soruları yeniden karıştırarak yükler
+  const [left, setLeft] = useState<number | null>(null); // kalan saniye (süresiz sınavda null)
+  const [timedOut, setTimedOut] = useState(false);
+  const autoSent = useRef(false);
 
   useEffect(() => {
     let alive = true;
     setQuiz(null);
     setResult(null);
     setAnswers({});
+    setLeft(null);
+    setTimedOut(false);
+    setError("");
+    autoSent.current = false;
     fetch(`/api/client/quizzes/${quizId}`)
       .then(async (r) => ({ ok: r.ok, json: await r.json() }))
       .then(({ ok, json }) => alive && (ok ? setQuiz(json.data) : setError(json.message ?? "Sınav yüklenemedi.")))
@@ -39,6 +48,26 @@ export function QuizPlayer({ quizId, nextHref, certificateCode }: { quizId: numb
       alive = false;
     };
   }, [quizId, round]);
+
+  // Geri sayım: sunucunun verdiği kalan süreden başlar, saat sapmasına karşı bitiş anına göre hesaplanır.
+  const remaining = quiz?.remainingSeconds ?? null;
+  useEffect(() => {
+    if (remaining === null || result) return;
+    const deadline = Date.now() + remaining * 1000;
+    const tick = () => setLeft(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [remaining, result]);
+
+  // Süre dolunca o ana kadarki cevaplarla otomatik gönder.
+  useEffect(() => {
+    if (left === 0 && quiz && !result && !busy && !autoSent.current) {
+      autoSent.current = true;
+      setTimedOut(true);
+      void submit();
+    }
+  });
 
   async function submit() {
     if (!quiz) return;
@@ -59,7 +88,13 @@ export function QuizPlayer({ quizId, nextHref, certificateCode }: { quizId: numb
     }
   }
 
-  if (error) return <div role="alert" style={{ color: "var(--color-accent-2-700)" }}>{error}</div>;
+  if (error)
+    return (
+      <div role="alert" style={{ color: "var(--color-accent-2-700)" }}>
+        <p>{error}</p>
+        <button className="btn btn-primary blueprint" onClick={() => setRound((r) => r + 1)} style={{ marginTop: 12 }}><Corners />Sınavı yeniden başlat</button>
+      </div>
+    );
   if (!quiz) return <p style={{ color: "var(--muted-55)" }}>Sınav yükleniyor…</p>;
   if (quiz.questions.length === 0) return <p>Bu sınav için henüz soru eklenmemiş.</p>;
 
@@ -72,8 +107,18 @@ export function QuizPlayer({ quizId, nextHref, certificateCode }: { quizId: numb
       <h1 style={{ fontSize: "clamp(36px,4.5vw,56px)", lineHeight: 1, textTransform: "uppercase", margin: "0 0 10px" }}>{quiz.title}</h1>
       <p style={{ color: "var(--muted-72)", marginBottom: 28 }}>
         {quiz.questions.length} soru · geçme notu %{quiz.passing_score_percentage}
+        {quiz.durationMinutes && <> · süre {quiz.durationMinutes} dk</>}
         {quiz.bestScore !== null && <> · en iyi puanın %{quiz.bestScore}</>}
       </p>
+
+      {!result && left !== null && (
+        <div role="timer" aria-live="off" style={{ position: "sticky", top: 12, zIndex: 5, marginBottom: 20, padding: "10px 16px", background: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center", border: `1px solid ${left <= 60 ? "var(--color-accent-2)" : "var(--color-accent)"}`, color: left <= 60 ? "var(--color-accent-2)" : undefined }}>
+          <span className="eyebrow">Kalan süre</span>
+          <span style={{ fontFamily: "var(--font-heading)", fontSize: 28, fontWeight: 700 }}>{String(Math.floor(left / 60)).padStart(2, "0")}:{String(left % 60).padStart(2, "0")}</span>
+        </div>
+      )}
+
+      {result && timedOut && <p role="status" style={{ marginBottom: 16, color: "var(--muted-72)" }}>Süre doldu; işaretlediğin cevaplar otomatik gönderildi.</p>}
 
       {result && (
         <div className="card blueprint elev-md" style={{ background: "#fff", padding: 24, gap: 10, marginBottom: 28 }} role="status">

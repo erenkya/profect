@@ -10,7 +10,7 @@ import { adminApi } from "./api";
 
 type Opt = { option_text: string; is_correct: boolean };
 type Q = { question_text: string; options: Opt[] };
-type Props = { quizId: number; courseSlug: string; courseId: number; initial: { title: string; passing: number; questions: Q[] } };
+type Props = { quizId: number; courseSlug: string; courseId: number; initial: { title: string; passing: number; duration: number | null; questions: Q[] } };
 
 const blankQ = (): Q => ({ question_text: "", options: [{ option_text: "", is_correct: true }, { option_text: "", is_correct: false }, { option_text: "", is_correct: false }, { option_text: "", is_correct: false }] });
 
@@ -18,6 +18,7 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
   const router = useRouter();
   const [title, setTitle] = useState(initial.title);
   const [passing, setPassing] = useState(String(initial.passing));
+  const [duration, setDuration] = useState(initial.duration == null ? "" : String(initial.duration));
   const [qs, setQs] = useState<Q[]>(initial.questions.length ? initial.questions : [blankQ()]);
   const [flash, setFlash] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -27,12 +28,16 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
   const markCorrect = (i: number, j: number) => setQ(i, { options: qs[i].options.map((o, k) => ({ ...o, is_correct: k === j })) });
 
   async function save() {
+    if (!(Number(duration) >= 1)) {
+      setFlash({ kind: "error", text: "Sınav süresi (dk) zorunlu." });
+      return;
+    }
     // Boş bırakılan şıklar kaydedilmez; en az 2 dolu şık ve 1 doğru şık gerekir.
     const cleaned = qs
       .map((q) => ({ question_text: q.question_text.trim(), options: q.options.filter((o) => o.option_text.trim()).map((o) => ({ ...o, option_text: o.option_text.trim() })) }))
       .filter((q) => q.question_text);
     setBusy(true);
-    const r = await adminApi("PUT", `/api/admin/quizzes/${quizId}`, { title, passing_score_percentage: Number(passing) || 70, questions: cleaned });
+    const r = await adminApi("PUT", `/api/admin/quizzes/${quizId}`, { title, passing_score_percentage: Number(passing) || 70, duration_minutes: Number(duration), questions: cleaned });
     setBusy(false);
     setFlash({ kind: r.ok ? "ok" : "error", text: r.ok ? "Sınav kaydedildi." : r.message });
     if (r.ok) router.refresh();
@@ -45,9 +50,10 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
       <h1 style={{ fontSize: 48, textTransform: "uppercase", margin: "12px 0 20px" }}>Sınav düzenle</h1>
       {flash && <div style={{ marginBottom: 16 }}><FormMessage kind={flash.kind}>{flash.text}</FormMessage></div>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 160px", gap: 14, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px", gap: 14, marginBottom: 28 }}>
         <div className="field"><label>Başlık</label><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} style={input} /></div>
         <div className="field"><label>Geçme notu (%)</label><input className="input" type="number" min={1} max={100} value={passing} onChange={(e) => setPassing(e.target.value)} style={input} /></div>
+        <div className="field"><label>Süre (dk)</label><input className="input" type="number" min={1} required value={duration} onChange={(e) => setDuration(e.target.value)} style={input} /></div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>

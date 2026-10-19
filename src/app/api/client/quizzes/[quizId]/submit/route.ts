@@ -1,9 +1,11 @@
 import { z } from "zod";
-import type { RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { canAccessCourse } from "@/lib/lms";
+
+const GRACE_SECONDS = 15; // ağ gecikmesi / otomatik gönderim toleransı
 
 const schema = z.object({ answers: z.record(z.string(), z.coerce.number().int()) }); // { soruId: seçenekId }
 
@@ -18,12 +20,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
 
   try {
     const [quizRows] = await pool.query<RowDataPacket[]>(
-      "SELECT passing_score_percentage, course_id, module_id FROM quizzes WHERE id = ?",
+      "SELECT passing_score_percentage, course_id, module_id, duration_minutes FROM quizzes WHERE id = ?",
       [quizId],
     );
     const quiz = quizRows[0];
     if (!quiz) return fail("Sınav bulunamadı.", 404);
     if (!(await canAccessCourse(userId, quiz.course_id))) return fail("Bu kursa erişiminiz yok.", 403);
+
+    if (quiz.duration_minutes) {
+      const [open] = await pool.query<RowDataPacket[]>(
+        `SELECT id, TIMESTAMPDIFF(SECOND, started_at, NOW()) AS elapsed FROM quiz_sessions
+          WHERE user_id = ? AND quiz_id = ? AND submitted_at IS NULL ORDER BY id DESC LIMIT 1`,
+        [userId, quizId],
+      );
+      const session = open[0];
+      if (!session) return fail("Sınav oturumu bulunamadı. Sayfayı yenileyip sınavı baştan başlatın.", 409);
+      // Oturum bir kez kullanılır: eşzamanlı çift gönderim ikinci kez sayılmaz.
+      const [upd] = await pool.execute<ResultSetHeader>("UPDATE quiz_sessions SET submitted_at = NOW() WHERE id = ? AND submitted_at IS NULL", [session.id]);
+      if (upd.affectedRows === 0) return fail("Bu sınav oturumu zaten gönderildi.", 409);
+      if (Number(session.elapsed) > quiz.duration_minutes * 60 + GRACE_SECONDS) {
+        return fail("Süre doldu. Bu deneme kabul edilmedi; sınavı yeniden başlatabilirsiniz.", 408);
+      }
+    }
 
     const [questions] = await pool.query<RowDataPacket[]>("SELECT id FROM questions WHERE quiz_id = ?", [quizId]);
     if (questions.length === 0) return fail("Bu sınavda soru yok.", 400);

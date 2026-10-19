@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lessonSchema, videoUploadSchema } from "./admin-schemas.ts";
+import { lessonSchema, quizSchema, videoUploadSchema } from "./admin-schemas.ts";
 
 const KEY = "kurslar/web-tasarim/34-giris/a1b2c3d4-html-temelleri.mp4";
-const lesson = (over: Record<string, unknown>) => lessonSchema.safeParse({ title: "Ders", lesson_type: "video", content: KEY, ...over });
+const lesson = (over: Record<string, unknown>) => lessonSchema.safeParse({ title: "Ders", lesson_type: "video", content: KEY, duration_minutes: 10, ...over });
 
 test("lessonSchema: geçerli R2 anahtarlı video dersi kabul edilir", () => {
   assert.equal(lesson({}).success, true);
@@ -18,6 +18,19 @@ test("lessonSchema: video dersinde YouTube ID'si, '../' içeren veya rastgele i�
 test("lessonSchema: metin dersinde içerik serbesttir", () => {
   assert.equal(lesson({ lesson_type: "text", content: "# Merhaba\n\nmetin" }).success, true);
   assert.equal(lesson({ lesson_type: "text", content: "" }).success, false);
+});
+
+test("lessonSchema: süre zorunludur (boş, null, 0 ve negatif reddedilir)", () => {
+  for (const duration_minutes of [undefined, null, "", 0, -5]) {
+    assert.equal(lesson({ duration_minutes }).success, false, String(duration_minutes));
+  }
+  assert.equal(lesson({ duration_minutes: "15" }).success, true);
+});
+
+test("quizSchema: süre zorunludur", () => {
+  const quiz = (over: Record<string, unknown>) => quizSchema.safeParse({ title: "Sınav", questions: [], duration_minutes: 20, ...over });
+  assert.equal(quiz({}).success, true);
+  for (const duration_minutes of [undefined, null, "", 0]) assert.equal(quiz({ duration_minutes }).success, false, String(duration_minutes));
 });
 
 test("videoUploadSchema: geçerli istek kabul edilir", () => {

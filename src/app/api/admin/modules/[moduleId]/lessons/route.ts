@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ mod
     const [res] = await pool.execute<ResultSetHeader>(
       `INSERT INTO lessons (module_id, title, lesson_type, content, duration_minutes, sort_order)
        SELECT ?, ?, ?, ?, ?, COALESCE(MAX(sort_order) + 1, 0) FROM lessons WHERE module_id = ?`,
-      [moduleId, d.title, d.lesson_type, d.content, d.duration_minutes ?? null, moduleId],
+      [moduleId, d.title, d.lesson_type, d.content, d.duration_minutes, moduleId],
     );
     return ok({ lessonId: res.insertId }, 201);
   } catch (err) {

@@ -29,7 +29,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
     }
     const [res] = await pool.execute<ResultSetHeader>(
       "UPDATE lessons SET title = ?, lesson_type = ?, content = ?, duration_minutes = ? WHERE id = ?",
-      [d.title, d.lesson_type, d.content, d.duration_minutes ?? null, id],
+      [d.title, d.lesson_type, d.content, d.duration_minutes, id],
     );
     if (!res.affectedRows) return fail("Ders bulunamadı.", 404);
     // Video değiştiyse (ya da derse metne çevrildiyse) eski nesne R2'de sahipsiz kalmasın.

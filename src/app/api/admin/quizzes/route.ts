@@ -7,7 +7,7 @@ import { quizSchema } from "@/lib/admin-schemas";
 import { writeQuestions } from "@/lib/quiz-admin";
 
 /** Kurs FİNAL sınavı oluşturur (kurs başına bir tane). */
-const schema = quizSchema.partial({ questions: true }).extend({ course_id: z.coerce.number().int().positive() });
+const schema = quizSchema.partial({ questions: true, duration_minutes: true }).extend({ course_id: z.coerce.number().int().positive() });
 
 export async function POST(request: Request) {
   const guard = await requireAdmin();
@@ -24,8 +24,8 @@ export async function POST(request: Request) {
 
     await conn.beginTransaction();
     const [res] = await conn.execute<ResultSetHeader>(
-      "INSERT INTO quizzes (course_id, module_id, title, passing_score_percentage) VALUES (?, NULL, ?, ?)",
-      [d.course_id, d.title, d.passing_score_percentage],
+      "INSERT INTO quizzes (course_id, module_id, title, passing_score_percentage, duration_minutes) VALUES (?, NULL, ?, ?, ?)",
+      [d.course_id, d.title, d.passing_score_percentage, d.duration_minutes ?? null],
     );
     await writeQuestions(conn, res.insertId, d.questions ?? []);
     await conn.commit();

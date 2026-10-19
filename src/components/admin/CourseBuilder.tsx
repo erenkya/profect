@@ -216,7 +216,7 @@ function ModuleCard({ mod, index, courseId, siblings, run }: { mod: AdminModule;
   );
 }
 
-function LessonForm({ moduleId, initial, submitLabel, onSubmit, onCancel }: { moduleId: number; initial?: AdminLesson; submitLabel: string; onSubmit: (v: { title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null }) => void; onCancel: () => void }) {
+function LessonForm({ moduleId, initial, submitLabel, onSubmit, onCancel }: { moduleId: number; initial?: AdminLesson; submitLabel: string; onSubmit: (v: { title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number }) => void; onCancel: () => void }) {
   const [v, setV] = useState({ title: initial?.title ?? "", lesson_type: initial?.lesson_type ?? ("text" as "video" | "text"), content: initial?.content ?? "", duration: initial?.duration_minutes == null ? "" : String(initial.duration_minutes) });
   const [uploading, setUploading] = useState(false);
   return (
@@ -224,7 +224,7 @@ function LessonForm({ moduleId, initial, submitLabel, onSubmit, onCancel }: { mo
       onSubmit={(e) => {
         e.preventDefault();
         if (v.lesson_type === "video" && !v.content) return;
-        onSubmit({ title: v.title, lesson_type: v.lesson_type, content: v.content, duration_minutes: v.duration === "" ? null : Number(v.duration) });
+        onSubmit({ title: v.title, lesson_type: v.lesson_type, content: v.content, duration_minutes: Number(v.duration) });
       }}
       style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, background: "var(--color-accent-100)" }}
     >
@@ -234,7 +234,7 @@ function LessonForm({ moduleId, initial, submitLabel, onSubmit, onCancel }: { mo
           <option value="text">Metin (Markdown)</option>
           <option value="video">Video</option>
         </select>
-        <input className="input" type="number" min={0} placeholder="Süre (dk)" value={v.duration} onChange={(e) => setV({ ...v, duration: e.target.value })} style={input} />
+        <input className="input" type="number" required min={1} placeholder="Süre (dk)" value={v.duration} onChange={(e) => setV({ ...v, duration: e.target.value })} style={input} />
       </div>
       {v.lesson_type === "video" ? (
         <VideoUploadField

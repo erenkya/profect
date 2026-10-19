@@ -5,9 +5,10 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Corners } from "@/components/Corners";
+import { ShareCertificate } from "@/components/ShareCertificate";
 import { Cta } from "@/components/Cta";
 import { certificateQrSvg, certificateVerifyUrl } from "@/lib/certificate-pdf";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDuration } from "@/lib/format";
 import { getBaseUrlFromHeaders } from "@/lib/http";
 import { getCertificateByCode } from "@/lib/lms";
 
@@ -15,9 +16,17 @@ type Props = { params: Promise<{ code: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const cert = await getCertificateByCode(decodeURIComponent((await params).code));
-  return cert
-    ? { title: `${cert.student_name} — ${cert.course_title}`, description: `${cert.student_name}, ${cert.course_title} programını başarıyla tamamladı.` }
-    : { title: "Sertifika bulunamadı", robots: { index: false } };
+  if (!cert) return { title: "Sertifika bulunamadı", robots: { index: false } };
+  const base = getBaseUrlFromHeaders(await headers());
+  const title = `${cert.student_name} — ${cert.course_title}`;
+  const description = `${cert.student_name}, ${cert.course_title} programını başarıyla tamamladı.`;
+  return {
+    title,
+    description,
+    metadataBase: new URL(base),
+    openGraph: { title, description, type: "website", siteName: "Profect", locale: "tr_TR", url: certificateVerifyUrl(base, cert.certificate_code) },
+    twitter: { card: "summary_large_image", title, description },
+  };
 }
 
 /** Herkese açık, salt okunur doğrulama sayfası (oturum gerektirmez). */
@@ -48,7 +57,7 @@ export default async function CertificatePage({ params }: Props) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 40, flexWrap: "wrap", fontSize: 14 }}>
                 <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Tarih</div><strong style={{ fontWeight: 600 }}>{formatDate(cert.issued_at)}</strong></div>
-                <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Süre</div><strong style={{ fontWeight: 600 }}>{cert.course_hours} saat</strong></div>
+                <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Süre</div><strong style={{ fontWeight: 600 }}>{formatDuration(cert.course_minutes)}</strong></div>
                 {cert.instructor && <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Eğitmen</div><strong style={{ fontWeight: 600 }}>{cert.instructor}</strong></div>}
               </div>
               <div style={{ textAlign: "center" }}>
@@ -69,7 +78,17 @@ export default async function CertificatePage({ params }: Props) {
             <Download size={18} aria-hidden /> PDF olarak indir
           </a>
         </div>
-        <p style={{ textAlign: "center", marginTop: 16, fontSize: 14, color: "var(--muted-55)" }}>
+        <div style={{ marginTop: 32 }}>
+          <ShareCertificate
+            url={verifyUrl}
+            text={`${cert.student_name}, ${cert.course_title} programını tamamladı ve Profect sertifikasını aldı.`}
+            courseTitle={cert.course_title}
+            certificateCode={cert.certificate_code}
+            issueYear={Number(cert.issued_at.slice(0, 4))}
+            issueMonth={Number(cert.issued_at.slice(5, 7))}
+          />
+        </div>
+        <p style={{ textAlign: "center", marginTop: 32, fontSize: 14, color: "var(--muted-55)" }}>
           Bu sayfa, sertifikanın Profect kayıtlarında bulunduğunu doğrular. <Link href="/#sertifika">Başka bir sertifika doğrula</Link>
         </p>
       </div>
