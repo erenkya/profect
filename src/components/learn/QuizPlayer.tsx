@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Clock, ListChecks, Target, Trophy, X } from "lucide-react";
 import { Corners } from "@/components/Corners";
 import { CertificateButton } from "./CertificateButton";
-import { QuizReviewSection, type QuizReview } from "./QuizReview";
+import { QuizExplanation, QuizReviewSection, type QuizReview } from "./QuizReview";
 
 type Quiz = {
   id: number;
@@ -20,7 +20,7 @@ type Quiz = {
   bestScore: number | null;
   questions: { id: number; text: string; options: { id: number; text: string }[] }[];
 };
-type Result = { score: number; isPassed: boolean; correctCount: number; totalQuestions: number; results: Record<string, { isCorrect: boolean; selectedOptionId: number | null }> };
+type Result = { score: number; isPassed: boolean; correctCount: number; totalQuestions: number; results: Record<string, { isCorrect: boolean; selectedOptionId: number | null; explanation?: string }> };
 
 /** Başlangıç ekranı bilgileri sunucudan gelir; sınav API'si çağrılınca süre başladığı için o ana kadar çağrılmaz. */
 export type QuizIntro = {
@@ -42,6 +42,7 @@ const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${St
 export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizId: number; intro: QuizIntro; nextHref: string | null; certificateCode: string | null }) {
   const router = useRouter();
   const [started, setStarted] = useState(false);
+  const [showReview, setShowReview] = useState(false);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [error, setError] = useState("");
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -174,16 +175,31 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
             {!intro.isFinal && nextHref && (
               <Link href={nextHref} className="btn btn-primary blueprint lesson-next"><Corners />Sonraki <span className="lesson-arrow" aria-hidden>→</span></Link>
             )}
+            {intro.review && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                aria-expanded={showReview}
+                aria-controls="quiz-review"
+                onClick={() => {
+                  setShowReview((v) => !v);
+                  if (!showReview) requestAnimationFrame(() => document.getElementById("quiz-review")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+                }}
+              >
+                {showReview ? "Cevapları gizle" : "Cevaplarımı gör"}
+              </button>
+            )}
             {intro.questionCount > 0 && (
               <button type="button" className="btn btn-secondary" onClick={() => setStarted(true)}>Tekrar çöz</button>
             )}
           </div>
+          {!intro.review && (
+            <p style={{ margin: "4px 0 0", fontSize: 14, color: "var(--color-accent-2)" }}>
+              Bu sınavı cevaplar kaydedilmeye başlamadan önce çözdüğün için ayrıntılı sonucun yok. Tekrar çözersen hangi soruda ne yaptığını burada görebilirsin.
+            </p>
+          )}
         </section>
-        {intro.review ? (
-          <QuizReviewSection review={intro.review} />
-        ) : (
-          <p style={{ marginTop: 32, fontSize: 14, color: "var(--muted-55)" }}>Bu deneme için cevapların kaydedilmemiş; sınavı tekrar çözersen cevaplarını burada inceleyebilirsin.</p>
-        )}
+        {intro.review && showReview && <QuizReviewSection review={intro.review} />}
       </div>
     );
   }
@@ -355,6 +371,7 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
           })}
         </div>
         {r && !r.selectedOptionId && <p style={{ margin: "12px 0 0", fontSize: 14, color: "var(--color-accent-2)" }}>Bu soru cevapsız bırakıldı.</p>}
+        {r?.explanation && <QuizExplanation text={r.explanation} />}
       </div>
 
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 32 }}>

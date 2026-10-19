@@ -24,7 +24,10 @@ async function loadReview(userId: number, quizId: number): Promise<QuizReview | 
   // MySQL JSON kolonu nesne, MariaDB metin döndürür.
   const answers: Record<string, number | null> = typeof attempt.answers === "string" ? JSON.parse(attempt.answers) : attempt.answers;
 
-  const [questions] = await pool.query<RowDataPacket[]>("SELECT id, question_text FROM questions WHERE quiz_id = ? ORDER BY id", [quizId]);
+  // Yönetici sınavı kaydedince sorular yeniden oluşturulur (yeni ID'ler); yalnızca denemedeki sorular incelenebilir.
+  const [allQuestions] = await pool.query<RowDataPacket[]>("SELECT id, question_text, explanation FROM questions WHERE quiz_id = ? ORDER BY id", [quizId]);
+  const questions = allQuestions.filter((r) => String(r.id) in answers);
+  if (questions.length === 0) return null;
   const ids = questions.map((r) => r.id);
   const [options] = ids.length
     ? await pool.query<RowDataPacket[]>("SELECT id, question_id, option_text, is_correct FROM options WHERE question_id IN (?) ORDER BY id", [ids])
@@ -34,7 +37,14 @@ async function loadReview(userId: number, quizId: number): Promise<QuizReview | 
     const opts = options.filter((o) => o.question_id === qr.id);
     const selectedOptionId = answers[String(qr.id)] ?? null;
     const isCorrect = selectedOptionId !== null && opts.some((o) => o.id === selectedOptionId && o.is_correct === 1);
-    return { id: qr.id as number, text: qr.question_text as string, options: opts.map((o) => ({ id: o.id as number, text: o.option_text as string })), selectedOptionId, isCorrect };
+    return {
+      id: qr.id as number,
+      text: qr.question_text as string,
+      options: opts.map((o) => ({ id: o.id as number, text: o.option_text as string })),
+      selectedOptionId,
+      isCorrect,
+      explanation: !isCorrect ? ((qr.explanation as string | null) ?? null) : null, // yalnızca yanlışlarda
+    };
   });
 
   return {

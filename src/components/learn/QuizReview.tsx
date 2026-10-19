@@ -1,15 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Lightbulb, X } from "lucide-react";
 
 /** Son denemenin cevapları; doğru şık bilgisi yoktur, yalnızca seçilen şıkkın doğru olup olmadığı. */
 export type QuizReview = {
   score: number;
   attemptedAt: string; // ISO
   correctCount: number;
-  questions: { id: number; text: string; options: { id: number; text: string }[]; selectedOptionId: number | null; isCorrect: boolean }[];
+  questions: { id: number; text: string; options: { id: number; text: string }[]; selectedOptionId: number | null; isCorrect: boolean; explanation: string | null }[];
 };
+
+/** Yanlış cevaplanan sorunun yönetici açıklaması. */
+export function QuizExplanation({ text }: { text: string }) {
+  return (
+    <div className="quiz-explanation" role="note">
+      <Lightbulb size={18} strokeWidth={1.5} style={{ flex: "none", marginTop: 2 }} />
+      <div>
+        <div style={{ fontWeight: 600, fontSize: 13, textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 4 }}>Açıklama</div>
+        <div style={{ whiteSpace: "pre-line" }}>{text}</div>
+      </div>
+    </div>
+  );
+}
 
 const dateFmt = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -19,7 +32,7 @@ export function QuizReviewSection({ review }: { review: QuizReview }) {
   const shown = onlyWrong ? review.questions.filter((q) => !q.isCorrect) : review.questions;
 
   return (
-    <section aria-labelledby="quiz-review-title" className="quiz-review" style={{ marginTop: 40 }}>
+    <section id="quiz-review" aria-labelledby="quiz-review-title" className="quiz-review" style={{ marginTop: 40, scrollMarginTop: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
         <div>
           <h2 id="quiz-review-title" style={{ fontSize: 28, lineHeight: 1, textTransform: "uppercase", margin: "0 0 6px" }}>Cevapların</h2>
@@ -62,6 +75,7 @@ export function QuizReviewSection({ review }: { review: QuizReview }) {
                   );
                 })}
               </ul>
+              {!q.isCorrect && q.explanation && <QuizExplanation text={q.explanation} />}
             </li>
           );
         })}

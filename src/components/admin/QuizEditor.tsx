@@ -9,10 +9,10 @@ import { FormMessage } from "@/components/auth/AuthShell";
 import { adminApi } from "./api";
 
 type Opt = { option_text: string; is_correct: boolean };
-type Q = { question_text: string; options: Opt[] };
+type Q = { question_text: string; explanation: string; options: Opt[] };
 type Props = { quizId: number; courseSlug: string; courseId: number; initial: { title: string; passing: number; duration: number | null; questions: Q[] } };
 
-const blankQ = (): Q => ({ question_text: "", options: [{ option_text: "", is_correct: true }, { option_text: "", is_correct: false }, { option_text: "", is_correct: false }, { option_text: "", is_correct: false }] });
+const blankQ = (): Q => ({ question_text: "", explanation: "", options: [{ option_text: "", is_correct: true }, { option_text: "", is_correct: false }, { option_text: "", is_correct: false }, { option_text: "", is_correct: false }] });
 
 export function QuizEditor({ quizId, courseId, initial }: Props) {
   const router = useRouter();
@@ -34,7 +34,7 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
     }
     // Boş bırakılan şıklar kaydedilmez; en az 2 dolu şık ve 1 doğru şık gerekir.
     const cleaned = qs
-      .map((q) => ({ question_text: q.question_text.trim(), options: q.options.filter((o) => o.option_text.trim()).map((o) => ({ ...o, option_text: o.option_text.trim() })) }))
+      .map((q) => ({ question_text: q.question_text.trim(), explanation: q.explanation.trim(), options: q.options.filter((o) => o.option_text.trim()).map((o) => ({ ...o, option_text: o.option_text.trim() })) }))
       .filter((q) => q.question_text);
     setBusy(true);
     const r = await adminApi("PUT", `/api/admin/quizzes/${quizId}`, { title, passing_score_percentage: Number(passing) || 70, duration_minutes: Number(duration), questions: cleaned });
@@ -72,6 +72,10 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
               </label>
             ))}
             <div style={{ fontSize: 12, color: "var(--muted-55)" }}>Doğru şıkkı soldaki seçenekle işaretleyin. Boş şıklar kaydedilmez.</div>
+            <div className="field" style={{ marginTop: 4 }}>
+              <label htmlFor={`explanation-${i}`}>Açıklama <span style={{ fontWeight: 400, color: "var(--muted-55)" }}>(isteğe bağlı · öğrenci yanlış cevaplarsa gösterilir)</span></label>
+              <textarea id={`explanation-${i}`} className="input" rows={2} maxLength={5000} placeholder="Örn. Doğru cevap neden B? Konunun kısa açıklaması…" value={q.explanation} onChange={(e) => setQ(i, { explanation: e.target.value })} style={{ background: "#fff", fontSize: 15 }} />
+            </div>
           </div>
         ))}
       </div>

@@ -43,7 +43,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
       }
     }
 
-    const [questions] = await pool.query<RowDataPacket[]>("SELECT id FROM questions WHERE quiz_id = ?", [quizId]);
+    const [questions] = await pool.query<RowDataPacket[]>("SELECT id, explanation FROM questions WHERE quiz_id = ?", [quizId]);
     if (questions.length === 0) return fail("Bu sınavda soru yok.", 400);
 
     const [correct] = await pool.query<RowDataPacket[]>(
@@ -54,19 +54,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
     const correctMap = new Map<number, number>(correct.map((r) => [r.question_id, r.option_id]));
 
     let correctCount = 0;
-    const results: Record<number, { isCorrect: boolean; selectedOptionId: number | null }> = {};
+    const results: Record<number, { isCorrect: boolean; selectedOptionId: number | null; explanation?: string }> = {};
     for (const q of questions) {
       const selected = body.data.answers[String(q.id)] ?? null;
       const isCorrect = selected !== null && correctMap.get(q.id) === selected;
       if (isCorrect) correctCount++;
       // Doğru şık bilgisi bilerek DÖNMEZ: yanlış yapılan sorunun cevabı sızmasın.
-      results[q.id] = { isCorrect, selectedOptionId: selected };
+      // Yöneticinin yazdığı açıklama ise yalnızca yanlış cevaplanan soruda gönderilir.
+      results[q.id] = { isCorrect, selectedOptionId: selected, ...(!isCorrect && q.explanation ? { explanation: q.explanation } : {}) };
     }
 
     const score = Math.round((correctCount / questions.length) * 100);
     const isPassed = score >= quiz.passing_score_percentage;
 
-    const answers = Object.fromEntries(Object.entries(results).map(([id, r]) => [id, r.selectedOptionId]));
+    const answers = Object.fromEntries(Object.entries(results).map(([qid, r]) => [qid, r.selectedOptionId]));
     await pool.execute("INSERT INTO quiz_attempts (user_id, quiz_id, score, is_passed, answers) VALUES (?, ?, ?, ?, ?)", [
       userId,
       quizId,

@@ -67,6 +67,7 @@ export const quizSchema = z.object({
     .array(
       z.object({
         question_text: z.string().trim().min(1, "Soru metni boş olamaz."),
+        explanation: z.string().trim().max(5000, "Açıklama en çok 5000 karakter olabilir.").optional(), // yanlış cevaplayana gösterilir
         options: z
           .array(z.object({ option_text: z.string().trim().min(1, "Şık metni boş olamaz."), is_correct: z.boolean() }))
           .min(2, "Her soruda en az 2 şık olmalı.")
