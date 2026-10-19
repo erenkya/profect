@@ -12,11 +12,11 @@ export const metadata: Metadata = { title: "Kurs" };
 
 export default async function CourseOverview({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const user = (await getCurrentUser())!;
-  const course = await getCourseBySlug(slug, { includeDraft: user.role === "admin" });
+  const user = await getCurrentUser();
+  const course = await getCourseBySlug(slug, { includeDraft: user?.role === "admin" });
   if (!course) notFound();
-  // Önizleme modundaki (satın almamış) kullanıcı için ilerleme özeti anlamsız; kurs sayfasına yönlendir.
-  if (user.role !== "admin" && !(await canAccessCourse(user.id, course.id))) redirect(`/kurslar/${slug}`);
+  // Önizleme modundaki (girişsiz ya da satın almamış) kullanıcı için ilerleme özeti anlamsız; kurs sayfasına yönlendir.
+  if (!user || (user.role !== "admin" && !(await canAccessCourse(user.id, course.id)))) redirect(`/kurslar/${slug}`);
 
   const [tree, progress] = await Promise.all([getCourseTree(course.id, user.id), getCourseProgress(user.id, course.id)]);
   const flow = flattenTree(tree);

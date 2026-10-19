@@ -14,16 +14,16 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
   const { slug, lessonId } = await params;
   const id = parseId(lessonId);
   if (!id) notFound();
-  const user = (await getCurrentUser())!;
-  const course = await getCourseBySlug(slug, { includeDraft: user.role === "admin" });
+  const user = await getCurrentUser();
+  const course = await getCourseBySlug(slug, { includeDraft: user?.role === "admin" });
   const lesson = await getLesson(id);
   // Ders bu kursa ait olmalı (URL'deki slug ile ders eşleşmezse başka kursun içeriği sızmasın).
   if (!course || !lesson || lesson.course_id !== course.id) notFound();
 
-  const enrolled = await canAccessCourse(user.id, course.id);
-  const tree = await getCourseTree(course.id, user.id);
-  // Erişimi olmayan (yönetici olmayan) kullanıcı yalnızca ücretsiz önizleme derslerini açabilir.
-  const previewing = !enrolled && user.role !== "admin";
+  const enrolled = user ? await canAccessCourse(user.id, course.id) : false;
+  const tree = await getCourseTree(course.id, user?.id);
+  // Erişimi olmayan (girişsiz dahil, yönetici olmayan) kullanıcı yalnızca ücretsiz önizleme derslerini açabilir.
+  const previewing = !enrolled && user?.role !== "admin";
   const previewIds = previewLessonIds(tree);
   if (previewing && !previewIds.includes(id)) redirect(`/kurslar/${slug}`);
 
@@ -44,7 +44,7 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
         type={lesson.lesson_type}
         videoReady={lesson.lesson_type === "video" && isVideoKey(lesson.content)}
         markdown={lesson.lesson_type === "text" ? lesson.content : ""}
-        watermark={`${user.full_name} · ${user.email}`}
+        watermark={user ? `${user.full_name} · ${user.email}` : "Profect · Ücretsiz önizleme"}
         initiallyCompleted={done}
         canTrack={enrolled}
         nextHref={next && nextOpen ? `/ogrenim/${slug}/${next.kind === "lesson" ? "ders" : "sinav"}/${next.id}` : null}

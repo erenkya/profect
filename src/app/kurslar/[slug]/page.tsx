@@ -43,8 +43,8 @@ export default async function CoursePage({ params }: Props) {
             t: l.title,
             d: `${l.lesson_type === "video" ? "Video" : "Okuma"}${l.duration_minutes ? ` · ${l.duration_minutes} dk` : ""}`,
             c: BLUE,
-            // Satın almadan açılabilen ilk dersler; girişsiz kullanıcı önce giriş sayfasına, sonra derse yönlenir.
-            ...(!hasAccess && previewIds.includes(l.id) && { free: true, href: user ? href : `/giris?next=${encodeURIComponent(href)}` }),
+            // Satın almadan (girişsiz de) açılabilen ilk dersler.
+            ...(!hasAccess && previewIds.includes(l.id) && { free: true, href }),
           };
         }),
         ...(m.quiz ? [{ t: m.quiz.title, d: `${m.quiz.question_count} soru`, c: PURP }] : []),

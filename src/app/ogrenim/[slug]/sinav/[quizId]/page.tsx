@@ -13,10 +13,11 @@ export default async function QuizPage({ params }: { params: Promise<{ slug: str
   const { slug, quizId } = await params;
   const id = parseId(quizId);
   if (!id) notFound();
-  const user = (await getCurrentUser())!;
-  const course = await getCourseBySlug(slug, { includeDraft: user.role === "admin" });
+  const user = await getCurrentUser();
+  const course = await getCourseBySlug(slug, { includeDraft: user?.role === "admin" });
   if (!course) notFound();
   // Sınavlar ücretsiz önizlemeye dahil değil.
+  if (!user) redirect(`/giris?next=${encodeURIComponent(`/ogrenim/${slug}/sinav/${id}`)}`);
   if (user.role !== "admin" && !(await canAccessCourse(user.id, course.id))) redirect(`/kurslar/${slug}`);
 
   const [q] = await pool.query<RowDataPacket[]>("SELECT course_id FROM quizzes WHERE id = ?", [id]);

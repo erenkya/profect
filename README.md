@@ -37,11 +37,11 @@ npm run dev
 
 ## Ders videoları (Cloudflare R2)
 
-Video dersler yönetici panelinden **doğrudan R2'ye** yüklenir (tarayıcı → R2, sunucudan geçmez) ve yalnızca kursa kayıtlı oturumlu kullanıcılara, sitenin kendi adresi (`/api/client/lessons/[id]/video`) üzerinden akıtılır. Tarayıcıya hiçbir R2 adresi verilmez.
+Video dersler yönetici panelinden **doğrudan R2'ye** yüklenir (tarayıcı → R2, sunucudan geçmez) ve kursa kayıtlı oturumlu kullanıcılara (ücretsiz önizleme dersleri girişsiz ziyaretçilere de), sitenin kendi adresi (`/api/client/lessons/[id]/video`) üzerinden akıtılır. Tarayıcıya hiçbir R2 adresi verilmez.
 
 **Kurulum**
 1. `.env`: `CLOUDFLARE_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (Vercel'de de tanımlı olmalı; `NEXT_PUBLIC_` öneki **kullanma**).
-2. `npm run db:migrate` — kota tablosu (`video_stream_usage`) için.
+2. `npm run db:migrate` — kota tabloları (`video_stream_usage`, `video_preview_usage`) için.
 3. `npm run r2:setup` — yazma yetkisini doğrular ve yönetici yüklemesi için CORS kuralını (yalnızca `PUT`, `APP_URL` + `http://localhost:3000`) uygular. Token'ın CORS yetkisi yoksa betik, Cloudflare panelinde yapıştırılacak JSON'u basar.
 
 **Kapalı bucket kontrol listesi** (Cloudflare paneli)
