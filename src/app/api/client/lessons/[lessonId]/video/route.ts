@@ -1,10 +1,11 @@
+import { createHash } from "node:crypto";
 import type { NextRequest } from "next/server";
-import { requireUser } from "@/lib/auth";
+import { getAuthFromCookies, requireUser } from "@/lib/auth";
 import { fail, parseId, serverError } from "@/lib/http";
 import { canAccessCourse, getLesson, isPreviewLesson } from "@/lib/lms";
 import { parseByteRange } from "@/lib/byte-range";
 import { getVideoRange, headVideo } from "@/lib/r2";
-import { consumeVideoQuota } from "@/lib/video-quota";
+import { consumePreviewVideoQuota, consumeVideoQuota } from "@/lib/video-quota";
 import { VIDEO_CHUNK_BYTES, isVideoKey } from "@/lib/video-key";
 
 export const runtime = "nodejs";
@@ -17,6 +18,11 @@ const BASE_HEADERS = {
   "Accept-Ranges": "bytes",
 } as const;
 
+function clientIpHash(request: NextRequest): string {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
+  return createHash("sha256").update(ip).digest("hex");
+}
+
 /**
  * Ders videosunu akıtır. Tarayıcı R2'yi hiç görmez: her istekte oturum + kurs erişimi doğrulanır,
  * yanıt en çok VIDEO_CHUNK_BYTES'lık bir `Range` dilimidir (206). Bağlantıyı kopyalayan, giriş yapmadıkça izleyemez.
@@ -26,19 +32,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (request.headers.get("sec-fetch-dest") === "document" || request.headers.get("sec-fetch-site") === "cross-site") {
     return fail("Bu adres doğrudan açılamaz.", 403);
   }
-  const guard = await requireUser();
-  if (guard.error) return guard.error;
-  const user = guard.payload;
+  // Oturum çerezi varsa tam doğrulama (geçersiz oturum bildirilir); çerez yoksa yalnızca ücretsiz önizleme dersleri izlenebilir.
+  let user: { userId: number; role: string } | null = null;
+  if (await getAuthFromCookies()) {
+    const guard = await requireUser();
+    if (guard.error) return guard.error;
+    user = guard.payload;
+  }
   const id = parseId((await params).lessonId);
   if (!id) return fail("Geçersiz ders.", 400);
 
   try {
     const lesson = await getLesson(id);
     if (!lesson || lesson.lesson_type !== "video" || !isVideoKey(lesson.content)) return fail("Video bulunamadı.", 404);
-    const isAdmin = user.role === "admin";
-    // Satın alınmamış kursta yalnızca ücretsiz önizleme dersleri (ilk 2 ders) izlenebilir.
-    if (!isAdmin && !(await canAccessCourse(user.userId, lesson.course_id)) && !(await isPreviewLesson(lesson.course_id, lesson.id))) {
-      return fail("Bu kursa erişiminiz yok.", 403);
+    const isAdmin = user?.role === "admin";
+    // Satın alınmamış kursta (girişsiz dahil) yalnızca ücretsiz önizleme dersleri (ilk 2 ders) izlenebilir.
+    if (!isAdmin && !(user && (await canAccessCourse(user.userId, lesson.course_id))) && !(await isPreviewLesson(lesson.course_id, lesson.id))) {
+      return fail(user ? "Bu kursa erişiminiz yok." : "Bu videoyu izlemek için giriş yapmalısınız.", user ? 403 : 401);
     }
 
     const head = await headVideo(lesson.content);
@@ -49,7 +59,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const chunk = await getVideoRange(lesson.content, range);
-    if (!isAdmin && !(await consumeVideoQuota(user.userId, lesson.id, chunk.contentLength, chunk.total))) {
+    const withinQuota = isAdmin
+      ? true
+      : user
+        ? await consumeVideoQuota(user.userId, lesson.id, chunk.contentLength, chunk.total)
+        : await consumePreviewVideoQuota(clientIpHash(request), lesson.id, chunk.contentLength, chunk.total);
+    if (!withinQuota) {
       await chunk.body.cancel();
       return new Response(JSON.stringify({ success: false, message: "Bu video için günlük izleme sınırına ulaşıldı." }), {
         status: 429,
