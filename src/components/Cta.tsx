@@ -31,9 +31,6 @@ export function Cta() {
         <div data-reveal="1" data-delay="200" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
           <Link href="/kurslar" className="btn btn-primary blueprint cta-solid">
             <Corners />
-            Ücretsiz Başla
-          </Link>
-          <Link href="/kurslar" className="btn cta-ghost">
             Kursları incele
           </Link>
         </div>
