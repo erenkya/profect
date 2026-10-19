@@ -203,21 +203,32 @@ export async function isPreviewLesson(courseId: number, lessonId: number): Promi
   return rows.some((r) => r.id === lessonId);
 }
 
+/** Sınav sayısı (soru içeren) ve kullanıcının geçtiği sınav sayısı; soru içermeyen sınav geçilemez, sayılmaz. */
+const QUIZ_TOTAL_SQL = `(SELECT COUNT(*) FROM quizzes q WHERE q.course_id = c.id
+    AND EXISTS (SELECT 1 FROM questions qu WHERE qu.quiz_id = q.id))`;
+const QUIZ_PASSED_SQL = `(SELECT COUNT(DISTINCT qa.quiz_id) FROM quiz_attempts qa JOIN quizzes q ON q.id = qa.quiz_id
+    WHERE qa.user_id = ? AND q.course_id = c.id AND qa.is_passed = 1
+      AND EXISTS (SELECT 1 FROM questions qu WHERE qu.quiz_id = q.id))`;
+
 // ── İlerleme ──────────────────────────────────────────────────────────────────
+/** İlerleme = (tamamlanan ders + geçilen sınav) / (toplam ders + toplam sınav). */
 export async function getCourseProgress(userId: number, courseId: number) {
-  const [tRows] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS total FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = ?`,
-    [courseId],
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT
+        (SELECT COUNT(*) FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = c.id) AS total_lessons,
+        (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
+           JOIN modules m ON m.id = l.module_id WHERE lp.user_id = ? AND m.course_id = c.id) AS done_lessons,
+        ${QUIZ_TOTAL_SQL} AS total_quizzes,
+        ${QUIZ_PASSED_SQL} AS passed_quizzes
+       FROM courses c WHERE c.id = ?`,
+    [userId, userId, courseId],
   );
-  const [cRows] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS done FROM lesson_progress lp
-       JOIN lessons l ON l.id = lp.lesson_id JOIN modules m ON m.id = l.module_id
-      WHERE lp.user_id = ? AND m.course_id = ?`,
-    [userId, courseId],
-  );
-  const total = Number(tRows[0].total);
-  const done = Number(cRows[0].done);
-  return { totalLessons: total, completedLessons: done, percentage: total > 0 ? Math.round((done / total) * 100) : 0 };
+  const r = rows[0];
+  const totalLessons = Number(r?.total_lessons ?? 0);
+  const completedLessons = Number(r?.done_lessons ?? 0);
+  const total = totalLessons + Number(r?.total_quizzes ?? 0);
+  const done = completedLessons + Number(r?.passed_quizzes ?? 0);
+  return { totalLessons, completedLessons, percentage: total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0 };
 }
 
 export type MyCourse = CourseRow & {
@@ -229,6 +240,10 @@ export type MyCourse = CourseRow & {
   certificate_code: string | null;
 };
 
+function myPercentage(done: number, total: number) {
+  return total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+}
+
 export async function listMyCourses(userId: number): Promise<MyCourse[]> {
   // Plus abonesi için yayınlanmış her kurs "açık"; kayıt satırı yoksa listede aktif görünür.
   const plus = await hasPlus(userId);
@@ -237,13 +252,15 @@ export async function listMyCourses(userId: number): Promise<MyCourse[]> {
             e.status AS e_status, e.enrolled_at AS e_enrolled_at, e.source AS e_source,
             (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
                JOIN modules m ON m.id = l.module_id WHERE lp.user_id = ? AND m.course_id = c.id) AS completed_lessons,
+            ${QUIZ_TOTAL_SQL} AS total_quizzes,
+            ${QUIZ_PASSED_SQL} AS passed_quizzes,
             cert.certificate_code
        FROM courses c
        LEFT JOIN enrollments e ON e.course_id = c.id AND e.user_id = ?
        LEFT JOIN certificates cert ON cert.course_id = c.id AND cert.user_id = ?
       WHERE (e.id IS NOT NULL ${plus ? "OR c.is_published = 1" : ""})
       ORDER BY (e.status = 'completed'), e.enrolled_at DESC, c.sort_order`,
-    [userId, userId, userId],
+    [userId, userId, userId, userId],
   );
   return rows.map((r) => {
     const base = mapCourse(r);
@@ -254,7 +271,7 @@ export async function listMyCourses(userId: number): Promise<MyCourse[]> {
       enrolled_at: r.e_enrolled_at ?? "",
       source: (r.e_source ?? "plus") as EnrollmentSource,
       completed_lessons: done,
-      percentage: base.lesson_count > 0 ? Math.min(100, Math.round((done / base.lesson_count) * 100)) : 0,
+      percentage: myPercentage(done + Number(r.passed_quizzes), base.lesson_count + Number(r.total_quizzes)),
       certificate_code: r.certificate_code ?? null,
     };
   });

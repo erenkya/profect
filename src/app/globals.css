@@ -291,6 +291,35 @@ body:not(:has(.site-nav)) .learn-side { top: 0; max-height: 100vh; }
 }
 .learn-side .progress-fill { transform-origin: left; }
 
+/* — Sınav: başlangıç ekranı ve tek tek sorular — */
+.quiz-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+.quiz-stat { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--color-divider); background: var(--color-accent-100); }
+.quiz-dots { display: flex; flex-wrap: wrap; gap: 6px; }
+.quiz-dot { width: 34px; height: 34px; display: grid; place-items: center; font-size: 13px; font-weight: 600; border: 1px solid var(--color-divider); background: #fff; color: inherit; cursor: pointer; transition: background-color .2s var(--ease), border-color .2s var(--ease), color .2s var(--ease), transform .2s var(--ease); }
+.quiz-dot:hover { border-color: var(--color-accent); }
+.quiz-dot[data-state="answered"] { background: var(--color-accent-100); border-color: var(--color-accent-300, var(--color-accent)); }
+.quiz-dot[data-state="correct"] { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+.quiz-dot[data-state="wrong"] { background: var(--color-accent-2); border-color: var(--color-accent-2); color: #fff; }
+.quiz-dot[aria-current="step"] { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.quiz-option { transition: background-color .2s var(--ease), border-color .2s var(--ease), transform .2s var(--ease); }
+@media (prefers-reduced-motion: no-preference) {
+  .quiz-intro { animation: learn-rise .6s var(--ease) .15s both; }
+  .quiz-stat { animation: learn-rise .5s var(--ease) both; animation-delay: calc(250ms + var(--i, 0) * 80ms); }
+  .quiz-result { animation: lesson-video-in .6s var(--ease) both; }
+  .quiz-dot[aria-current="step"] { transform: translateY(-2px); }
+  .quiz-question[data-dir="next"] { animation: quiz-in-next .45s var(--ease) both; }
+  .quiz-question[data-dir="prev"] { animation: quiz-in-prev .45s var(--ease) both; }
+  .quiz-option { animation: learn-rise .4s var(--ease) both; animation-delay: calc(80ms + var(--i, 0) * 50ms); }
+  label.quiz-option:has(input:not(:disabled)):hover { transform: translateX(4px); border-color: var(--color-accent); }
+  .quiz-option[data-selected] { animation: quiz-pick .3s var(--ease); }
+  .quiz-timer-low { animation: quiz-pulse 1s ease-in-out infinite; }
+
+  @keyframes quiz-in-next { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+  @keyframes quiz-in-prev { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
+  @keyframes quiz-pick { 50% { transform: scale(1.015); } }
+  @keyframes quiz-pulse { 50% { box-shadow: 0 0 0 4px rgba(74, 42, 158, .15); } }
+}
+
 /* — Admin — */
 .admin-shell { max-width: 1280px; margin: 0 auto; padding: 32px clamp(20px, 4vw, 48px) 96px; }
 .admin-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 32px; }
