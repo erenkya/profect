@@ -1,7 +1,15 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export function Footer() {
+  const pathname = usePathname();
+
+  // Ders sayfası odaklı görünüm: alt bilgi gösterilmez.
+  if (/^\/ogrenim\/[^/]+\/ders\//.test(pathname)) return null;
+
   return (
     <footer
       className="wrap"

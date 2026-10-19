@@ -119,7 +119,7 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
           </span>
         )}
         {nextHref && (
-          <Link href={nextHref} className="btn btn-primary blueprint" style={{ fontSize: 16, padding: "10px 22px" }}>
+          <Link href={nextHref} className="btn btn-primary blueprint" style={{ fontSize: 16, padding: "10px 22px", marginLeft: "auto" }}>
             <Corners />
             {nextLabel ?? "Sonraki"} →
           </Link>

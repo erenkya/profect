@@ -12,6 +12,9 @@ export function Nav({ user }: { user: SessionUser | null }) {
   const onCourses = pathname.startsWith("/kurslar");
   const onAbout = pathname.startsWith("/hakkimizda");
 
+  // Ders sayfası odaklı görünüm: üst menü gösterilmez.
+  if (/^\/ogrenim\/[^/]+\/ders\//.test(pathname)) return null;
+
   return (
     <header className="nav site-nav">
       <Link

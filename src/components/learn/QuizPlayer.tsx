@@ -135,7 +135,7 @@ export function QuizPlayer({ quizId, nextHref, certificateCode }: { quizId: numb
             ) : (
               <CertificateButton courseId={quiz.course_id} />
             ))}
-            {result.isPassed && !isFinal && nextHref && <Link href={nextHref} className="btn btn-primary blueprint"><Corners />Sonraki →</Link>}
+            {result.isPassed && !isFinal && nextHref && <Link href={nextHref} className="btn btn-primary blueprint" style={{ marginLeft: "auto" }}><Corners />Sonraki →</Link>}
           </div>
         </div>
       )}

@@ -226,6 +226,8 @@ button { font: inherit; }
 .learn-shell { display: grid; grid-template-columns: 320px minmax(0, 1fr); min-height: calc(100vh - 80px); }
 .learn-side { border-right: 1px solid var(--color-divider); padding: 24px 20px; position: sticky; top: 70px; align-self: start; max-height: calc(100vh - 70px); overflow-y: auto; }
 .learn-main { padding: clamp(24px, 4vw, 56px); min-width: 0; }
+body:not(:has(.site-nav)) .learn-shell { min-height: 100vh; }
+body:not(:has(.site-nav)) .learn-side { top: 0; max-height: 100vh; }
 @media (max-width: 900px) {
   .learn-shell { grid-template-columns: 1fr; }
   .learn-side { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--color-divider); }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Check, CirclePlay, FileText, ListChecks, Lock } from "lucide-react";
+import { Check, CirclePlay, FileText, ListChecks, Lock, X } from "lucide-react";
 import type { CourseTree } from "@/lib/lms";
 
 /** previewIds: satın almamış kullanıcı için açık (ücretsiz) ders kimlikleri; null → tam erişim. */
@@ -18,6 +18,13 @@ export function CourseSidebar({ slug, title, tree, percentage, previewIds }: { s
 
   return (
     <aside className="learn-side" aria-label="Kurs müfredatı">
+      {/* Ders sayfasında üst menü gizli; dersten çıkış buradan yapılır. */}
+      {pathname.startsWith(`${base}/ders/`) && (
+        <Link href={previewIds ? lockedHref : "/hesabim/kurslarim"} className="btn btn-secondary" style={{ padding: "6px 12px", fontSize: 14, marginBottom: 20, display: "inline-flex", gap: 6, alignItems: "center" }}>
+          <X size={16} strokeWidth={1.5} />
+          Dersten çık
+        </Link>
+      )}
       <Link href={base} style={{ color: "inherit", textDecoration: "none" }}>
         <div className="card-kicker" style={{ fontSize: 11, marginBottom: 6 }}>Kurs</div>
         <div style={{ fontFamily: "var(--font-heading)", fontSize: 24, lineHeight: 1.1, fontWeight: 600, marginBottom: 14 }}>{title}</div>
