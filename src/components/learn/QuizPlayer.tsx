@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Check, Clock, ListChecks, Target, Trophy, X } from "lucide-react";
 import { Corners } from "@/components/Corners";
 import { CertificateButton } from "./CertificateButton";
+import { QuizReviewSection, type QuizReview } from "./QuizReview";
 
 type Quiz = {
   id: number;
@@ -23,18 +25,22 @@ type Result = { score: number; isPassed: boolean; correctCount: number; totalQue
 /** Başlangıç ekranı bilgileri sunucudan gelir; sınav API'si çağrılınca süre başladığı için o ana kadar çağrılmaz. */
 export type QuizIntro = {
   title: string;
+  courseId: number;
   isFinal: boolean;
   questionCount: number;
   passingScore: number;
   durationMinutes: number | null;
   bestScore: number | null;
   resumeSeconds: number | null; // açık süreli oturum varsa kalan saniye
+  passed: boolean; // daha önce geçilmiş mi
+  review: QuizReview | null; // geçilmiş sınavda son denemenin cevapları
 };
 
 const AUTO_ADVANCE_MS = 350;
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
 export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizId: number; intro: QuizIntro; nextHref: string | null; certificateCode: string | null }) {
+  const router = useRouter();
   const [started, setStarted] = useState(false);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [error, setError] = useState("");
@@ -108,6 +114,8 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
         setResult(json);
         setDir("prev");
         setCurrent(0); // sonuçtan sonra cevaplar baştan gözden geçirilir
+        // Kenar çubuğu (geçildi işareti, ilerleme) sunucu layout'unda; yeniden çek.
+        if (json.isPassed) router.refresh();
       } else setError(json.message ?? "Gönderilemedi.");
     } catch {
       setError("Bağlantı hatası. Lütfen tekrar deneyin.");
@@ -138,6 +146,47 @@ export function QuizPlayer({ quizId, intro, nextHref, certificateCode }: { quizI
       <h1 className="lesson-title" style={{ fontSize: "clamp(36px,4.5vw,56px)", lineHeight: 1, textTransform: "uppercase", margin: "0 0 28px" }}>{intro.title}</h1>
     </div>
   );
+
+  // — Geçilmiş sınav: skor ve "Tekrar çöz" (yarım kalan bir tekrar varsa normal başlangıç ekranı gösterilir) —
+  if (!started && intro.passed && intro.resumeSeconds === null) {
+    return (
+      <div style={{ maxWidth: 760 }}>
+        {header}
+        <section className="card blueprint elev-md quiz-intro" aria-labelledby="quiz-passed-title" style={{ background: "#fff", padding: "clamp(20px,3vw,32px)", gap: 12 }}>
+          <Corners />
+          <div className="card-kicker" id="quiz-passed-title" style={{ color: "var(--color-accent-700)", display: "inline-flex", gap: 6, alignItems: "center" }}>
+            <Check className="side-check" size={16} strokeWidth={2} /> Bu sınavı geçtin
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ fontFamily: "var(--font-heading)", fontSize: 72, lineHeight: 1, fontWeight: 700, color: "var(--color-accent-2)" }}>%{intro.bestScore ?? 0}</div>
+            <div style={{ fontSize: 14, color: "var(--muted-72)" }}>en iyi puanın · geçme notu %{intro.passingScore}</div>
+          </div>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--muted-72)" }}>
+            İstersen tekrar çözebilirsin; geçme durumun ve en iyi puanın korunur.
+            {intro.durationMinutes !== null && <> Tekrar çözerken süre ({intro.durationMinutes} dk) yeniden işler.</>}
+          </p>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+            {intro.isFinal && (certificateCode ? (
+              <Link href={`/sertifika/${certificateCode}`} className="btn btn-primary blueprint"><Corners />Sertifikamı Gör</Link>
+            ) : (
+              <CertificateButton courseId={intro.courseId} />
+            ))}
+            {!intro.isFinal && nextHref && (
+              <Link href={nextHref} className="btn btn-primary blueprint lesson-next"><Corners />Sonraki <span className="lesson-arrow" aria-hidden>→</span></Link>
+            )}
+            {intro.questionCount > 0 && (
+              <button type="button" className="btn btn-secondary" onClick={() => setStarted(true)}>Tekrar çöz</button>
+            )}
+          </div>
+        </section>
+        {intro.review ? (
+          <QuizReviewSection review={intro.review} />
+        ) : (
+          <p style={{ marginTop: 32, fontSize: 14, color: "var(--muted-55)" }}>Bu deneme için cevapların kaydedilmemiş; sınavı tekrar çözersen cevaplarını burada inceleyebilirsin.</p>
+        )}
+      </div>
+    );
+  }
 
   // — Başlangıç ekranı —
   if (!started) {

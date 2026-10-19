@@ -66,11 +66,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
     const score = Math.round((correctCount / questions.length) * 100);
     const isPassed = score >= quiz.passing_score_percentage;
 
-    await pool.execute("INSERT INTO quiz_attempts (user_id, quiz_id, score, is_passed) VALUES (?, ?, ?, ?)", [
+    const answers = Object.fromEntries(Object.entries(results).map(([id, r]) => [id, r.selectedOptionId]));
+    await pool.execute("INSERT INTO quiz_attempts (user_id, quiz_id, score, is_passed, answers) VALUES (?, ?, ?, ?, ?)", [
       userId,
       quizId,
       score,
       isPassed ? 1 : 0,
+      JSON.stringify(answers),
     ]);
     if (isPassed && quiz.module_id === null) {
       await pool.execute("UPDATE enrollments SET status = 'completed' WHERE user_id = ? AND course_id = ?", [userId, quiz.course_id]);

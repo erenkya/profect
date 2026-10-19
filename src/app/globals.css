@@ -302,6 +302,15 @@ body:not(:has(.site-nav)) .learn-side { top: 0; max-height: 100vh; }
 .quiz-dot[data-state="wrong"] { background: var(--color-accent-2); border-color: var(--color-accent-2); color: #fff; }
 .quiz-dot[aria-current="step"] { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .quiz-option { transition: background-color .2s var(--ease), border-color .2s var(--ease), transform .2s var(--ease); }
+.quiz-filter { display: inline-flex; border: 1px solid var(--color-divider); }
+.quiz-filter button { padding: 7px 14px; font-size: 13px; background: #fff; border: 0; cursor: pointer; color: inherit; transition: background-color .2s var(--ease), color .2s var(--ease); }
+.quiz-filter button + button { border-left: 1px solid var(--color-divider); }
+.quiz-filter button[aria-pressed="true"] { background: var(--color-accent); color: #fff; }
+.quiz-review-item { border: 1px solid var(--color-divider); border-left: 3px solid var(--color-accent-2); }
+.quiz-review-item[data-correct] { border-left-color: var(--color-accent); }
+.quiz-review-option { display: flex; gap: 10px; align-items: center; padding: 10px 12px; font-size: 15px; border: 1px solid var(--color-divider); }
+.quiz-review-option[data-picked="correct"] { background: var(--color-accent-100); border-color: var(--color-accent); color: var(--color-accent-700); }
+.quiz-review-option[data-picked="wrong"] { background: var(--color-accent-2-100); border-color: var(--color-accent-2); color: var(--color-accent-2-700); }
 @media (prefers-reduced-motion: no-preference) {
   .quiz-intro { animation: learn-rise .6s var(--ease) .15s both; }
   .quiz-stat { animation: learn-rise .5s var(--ease) both; animation-delay: calc(250ms + var(--i, 0) * 80ms); }
@@ -313,6 +322,8 @@ body:not(:has(.site-nav)) .learn-side { top: 0; max-height: 100vh; }
   label.quiz-option:has(input:not(:disabled)):hover { transform: translateX(4px); border-color: var(--color-accent); }
   .quiz-option[data-selected] { animation: quiz-pick .3s var(--ease); }
   .quiz-timer-low { animation: quiz-pulse 1s ease-in-out infinite; }
+  .quiz-review { animation: learn-rise .6s var(--ease) .35s both; }
+  .quiz-review-item { animation: learn-rise .45s var(--ease) both; }
 
   @keyframes quiz-in-next { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
   @keyframes quiz-in-prev { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
