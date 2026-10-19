@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
+import { Download } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Corners } from "@/components/Corners";
 import { Cta } from "@/components/Cta";
+import { certificateQrSvg, certificateVerifyUrl } from "@/lib/certificate-pdf";
 import { formatDate } from "@/lib/format";
+import { getBaseUrlFromHeaders } from "@/lib/http";
 import { getCertificateByCode } from "@/lib/lms";
 
 type Props = { params: Promise<{ code: string }> };
@@ -20,6 +24,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CertificatePage({ params }: Props) {
   const cert = await getCertificateByCode(decodeURIComponent((await params).code));
   if (!cert) notFound();
+  const verifyUrl = certificateVerifyUrl(getBaseUrlFromHeaders(await headers()), cert.certificate_code);
+  const qrSvg = await certificateQrSvg(verifyUrl);
 
   return (
     <>
@@ -39,14 +45,31 @@ export default async function CertificatePage({ params }: Props) {
               <strong style={{ fontWeight: 600 }}>{cert.course_title}</strong> programını tamamlamış
               {cert.score !== null && <> ve final sınavını %{cert.score} başarıyla geçmiştir</>}.
             </p>
-            <div style={{ display: "flex", gap: 40, flexWrap: "wrap", fontSize: 14 }}>
-              <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Tarih</div><strong style={{ fontWeight: 600 }}>{formatDate(cert.issued_at)}</strong></div>
-              <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Süre</div><strong style={{ fontWeight: 600 }}>{cert.course_hours} saat</strong></div>
-              {cert.instructor && <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Eğitmen</div><strong style={{ fontWeight: 600 }}>{cert.instructor}</strong></div>}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 40, flexWrap: "wrap", fontSize: 14 }}>
+                <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Tarih</div><strong style={{ fontWeight: 600 }}>{formatDate(cert.issued_at)}</strong></div>
+                <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Süre</div><strong style={{ fontWeight: 600 }}>{cert.course_hours} saat</strong></div>
+                {cert.instructor && <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Eğitmen</div><strong style={{ fontWeight: 600 }}>{cert.instructor}</strong></div>}
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div
+                  role="img"
+                  aria-label={`${cert.certificate_code} numaralı sertifikayı doğrulayan QR kod`}
+                  style={{ width: 104, height: 104, padding: 6, border: "1px solid var(--color-divider)", boxSizing: "content-box" }}
+                  dangerouslySetInnerHTML={{ __html: qrSvg }}
+                />
+                <div style={{ marginTop: 6, fontSize: 11, color: "var(--muted-55)" }}>Doğrulamak için tara</div>
+              </div>
             </div>
           </div>
         </div>
-        <p style={{ textAlign: "center", marginTop: 24, fontSize: 14, color: "var(--muted-55)" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 24 }}>
+          <a className="btn btn-primary blueprint" href={`/api/public/certificates/${encodeURIComponent(cert.certificate_code)}/pdf`} download style={{ fontSize: 16, padding: "10px 22px" }}>
+            <Corners />
+            <Download size={18} aria-hidden /> PDF olarak indir
+          </a>
+        </div>
+        <p style={{ textAlign: "center", marginTop: 16, fontSize: 14, color: "var(--muted-55)" }}>
           Bu sayfa, sertifikanın Profect kayıtlarında bulunduğunu doğrular. <Link href="/#sertifika">Başka bir sertifika doğrula</Link>
         </p>
       </div>

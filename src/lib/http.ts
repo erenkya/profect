@@ -40,8 +40,13 @@ export function parseId(value: string): number | null {
 
 /** Kullanıcı e-postası/URL ayrıştırması için istek kökünü bulur. */
 export function getBaseUrl(request: Request): string {
-  const proto = request.headers.get("x-forwarded-proto") || "https";
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  return getBaseUrlFromHeaders(request.headers);
+}
+
+/** `Request` olmayan yerlerde (sayfalar) `await headers()` ile kullanılır. */
+export function getBaseUrlFromHeaders(h: Headers): string {
+  const proto = h.get("x-forwarded-proto") || "https";
+  const host = h.get("x-forwarded-host") || h.get("host");
   if (host) return `${host.startsWith("localhost") || host.startsWith("127.") ? "http" : proto}://${host}`;
   return process.env.APP_URL || "http://localhost:3000";
 }
