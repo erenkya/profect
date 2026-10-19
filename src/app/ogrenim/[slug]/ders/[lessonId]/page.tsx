@@ -44,7 +44,6 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
         type={lesson.lesson_type}
         videoReady={lesson.lesson_type === "video" && isVideoKey(lesson.content)}
         markdown={lesson.lesson_type === "text" ? lesson.content : ""}
-        watermark={user ? `${user.full_name} · ${user.email}` : "Profect · Ücretsiz önizleme"}
         initiallyCompleted={done}
         canTrack={enrolled}
         nextHref={next && nextOpen ? `/ogrenim/${slug}/${next.kind === "lesson" ? "ders" : "sinav"}/${next.id}` : null}

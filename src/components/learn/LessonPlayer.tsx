@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, Maximize } from "lucide-react";
+import { Check } from "lucide-react";
 import { Corners } from "@/components/Corners";
 
 type Props = {
@@ -12,7 +12,6 @@ type Props = {
   type: "video" | "text";
   videoReady: boolean; // video: R2'ye yüklenmiş mi (anahtarın kendisi istemciye gönderilmez)
   markdown: string; // text: Markdown içeriği
-  watermark: string; // "Ad Soyad · e-posta" — ekran kaydı sızıntısında kaynağı gösterir
   initiallyCompleted: boolean;
   canTrack: boolean; // yönetici önizlemesinde ilerleme kaydedilmez
   nextHref: string | null;
@@ -21,13 +20,11 @@ type Props = {
 
 const COMPLETE_RATIO = 0.95;
 
-export function LessonPlayer({ lessonId, type, videoReady, markdown, watermark, initiallyCompleted, canTrack, nextHref, nextLabel }: Props) {
+export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCompleted, canTrack, nextHref, nextLabel }: Props) {
   const [completed, setCompleted] = useState(initiallyCompleted);
   const [videoError, setVideoError] = useState<string | null>(null);
-  const [pos, setPos] = useState({ top: 12, left: 8 });
   const sent = useRef(initiallyCompleted);
   const sentinel = useRef<HTMLDivElement>(null);
-  const stage = useRef<HTMLDivElement>(null);
   const videoSrc = `/api/client/lessons/${lessonId}/video`;
 
   async function markComplete() {
@@ -60,13 +57,6 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, watermark, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type, lessonId]);
 
-  // Filigran 20 sn'de bir yer değiştirir (sabit kalırsa kırpılabilir).
-  useEffect(() => {
-    if (type !== "video" || !videoReady) return;
-    const t = setInterval(() => setPos({ top: 8 + Math.random() * 72, left: 4 + Math.random() * 52 }), 20_000);
-    return () => clearInterval(t);
-  }, [type, videoReady]);
-
   // Oynatma hatasının nedenini sunucunun durum kodundan anla (oturum bitti / erişim yok / kota doldu).
   async function explainVideoError() {
     let msg = "Video yüklenemedi. Sayfayı yenileyip tekrar dene.";
@@ -86,12 +76,12 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, watermark, 
     <div>
       {type === "video" ? (
         videoReady ? (
-          <div ref={stage} style={{ position: "relative", aspectRatio: "16/9", background: "#0b0b14", maxWidth: 960 }}>
+          <div style={{ position: "relative", aspectRatio: "16/9", background: "#0b0b14", maxWidth: 960 }}>
             <video
               key={lessonId}
               src={videoSrc}
               controls
-              controlsList="nodownload noremoteplayback nofullscreen"
+              controlsList="nodownload noremoteplayback"
               disablePictureInPicture
               playsInline
               preload="metadata"
@@ -104,24 +94,6 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, watermark, 
               onError={explainVideoError}
               style={{ width: "100%", height: "100%", display: "block" }}
             />
-            <span
-              aria-hidden
-              style={{
-                position: "absolute", top: `${pos.top}%`, left: `${pos.left}%`, pointerEvents: "none", userSelect: "none",
-                color: "rgba(255,255,255,0.28)", fontSize: 14, fontFamily: "monospace", textShadow: "0 0 2px rgba(0,0,0,0.5)",
-                transition: "top 2s, left 2s", whiteSpace: "nowrap",
-              }}
-            >
-              {watermark}
-            </span>
-            <button
-              type="button"
-              aria-label="Tam ekran"
-              onClick={() => stage.current?.requestFullscreen?.()}
-              style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.45)", color: "#fff", border: 0, padding: 6, cursor: "pointer" }}
-            >
-              <Maximize size={16} strokeWidth={1.5} />
-            </button>
             {videoError && (
               <div role="alert" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(11,11,20,0.92)", color: "#fff", padding: 24, textAlign: "center" }}>
                 {videoError}
