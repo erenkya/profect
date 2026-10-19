@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CourseCard } from "@/components/CourseCard";
+import { Cta } from "@/components/Cta";
 import { courseColor, courseDelay } from "@/data/courses";
 import { listPublishedCourses } from "@/lib/lms";
 
@@ -53,6 +54,7 @@ export default async function CoursesPage({ searchParams }: { searchParams: Prom
           </div>
         </section>
       </main>
+      <Cta />
     </>
   );
 }

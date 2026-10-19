@@ -2,6 +2,7 @@
 import "server-only";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
+import { FREE_PREVIEW_LESSONS } from "@/lib/preview";
 
 export type CourseRow = {
   id: number;
@@ -188,6 +189,18 @@ export async function canAccessCourse(userId: number, courseId: number): Promise
   if (c.length === 0) return false;
   await grantEnrollment(userId, courseId, "plus");
   return true;
+}
+
+/** Ders, yayınlanmış bir kursun ücretsiz önizleme derslerinden biri mi? (müfredat sırası: previewLessonIds ile aynı) */
+export async function isPreviewLesson(courseId: number, lessonId: number): Promise<boolean> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT l.id FROM lessons l
+       JOIN modules m ON m.id = l.module_id JOIN courses c ON c.id = m.course_id
+      WHERE m.course_id = ? AND c.is_published = 1
+      ORDER BY m.sort_order, m.id, l.sort_order, l.id LIMIT ${FREE_PREVIEW_LESSONS}`,
+    [courseId],
+  );
+  return rows.some((r) => r.id === lessonId);
 }
 
 // ── İlerleme ──────────────────────────────────────────────────────────────────

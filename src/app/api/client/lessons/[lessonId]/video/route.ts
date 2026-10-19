@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { fail, parseId, serverError } from "@/lib/http";
-import { canAccessCourse, getLesson } from "@/lib/lms";
+import { canAccessCourse, getLesson, isPreviewLesson } from "@/lib/lms";
 import { parseByteRange } from "@/lib/byte-range";
 import { getVideoRange, headVideo } from "@/lib/r2";
 import { consumeVideoQuota } from "@/lib/video-quota";
@@ -36,7 +36,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const lesson = await getLesson(id);
     if (!lesson || lesson.lesson_type !== "video" || !isVideoKey(lesson.content)) return fail("Video bulunamadı.", 404);
     const isAdmin = user.role === "admin";
-    if (!isAdmin && !(await canAccessCourse(user.userId, lesson.course_id))) return fail("Bu kursa erişiminiz yok.", 403);
+    // Satın alınmamış kursta yalnızca ücretsiz önizleme dersleri (ilk 2 ders) izlenebilir.
+    if (!isAdmin && !(await canAccessCourse(user.userId, lesson.course_id)) && !(await isPreviewLesson(lesson.course_id, lesson.id))) {
+      return fail("Bu kursa erişiminiz yok.", 403);
+    }
 
     const head = await headVideo(lesson.content);
     if (!head) return fail("Video dosyası bulunamadı.", 404);

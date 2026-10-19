@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export type CurriculumItem = { t: string; d: string; c: string };
+export type CurriculumItem = { t: string; d: string; c: string; free?: boolean; href?: string };
 export type CurriculumModule = { n: string; title: string; meta: string; items: CurriculumItem[] };
 
 export function Curriculum({ modules }: { modules: CurriculumModule[] }) {
@@ -33,7 +33,8 @@ export function Curriculum({ modules }: { modules: CurriculumModule[] }) {
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 15 }}>
                     <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <span className="diamond" style={{ width: 7, height: 7, background: li.c, flex: "none" }} />
-                      {li.t}
+                      {li.href ? <a href={li.href} style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{li.t}</a> : li.t}
+                      {li.free && <span className="tag tag-accent" style={{ fontSize: 10 }}>Ücretsiz önizleme</span>}
                     </span>
                     <span style={{ color: "color-mix(in srgb,var(--color-text) 50%,transparent)", fontSize: 13, whiteSpace: "nowrap" }}>{li.d}</span>
                   </div>

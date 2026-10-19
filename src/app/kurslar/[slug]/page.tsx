@@ -5,16 +5,20 @@ import { Check } from "lucide-react";
 import { Curriculum, type CurriculumModule } from "@/components/Curriculum";
 import { PurchasePanel } from "@/components/PurchasePanel";
 import { Corners } from "@/components/Corners";
-import { BLUE, EXAM_RULES, PURP } from "@/data/courses";
+import { BLUE, PURP } from "@/data/courses";
 import { getCurrentUser } from "@/lib/auth";
 import { formatPrice } from "@/lib/format";
+import { coverUrl } from "@/lib/cover-key";
+import { previewLessonIds } from "@/lib/preview";
 import { PLUS_PRICE, canAccessCourse, getCourseBySlug, getCourseTree, paymentMode } from "@/lib/lms";
 
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const course = await getCourseBySlug((await params).slug);
-  return course ? { title: course.title, description: course.description } : {};
+  if (!course) return {};
+  const cover = coverUrl(course.thumbnail_url);
+  return { title: course.title, description: course.description, ...(cover && { openGraph: { images: [cover] } }) };
 }
 
 export default async function CoursePage({ params }: Props) {
@@ -25,6 +29,7 @@ export default async function CoursePage({ params }: Props) {
   const hasAccess = user ? await canAccessCourse(user.id, course.id) : false;
   const tree = await getCourseTree(course.id);
 
+  const previewIds = previewLessonIds(tree);
   const modules: CurriculumModule[] = tree.modules.map((m, i) => {
     const minutes = m.lessons.reduce((sum, l) => sum + (l.duration_minutes ?? 0), 0);
     return {
@@ -32,11 +37,16 @@ export default async function CoursePage({ params }: Props) {
       title: m.title,
       meta: `${m.lessons.length} ders${minutes ? ` · ${minutes} dk` : ""}`,
       items: [
-        ...m.lessons.map((l) => ({
-          t: l.title,
-          d: `${l.lesson_type === "video" ? "Video" : "Okuma"}${l.duration_minutes ? ` · ${l.duration_minutes} dk` : ""}`,
-          c: BLUE,
-        })),
+        ...m.lessons.map((l) => {
+          const href = `/ogrenim/${course.slug}/ders/${l.id}`;
+          return {
+            t: l.title,
+            d: `${l.lesson_type === "video" ? "Video" : "Okuma"}${l.duration_minutes ? ` · ${l.duration_minutes} dk` : ""}`,
+            c: BLUE,
+            // Satın almadan açılabilen ilk dersler; girişsiz kullanıcı önce giriş sayfasına, sonra derse yönlenir.
+            ...(!hasAccess && previewIds.includes(l.id) && { free: true, href: user ? href : `/giris?next=${encodeURIComponent(href)}` }),
+          };
+        }),
         ...(m.quiz ? [{ t: m.quiz.title, d: `${m.quiz.question_count} soru`, c: PURP }] : []),
       ],
     };
@@ -53,9 +63,31 @@ export default async function CoursePage({ params }: Props) {
     });
   }
 
+  const cover = coverUrl(course.thumbnail_url);
+  const moduleQuizzes = tree.modules.flatMap((m) => (m.quiz ? [m.quiz] : []));
+  const counts = moduleQuizzes.map((q) => q.question_count);
+  const examRules: { k: string; v: string; d: string; c: string }[] = [];
+  if (moduleQuizzes.length) {
+    const min = Math.min(...counts);
+    const max = Math.max(...counts);
+    examRules.push({
+      k: "Modül sınavları",
+      v: `${moduleQuizzes.length} sınav`,
+      d: `Her biri ${min === max ? min : `${min}–${max}`} soru; modül sonunda konuyu pekiştiren kısa değerlendirme.`,
+      c: BLUE,
+    });
+  }
+  if (tree.finalQuiz) {
+    examRules.push(
+      { k: "Final sınavı", v: `${tree.finalQuiz.question_count} soru`, d: `Tüm modülleri kapsar. Geçme notu %${tree.finalQuiz.passing_score_percentage}.`, c: BLUE },
+      { k: "Sertifika", v: "QR", d: "Benzersiz numaralı, çevrimiçi doğrulanabilir belge.", c: PURP },
+    );
+  }
   const includes = [
     `${course.hours} saat video ders`,
-    `${course.module_count} modül sınavı + final sınavı`,
+    ...(moduleQuizzes.length || tree.finalQuiz
+      ? [[moduleQuizzes.length ? `${moduleQuizzes.length} modül sınavı` : "", tree.finalQuiz ? "final sınavı" : ""].filter(Boolean).join(" + ")]
+      : []),
     "Doğrulanabilir sertifika",
     "Ömür boyu erişim",
     "Mobil ve masaüstü",
@@ -84,6 +116,11 @@ export default async function CoursePage({ params }: Props) {
               {course.rating && <span>★ {course.rating}</span>}
               <span>{course.hours} saat · {course.module_count} modül</span>
             </div>
+            {cover && (
+              <div data-reveal="1" data-delay="400" style={{ marginTop: 32, aspectRatio: "16 / 9", border: "1px solid var(--color-divider)", overflow: "hidden", background: "var(--color-divider)" }}>
+                <img src={cover} alt={`${course.title} kapak resmi`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -112,10 +149,10 @@ export default async function CoursePage({ params }: Props) {
             <Curriculum modules={modules} />
           </div>
 
-          <div data-reveal="1">
+          {examRules.length > 0 && <div data-reveal="1">
             <h2 style={{ fontSize: 36, textTransform: "uppercase", marginBottom: 24 }}>Sınav ve sertifikasyon</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,200px),1fr))", gap: 24 }}>
-              {EXAM_RULES.map((r) => (
+              {examRules.map((r) => (
                 <div key={r.k} className="card blueprint" style={{ padding: 20, gap: 8 }}>
                   <Corners />
                   <div className="card-kicker" style={{ fontSize: 11, color: r.c }}>{r.k}</div>
@@ -124,7 +161,7 @@ export default async function CoursePage({ params }: Props) {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
 
         <PurchasePanel

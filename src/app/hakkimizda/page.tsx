@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Corners } from "@/components/Corners";
+import { Cta } from "@/components/Cta";
 import { FOUNDERS } from "@/data/courses";
 
 export const metadata: Metadata = {
@@ -12,6 +13,7 @@ const fade = "linear-gradient(180deg,#000,transparent)";
 
 export default function AboutPage() {
   return (
+    <>
     <main>
       <section style={{ position: "relative", overflow: "hidden", borderBottom: "1px solid var(--color-divider)" }}>
         <div aria-hidden style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(to right, color-mix(in srgb,#4a2a9e 8%,transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb,#4a2a9e 8%,transparent) 1px, transparent 1px)", backgroundSize: "72px 72px", WebkitMaskImage: fade, maskImage: fade }} />
@@ -57,5 +59,7 @@ export default function AboutPage() {
         ))}
       </section>
     </main>
+    <Cta />
+    </>
   );
 }

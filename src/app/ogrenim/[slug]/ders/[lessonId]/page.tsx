@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { LessonPlayer } from "@/components/learn/LessonPlayer";
 import { getCurrentUser } from "@/lib/auth";
 import { parseId } from "@/lib/http";
 import { isVideoKey } from "@/lib/video-key";
+import { previewLessonIds } from "@/lib/preview";
 import { canAccessCourse, flattenTree, getCourseBySlug, getCourseTree, getLesson } from "@/lib/lms";
 
 export const metadata: Metadata = { title: "Ders" };
@@ -20,9 +22,16 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
 
   const enrolled = await canAccessCourse(user.id, course.id);
   const tree = await getCourseTree(course.id, user.id);
+  // Erişimi olmayan (yönetici olmayan) kullanıcı yalnızca ücretsiz önizleme derslerini açabilir.
+  const previewing = !enrolled && user.role !== "admin";
+  const previewIds = previewLessonIds(tree);
+  if (previewing && !previewIds.includes(id)) redirect(`/kurslar/${slug}`);
+
   const flow = flattenTree(tree);
   const idx = flow.findIndex((f) => f.kind === "lesson" && f.id === id);
   const next = idx >= 0 ? flow[idx + 1] : undefined;
+  // Önizlemede sıradaki öğe yalnızca ücretsiz bir ders ise bağlantı verilir; aksi halde kayıt çağrısı gösterilir.
+  const nextOpen = next && (!previewing || (next.kind === "lesson" && previewIds.includes(next.id)));
   const done = flow[idx]?.done ?? false;
 
   return (
@@ -38,9 +47,16 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
         watermark={`${user.full_name} · ${user.email}`}
         initiallyCompleted={done}
         canTrack={enrolled}
-        nextHref={next ? `/ogrenim/${slug}/${next.kind === "lesson" ? "ders" : "sinav"}/${next.id}` : null}
-        nextLabel={next ? (next.kind === "quiz" ? "Sınava geç" : "Sonraki ders") : null}
+        nextHref={next && nextOpen ? `/ogrenim/${slug}/${next.kind === "lesson" ? "ders" : "sinav"}/${next.id}` : null}
+        nextLabel={next && nextOpen ? (next.kind === "quiz" ? "Sınava geç" : "Sonraki ders") : null}
       />
+      {previewing && !nextOpen && (
+        <div className="card blueprint" style={{ background: "#fff", padding: 24, gap: 12, marginTop: 32, maxWidth: 560 }}>
+          <div className="card-kicker" style={{ fontSize: 11 }}>Ücretsiz önizleme sona erdi</div>
+          <p style={{ margin: 0, fontSize: 16 }}>Devam etmek, sınavlara girmek ve sertifika almak için kursa kaydol.</p>
+          <div><Link href={`/kurslar/${slug}`} className="btn btn-primary">Kursa kaydol</Link></div>
+        </div>
+      )}
     </div>
   );
 }

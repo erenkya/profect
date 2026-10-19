@@ -9,6 +9,7 @@ import { FormMessage } from "@/components/auth/AuthShell";
 import type { AdminLesson, AdminModule, AdminQuizRef, CourseRow } from "@/lib/lms";
 import { adminApi } from "./api";
 import { VideoUploadField } from "./VideoUploadField";
+import { CoverUploadField } from "./CoverUploadField";
 
 type Props = { course: CourseRow; modules: AdminModule[]; finalQuiz: AdminQuizRef | null };
 type Flash = { kind: "ok" | "error"; text: string } | null;
@@ -60,19 +61,24 @@ function CourseForm({ course, run, onDeleted }: { course: CourseRow; run: Run; o
     hours: String(course.hours), rating: course.rating ?? "", price: String(course.price), old_price: course.old_price == null ? "" : String(course.old_price),
     description: course.description, outcomes: course.outcomes.join("\n"), is_published: course.is_published,
   });
+  const [thumbnail, setThumbnail] = useState<string | null>(course.thumbnail_url);
+  const [coverBusy, setCoverBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
 
-  function save(e: React.FormEvent) {
+  function save(e: React.FormEvent, published = f.is_published) {
     e.preventDefault();
+    if (e.currentTarget instanceof HTMLButtonElement && !e.currentTarget.form?.reportValidity()) return;
+    if (published !== f.is_published) setF({ ...f, is_published: published });
     run(
       adminApi("PATCH", `/api/admin/courses/${course.id}`, {
         title: f.title, slug: f.slug, code: f.code, category: f.category, level: f.level, instructor: f.instructor,
         hours: Number(f.hours) || 0, rating: f.rating === "" ? null : Number(f.rating), price: Number(f.price) || 0,
         old_price: f.old_price === "" ? null : Number(f.old_price), description: f.description,
-        outcomes: f.outcomes.split("\n").map((s) => s.trim()).filter(Boolean), is_published: f.is_published,
+        outcomes: f.outcomes.split("\n").map((s) => s.trim()).filter(Boolean), is_published: published,
+        thumbnail_url: thumbnail,
       }),
-      "Kurs kaydedildi.",
+      published === course.is_published ? "Kurs kaydedildi." : published ? "Kurs yayınlandı." : "Kurs yayından kaldırıldı.",
     );
   }
 
@@ -81,9 +87,22 @@ function CourseForm({ course, run, onDeleted }: { course: CourseRow; run: Run; o
       <Corners />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <h1 style={{ fontSize: 40, textTransform: "uppercase", margin: 0 }}>{course.title}</h1>
-        <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14, cursor: "pointer" }}>
-          <input type="checkbox" checked={f.is_published} onChange={(e) => setF({ ...f, is_published: e.target.checked })} /> Yayında
-        </label>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <span className={`tag ${f.is_published ? "tag-accent" : "tag-neutral"}`}>{f.is_published ? "Yayında" : "Taslak"}</span>
+          {f.is_published ? (
+            <button type="button" className="btn btn-secondary" disabled={coverBusy} onClick={(e) => save(e, false)}>Yayından kaldır</button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary blueprint"
+              disabled={coverBusy}
+              onClick={(e) => save(e, true)}
+              style={{ fontSize: 18, padding: "14px 28px", background: "var(--color-accent-2)", borderColor: "var(--color-accent-2)", boxShadow: "0 6px 18px color-mix(in srgb, var(--color-accent-2) 35%, transparent)" }}
+            >
+              <Corners />Yayınla
+            </button>
+          )}
+        </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14 }}>
         <div className="field"><label>Başlık</label><input className="input" required value={f.title} onChange={set("title")} style={input} /></div>
@@ -97,10 +116,11 @@ function CourseForm({ course, run, onDeleted }: { course: CourseRow; run: Run; o
         <div className="field"><label>Fiyat (₺)</label><input className="input" type="number" min={0} value={f.price} onChange={set("price")} style={input} /></div>
         <div className="field"><label>Eski fiyat (₺)</label><input className="input" type="number" min={0} value={f.old_price} onChange={set("old_price")} style={input} /></div>
       </div>
+      <CoverUploadField courseId={course.id} value={thumbnail} onChange={setThumbnail} onBusyChange={setCoverBusy} />
       <div className="field"><label>Açıklama</label><textarea className="input" required rows={3} value={f.description} onChange={set("description")} style={{ background: "#fff", fontSize: 15 }} /></div>
       <div className="field"><label>Neler öğrenilecek (her satır bir madde)</label><textarea className="input" rows={4} value={f.outcomes} onChange={set("outcomes")} style={{ background: "#fff", fontSize: 15 }} /></div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button type="submit" className="btn btn-primary blueprint"><Corners />Kaydet</button>
+        <button type="submit" className="btn btn-primary blueprint" disabled={coverBusy}><Corners />Kaydet</button>
         {course.is_published && <Link href={`/kurslar/${course.slug}`} className="btn btn-secondary">Sayfayı gör</Link>}
         <Link href={`/ogrenim/${course.slug}`} className="btn btn-secondary">Önizle</Link>
         <span style={{ marginLeft: "auto" }} />

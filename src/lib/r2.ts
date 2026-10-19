@@ -41,6 +41,30 @@ export async function presignVideoUpload(key: string, size: number): Promise<{ u
   return { url, headers: { "Content-Type": "video/mp4" } };
 }
 
+/** Kapak resmi için tek anahtara yazan, 10 dk geçerli imzalı PUT. İstemci `headers`'ı aynen göndermeli. */
+export async function presignCoverUpload(key: string, size: number, contentType: string): Promise<{ url: string; headers: Record<string, string> }> {
+  const url = await getSignedUrl(
+    s3(),
+    new PutObjectCommand({ Bucket: bucket(), Key: key, ContentType: contentType, ContentLength: size }),
+    { expiresIn: 600 },
+  );
+  return { url, headers: { "Content-Type": contentType } };
+}
+
+/** Kapak resmini (en çok MAX_COVER_BYTES) bütün olarak okur; yoksa null. */
+export async function getCover(key: string): Promise<{ body: Uint8Array; size: number } | null> {
+  try {
+    const r = await s3().send(new GetObjectCommand({ Bucket: bucket(), Key: key }));
+    if (!r.Body) return null;
+    const body = await r.Body.transformToByteArray();
+    return { body, size: body.byteLength };
+  } catch (err) {
+    const e = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+    if (e.name === "NoSuchKey" || e.$metadata?.httpStatusCode === 404) return null;
+    throw err;
+  }
+}
+
 export async function headVideo(key: string): Promise<{ size: number } | null> {
   try {
     const r = await s3().send(new HeadObjectCommand({ Bucket: bucket(), Key: key }));
@@ -85,3 +109,7 @@ export async function deleteVideos(keys: string[]): Promise<void> {
     }
   }
 }
+
+// Kapak resimleri aynı bucket'ta durur; nesne işlemleri anahtardan bağımsızdır.
+export const headCover = headVideo;
+export const deleteCover = deleteVideo;

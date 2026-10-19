@@ -2,19 +2,30 @@ import Link from "next/link";
 import { Corners } from "./Corners";
 import type { CourseRow } from "@/lib/lms";
 import { formatPrice } from "@/lib/format";
+import { coverUrl } from "@/lib/cover-key";
 
 export function CourseCard({ course, color, delay }: { course: CourseRow; color: string; delay: number }) {
+  const cover = coverUrl(course.thumbnail_url);
   return (
     <div data-reveal="1" data-delay={delay}>
       <Link href={`/kurslar/${course.slug}`} className="course-link">
         <div className="card blueprint course-card">
           <Corners />
           <div className="course-art">
-            <span className="diamond" style={{ position: "absolute", right: -30, top: -30, width: 150, height: 150, border: `1px solid ${color}` }} />
-            <span className="diamond" style={{ position: "absolute", right: 30, top: 30, width: 30, height: 30, background: color }} />
-            <div style={{ position: "absolute", left: 20, bottom: 16, fontFamily: "var(--font-heading)", fontSize: 44, lineHeight: 1, fontWeight: 700, color }}>
-              {course.code}
-            </div>
+            {cover ? (
+              <>
+                <img src={cover} alt="" loading="lazy" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                <span className="tag tag-accent" style={{ position: "absolute", left: 14, bottom: 14 }}>{course.code}</span>
+              </>
+            ) : (
+              <>
+                <span className="diamond" style={{ position: "absolute", right: -30, top: -30, width: 150, height: 150, border: `1px solid ${color}` }} />
+                <span className="diamond" style={{ position: "absolute", right: 30, top: 30, width: 30, height: 30, background: color }} />
+                <div style={{ position: "absolute", left: 20, bottom: 16, fontFamily: "var(--font-heading)", fontSize: 44, lineHeight: 1, fontWeight: 700, color }}>
+                  {course.code}
+                </div>
+              </>
+            )}
           </div>
           <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>

@@ -191,7 +191,7 @@ export default async function HomePage() {
               <div className="eyebrow" style={{ color: "var(--color-accent-2-700)" }}>03 — Sertifikasyon</div>
               <h2 className="h-section" style={{ margin: "0 0 22px" }}>Sınavla kazanılır, tek tıkla doğrulanır</h2>
               <p style={{ fontSize: 17, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", maxWidth: 480, textWrap: "pretty", marginBottom: 32 }}>
-                Final sınavında %70 ve üzeri alan her öğrenciye benzersiz numaralı bir sertifika verilir. İşverenler sertifika numarasıyla ya da QR kodla belgenin geçerliliğini anında kontrol edebilir.
+                Final sınavını geçen her öğrenciye benzersiz numaralı bir sertifika verilir. İşverenler sertifika numarasıyla ya da QR kodla belgenin geçerliliğini anında kontrol edebilir.
               </p>
               <CertVerify />
             </div>

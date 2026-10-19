@@ -6,16 +6,9 @@ export const MARQUEE = ["Veri Bilimi", "Yazılım", "Proje Yönetimi", "Tasarım
 export const courseColor = (i: number) => (i % 2 ? PURP : BLUE);
 export const courseDelay = (i: number) => (i % 3) * 120;
 
-export const EXAM_RULES = [
-  { k: "Modül sınavları", v: "10 soru", d: "Her modülün sonunda konuyu pekiştiren kısa değerlendirme.", c: BLUE },
-  { k: "Final sınavı", v: "40 soru", d: "60 dakika süreli, tüm modülleri kapsayan sınav.", c: BLUE },
-  { k: "Geçme notu", v: "%70", d: "Geçemezsen 24 saat sonra bir hakkın daha olur.", c: PURP },
-  { k: "Sertifika", v: "QR", d: "Benzersiz numaralı, çevrimiçi doğrulanabilir belge.", c: PURP },
-];
-
 export const STEPS = [
   { n: "01", title: "Kursa kaydol", color: BLUE, delay: 0, body: "Video dersler, okumalar ve uygulamalı ödevlerle konuyu kendi hızında çalış. İlerlemen her cihazda kaldığın yerden devam eder.", tags: ["Video", "Okuma", "Proje"] },
-  { n: "02", title: "Sınavlara gir", color: BLUE, delay: 150, body: "Her modülün sonunda kısa bir değerlendirme, kursun sonunda kapsamlı bir final sınavı seni bekler. Sonuçlarını anında görürsün.", tags: ["Modül sınavı", "Final", "%70 geçme"] },
+  { n: "02", title: "Sınavlara gir", color: BLUE, delay: 150, body: "Her modülün sonunda kısa bir değerlendirme, kursun sonunda kapsamlı bir final sınavı seni bekler. Sonuçlarını anında görürsün.", tags: ["Modül sınavı", "Final", "Anında sonuç"] },
   { n: "03", title: "Sertifikanı al", color: PURP, delay: 300, body: "Final sınavını geçtiğinde benzersiz numaralı, QR kodla doğrulanabilir sertifikan hesabına eklenir ve LinkedIn’de paylaşılabilir.", tags: ["QR doğrulama", "LinkedIn", "PDF"] },
 ];
 

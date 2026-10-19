@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Corners } from "@/components/Corners";
 import { CertificateButton } from "@/components/learn/CertificateButton";
 import { getCurrentUser } from "@/lib/auth";
-import { flattenTree, getCourseBySlug, getCourseProgress, getCourseTree } from "@/lib/lms";
+import { canAccessCourse, flattenTree, getCourseBySlug, getCourseProgress, getCourseTree } from "@/lib/lms";
 import pool from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 
@@ -15,6 +15,8 @@ export default async function CourseOverview({ params }: { params: Promise<{ slu
   const user = (await getCurrentUser())!;
   const course = await getCourseBySlug(slug, { includeDraft: user.role === "admin" });
   if (!course) notFound();
+  // Önizleme modundaki (satın almamış) kullanıcı için ilerleme özeti anlamsız; kurs sayfasına yönlendir.
+  if (user.role !== "admin" && !(await canAccessCourse(user.id, course.id))) redirect(`/kurslar/${slug}`);
 
   const [tree, progress] = await Promise.all([getCourseTree(course.id, user.id), getCourseProgress(user.id, course.id)]);
   const flow = flattenTree(tree);

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_VIDEO_BYTES, isVideoKey } from "./video-key.ts";
+import { MAX_COVER_BYTES, isCoverKey, isCoverType } from "./cover-key.ts";
 
 const money = z.coerce.number().min(0).max(1_000_000);
 
@@ -16,7 +17,7 @@ export const courseFields = {
   price: money,
   old_price: money.nullable(),
   outcomes: z.array(z.string().trim().min(1)).max(20),
-  thumbnail_url: z.string().trim().max(255).nullable(),
+  thumbnail_url: z.string().trim().max(255).refine(isCoverKey, "Geçersiz kapak resmi.").nullable(), // R2 nesne anahtarı
   is_published: z.boolean(),
   sort_order: z.coerce.number().int(),
 };
@@ -76,3 +77,10 @@ export const quizSchema = z.object({
 });
 
 export const reorderSchema = z.object({ ids: z.array(z.coerce.number().int().positive()).min(1).max(500) });
+
+/** Yönetici kapak resmi yüklemesi başlatırken gönderilir (dosyanın kendisi değil, meta bilgisi). */
+export const coverUploadSchema = z.object({
+  course_id: z.coerce.number().int().positive(),
+  content_type: z.string().refine(isCoverType, "Yalnızca JPG, PNG veya WebP yüklenebilir."),
+  size: z.number().int().min(1).max(MAX_COVER_BYTES, "Kapak resmi en çok 5 MB olabilir."),
+});

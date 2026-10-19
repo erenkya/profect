@@ -3,7 +3,6 @@ import { Barlow, Barlow_Condensed } from "next/font/google";
 import "./ds.css";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
-import { Cta } from "@/components/Cta";
 import { Footer } from "@/components/Footer";
 import { Motion } from "@/components/Motion";
 import { getCurrentUser } from "@/lib/auth";
@@ -40,7 +39,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <SmoothScroll />
         <Nav user={user} />
         {children}
-        <Cta />
         <Footer />
       </body>
     </html>

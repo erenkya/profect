@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { RowDataPacket } from "mysql2";
 import { QuizPlayer } from "@/components/learn/QuizPlayer";
 import { getCurrentUser } from "@/lib/auth";
 import pool from "@/lib/db";
 import { parseId } from "@/lib/http";
-import { flattenTree, getCourseBySlug, getCourseTree } from "@/lib/lms";
+import { canAccessCourse, flattenTree, getCourseBySlug, getCourseTree } from "@/lib/lms";
 
 export const metadata: Metadata = { title: "Sınav" };
 
@@ -16,6 +16,8 @@ export default async function QuizPage({ params }: { params: Promise<{ slug: str
   const user = (await getCurrentUser())!;
   const course = await getCourseBySlug(slug, { includeDraft: user.role === "admin" });
   if (!course) notFound();
+  // Sınavlar ücretsiz önizlemeye dahil değil.
+  if (user.role !== "admin" && !(await canAccessCourse(user.id, course.id))) redirect(`/kurslar/${slug}`);
 
   const [q] = await pool.query<RowDataPacket[]>("SELECT course_id FROM quizzes WHERE id = ?", [id]);
   if (!q[0] || q[0].course_id !== course.id) notFound();

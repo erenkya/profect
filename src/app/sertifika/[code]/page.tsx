@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Corners } from "@/components/Corners";
+import { Cta } from "@/components/Cta";
 import { formatDate } from "@/lib/format";
 import { getCertificateByCode } from "@/lib/lms";
 
@@ -21,6 +22,7 @@ export default async function CertificatePage({ params }: Props) {
   if (!cert) notFound();
 
   return (
+    <>
     <main className="grid-bg" style={{ padding: "clamp(40px,8vw,96px) 20px", minHeight: "70vh" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div className="eyebrow" style={{ textAlign: "center" }}>Doğrulanmış sertifika</div>
@@ -49,5 +51,7 @@ export default async function CertificatePage({ params }: Props) {
         </p>
       </div>
     </main>
+    <Cta />
+    </>
   );
 }
