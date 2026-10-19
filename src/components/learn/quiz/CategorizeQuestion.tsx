@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { DndContext, DragOverlay, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import type { PublicQuestion } from "@/lib/quiz-model";
 
@@ -69,7 +70,8 @@ export function CategorizeQuestion({ question: q, value, onChange, disabled }: P
         })}
       </div>
 
-      <DragOverlay dropAnimation={null}>{dragging && <div className="quiz-card" data-overlay>{dragging.text}</div>}</DragOverlay>
+      {/* Kopya body'ye çizilir: soru alanının transform animasyonu fixed konumu kaydırmasın. */}
+      {typeof document !== "undefined" && createPortal(<DragOverlay dropAnimation={null}>{dragging && <div className="quiz-card" data-overlay>{dragging.text}</div>}</DragOverlay>, document.body)}
     </DndContext>
   );
 }
