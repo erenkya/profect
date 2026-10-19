@@ -20,8 +20,16 @@ export function Nav({ user }: { user: SessionUser | null }) {
 
   return (
     <header className="nav site-nav">
-      <Link href="/" style={{ marginRight: "auto", display: "flex", alignItems: "center" }} aria-label="Profect ana sayfa">
-        <Image src="/profect-logo.jpeg" alt="profect" width={173} height={47} priority style={{ height: 34, width: "auto", mixBlendMode: "multiply" }} />
+      <Link
+        href="/"
+        onClick={(e) => {
+          if (pathname === "/") {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }}
+        style={{ marginRight: "auto", display: "flex", alignItems: "center", cursor: "pointer" }} aria-label="Profect ana sayfa">
+        <Image src="/profect-logo.jpeg" alt="profect" width={173} height={47} priority style={{ height: 34, width: "auto", mixBlendMode: "multiply", cursor: "pointer" }} />
       </Link>
       <Link className="nav-link" href="/kurslar" aria-current={onCourses ? "page" : undefined}>Kurslar</Link>
       <Link className="nav-link" href="/#sertifika">Sertifikalar</Link>
