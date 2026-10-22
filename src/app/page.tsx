@@ -19,8 +19,6 @@ function qrCells() {
   });
 }
 
-const gridMask = "radial-gradient(ellipse 80% 70% at 70% 40%, #000 30%, transparent 80%)";
-
 export default async function HomePage() {
   const courses = (await listPublishedCourses()).slice(0, 6);
   const marquee = [...MARQUEE, ...MARQUEE].map((t, i) => ({ t, c: i % 2 ? PURP : BLUE }));
@@ -31,7 +29,6 @@ export default async function HomePage() {
       <main>
         {/* HERO */}
         <section style={{ position: "relative", overflow: "hidden", borderBottom: "1px solid var(--color-divider)" }}>
-          <div className="grid-bg" style={{ position: "absolute", inset: 0, WebkitMaskImage: gridMask, maskImage: gridMask, pointerEvents: "none" }} />
           <div
             className="wrap"
             style={{

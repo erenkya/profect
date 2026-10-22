@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { passwordProblem } from "@/lib/password-strength";
 
-// bcrypt yalnızca ilk 72 bayta bakar; daha uzununu reddederek sessiz kırpmayı önleriz.
-export const passwordSchema = z
-  .string()
-  .min(8, "Şifre en az 8 karakter olmalıdır.")
-  .refine((p) => new TextEncoder().encode(p).length <= 72, "Şifre çok uzun (en fazla 72 bayt).");
+// Uzunluk (bcrypt 72 bayt sınırı dahil), karakter türü, yaygın şifre ve asgari güç puanı kuralları
+// src/lib/password-strength.ts içindedir; istemci güç göstergesiyle aynı kaynaktan beslenir.
+export const passwordSchema = z.string().superRefine((p, ctx) => {
+  const problem = passwordProblem(p);
+  if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+});
 
 export const emailSchema = z.string().trim().toLowerCase().email("Geçerli bir e-posta girin.").max(190);

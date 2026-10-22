@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Corners } from "@/components/Corners";
+import { evaluatePassword } from "@/lib/password-strength";
 import { FormMessage } from "./AuthShell";
+import { PasswordStrength } from "./PasswordStrength";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
@@ -41,6 +43,7 @@ export function ForgotPasswordForm() {
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
@@ -61,6 +64,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
     }
   }
 
+  const mismatch = confirm.length > 0 && confirm !== password;
+
   if (!token) return <FormMessage kind="error">Sıfırlama bağlantısı eksik. Lütfen e-postadaki bağlantıyı kullanın.</FormMessage>;
   if (done) {
     return (
@@ -73,11 +78,17 @@ export function ResetPasswordForm({ token }: { token: string }) {
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div className="field">
-        <label htmlFor="np">Yeni şifre (en az 8 karakter)</label>
-        <input id="np" className="input" type="password" required minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ background: "#fff", minHeight: 44, fontSize: 16 }} />
+        <label htmlFor="np">Yeni şifre</label>
+        <input id="np" className="input" type="password" required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ background: "#fff", minHeight: 44, fontSize: 16 }} />
       </div>
+      <PasswordStrength password={password} />
+      <div className="field">
+        <label htmlFor="np2">Yeni şifre (tekrar)</label>
+        <input id="np2" className="input" type="password" required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-invalid={mismatch} style={{ background: "#fff", minHeight: 44, fontSize: 16 }} />
+      </div>
+      {mismatch && <FormMessage kind="error">Şifreler eşleşmiyor.</FormMessage>}
       {error && <FormMessage kind="error">{error}</FormMessage>}
-      <button type="submit" disabled={busy} className="btn btn-primary blueprint" style={{ fontSize: 17, padding: 13 }}>
+      <button type="submit" disabled={busy || !evaluatePassword(password).acceptable || confirm !== password} className="btn btn-primary blueprint" style={{ fontSize: 17, padding: 13 }}>
         <Corners />
         {busy ? "Kaydediliyor…" : "Şifreyi güncelle"}
       </button>

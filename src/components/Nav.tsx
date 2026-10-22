@@ -37,9 +37,9 @@ export function Nav({ user }: { user: SessionUser | null }) {
         ) : (
           <>
             <Link className="btn btn-secondary" href="/giris" style={{ padding: "9px 16px" }}>Giriş Yap</Link>
-            <Link className="btn btn-primary blueprint" href="/kurslar" style={{ padding: "9px 18px" }}>
+            <Link className="btn btn-primary blueprint" href="/kayit" style={{ padding: "9px 18px" }}>
               <Corners />
-              Kursları incele
+              Kayıt Ol
             </Link>
           </>
         )}

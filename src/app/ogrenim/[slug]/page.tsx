@@ -8,7 +8,11 @@ import { canAccessCourse, flattenTree, getCourseBySlug, getCourseProgress, getCo
 import pool from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 
-export const metadata: Metadata = { title: "Kurs" };
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const user = await getCurrentUser();
+  const course = await getCourseBySlug((await params).slug, { includeDraft: user?.role === "admin" });
+  return { title: course?.title ?? "Kurs" };
+}
 
 export default async function CourseOverview({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

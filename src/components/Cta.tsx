@@ -5,15 +5,6 @@ export function Cta() {
   return (
     <section style={{ position: "relative", overflow: "hidden", background: "var(--color-accent-2-900)", color: "#ffffff" }}>
       <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(to right, rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.07) 1px, transparent 1px)",
-          backgroundSize: "72px 72px",
-        }}
-      />
-      <div
         data-fx="1" data-py="0.3" data-rot="0.06" data-br="45"
         style={{ position: "absolute", right: "10%", top: "50%", width: 280, height: 280, marginTop: -140, border: "1px solid rgba(142,166,243,.6)", transform: "rotate(45deg)" }}
       />

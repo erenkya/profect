@@ -42,6 +42,7 @@ export function Footer() {
         <Link href="/hakkimizda">Hakkımızda</Link>
         <a href="#">Eğitmen ol</a>
         <a href="#">İletişim</a>
+        <Link href="/kvkk">KVKK Aydınlatma Metni</Link>
       </div>
     </footer>
   );

@@ -38,7 +38,7 @@ export default async function CertificatePage({ params }: Props) {
 
   return (
     <>
-    <main className="grid-bg" style={{ padding: "clamp(40px,8vw,96px) 20px", minHeight: "70vh" }}>
+    <main style={{ padding: "clamp(40px,8vw,96px) 20px", minHeight: "70vh" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div className="eyebrow" style={{ textAlign: "center" }}>Doğrulanmış sertifika</div>
         <div className="blueprint elev-lg" style={{ background: "#fff", padding: 14 }}>

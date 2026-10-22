@@ -26,7 +26,6 @@
   --font-heading: var(--font-barlow-condensed), system-ui, sans-serif;
   --muted-55: color-mix(in srgb, var(--color-text) 55%, transparent);
   --muted-72: color-mix(in srgb, var(--color-text) 72%, transparent);
-  --grid-line: color-mix(in srgb, #3a5fdc 9%, transparent);
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
@@ -72,12 +71,6 @@ button { font: inherit; }
   text-transform: uppercase;
   margin: 0;
 }
-.grid-bg {
-  background-image:
-    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
-  background-size: 72px 72px;
-}
 .diamond { transform: rotate(45deg); }
 .brand-diamond { background: linear-gradient(135deg, #3a5fdc 50%, #4a2a9e 50%); }
 
@@ -119,10 +112,6 @@ button { font: inherit; }
   height: 150px;
   overflow: hidden;
   border-bottom: 1px solid var(--color-divider);
-  background-image:
-    linear-gradient(to right, color-mix(in srgb, #3a5fdc 10%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, #3a5fdc 10%, transparent) 1px, transparent 1px);
-  background-size: 24px 24px;
 }
 .course-grid {
   display: grid;

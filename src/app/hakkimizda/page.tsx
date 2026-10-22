@@ -9,14 +9,11 @@ export const metadata: Metadata = {
   description: "Profect, kaliteli eğitimi herkes için erişilebilir yapmak ve öğrenilen her becerinin sınavla doğrulanmasını sağlamak amacıyla kuruldu.",
 };
 
-const fade = "linear-gradient(180deg,#000,transparent)";
-
 export default function AboutPage() {
   return (
     <>
     <main>
       <section style={{ position: "relative", overflow: "hidden", borderBottom: "1px solid var(--color-divider)" }}>
-        <div aria-hidden style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(to right, color-mix(in srgb,#4a2a9e 8%,transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb,#4a2a9e 8%,transparent) 1px, transparent 1px)", backgroundSize: "72px 72px", WebkitMaskImage: fade, maskImage: fade }} />
         <div aria-hidden data-fx="1" data-py="0.35" data-rot="0.05" data-br="45" style={{ position: "absolute", right: "8%", top: "12%", width: 360, height: 360, border: "1px solid var(--color-accent-300)", transform: "rotate(45deg)" }} />
         <div aria-hidden data-fx="1" data-py="0.15" data-rot="-0.04" data-br="45" style={{ position: "absolute", right: "calc(8% + 70px)", top: "calc(12% + 70px)", width: 220, height: 220, border: "1px dashed var(--color-accent-2-300)", transform: "rotate(45deg)" }} />
         <div aria-hidden data-fx="1" data-py="0.6" data-fl="10" data-br="45" className="brand-diamond" style={{ position: "absolute", right: "calc(8% + 152px)", top: "calc(12% + 152px)", width: 56, height: 56, transform: "rotate(45deg)" }} />

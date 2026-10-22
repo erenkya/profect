@@ -10,7 +10,12 @@ import { canAccessCourse, flattenTree, getCourseBySlug, getCourseTree } from "@/
 import { flatQuestions, loadQuiz } from "@/lib/quiz-data";
 import { gradeQuestion, parseStoredAnswers } from "@/lib/quiz-grading";
 
-export const metadata: Metadata = { title: "Sınav" };
+export async function generateMetadata({ params }: { params: Promise<{ slug: string; quizId: string }> }): Promise<Metadata> {
+  const id = parseId((await params).quizId);
+  if (!id) return { title: "Sınav" };
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT title FROM quizzes WHERE id = ?", [id]);
+  return { title: rows[0]?.title ?? "Sınav" };
+}
 
 /**
  * Son denemenin cevap incelemesi. Puanlama sunucuda yeniden yapılır; doğru şık / kategori istemciye gönderilmez

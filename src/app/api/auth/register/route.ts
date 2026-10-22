@@ -1,10 +1,9 @@
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import type { ResultSetHeader } from "mysql2";
 import pool from "@/lib/db";
-import { fail, getBaseUrl, ok, parseBody, serverError } from "@/lib/http";
+import { fail, ok, parseBody, serverError } from "@/lib/http";
 import { verifyTurnstile } from "@/lib/turnstile";
-import { issueVerificationEmail } from "@/lib/tokens";
+import { passwordProblem } from "@/lib/password-strength";
 import { emailSchema, passwordSchema } from "@/lib/validation";
 
 const schema = z.object({
@@ -14,6 +13,10 @@ const schema = z.object({
   password: passwordSchema,
   kvkk: z.literal(true, { errorMap: () => ({ message: "KVKK aydınlatma metnini onaylamalısınız." }) }),
   turnstileToken: z.string().optional(),
+}).superRefine((d, ctx) => {
+  // Genel şifre kuralları passwordSchema'da; ad/e-posta içeriyor mu kontrolü alanlar birlikteyken yapılır.
+  const problem = passwordProblem(d.password, [d.full_name, d.email]);
+  if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["password"], message: problem });
 });
 
 export async function POST(request: Request) {
@@ -26,14 +29,12 @@ export async function POST(request: Request) {
 
   try {
     const hash = await bcrypt.hash(password, 10);
-    let userId: number;
     try {
-      const [res] = await pool.execute<ResultSetHeader>(
-        `INSERT INTO users (full_name, email, phone, password_hash, kvkk_consent_at)
-         VALUES (?, ?, ?, ?, NOW())`,
+      await pool.execute(
+        `INSERT INTO users (full_name, email, phone, password_hash, email_verified, kvkk_consent_at)
+         VALUES (?, ?, ?, ?, 1, NOW())`,
         [full_name, email, phone || null, hash],
       );
-      userId = res.insertId;
     } catch (err) {
       if ((err as { code?: string }).code === "ER_DUP_ENTRY") {
         return fail("Bu e-posta adresiyle kayıtlı bir hesap zaten var.", 409);
@@ -41,9 +42,8 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    // Oturum burada AÇILMAZ: e-posta doğrulandıktan sonra giriş yapılır.
-    await issueVerificationEmail(userId, email, getBaseUrl(request));
-    return ok({ message: "Kayıt oluşturuldu. E-posta adresinize bir doğrulama bağlantısı gönderdik." }, 201);
+    // Şimdilik e-posta doğrulaması yok (email_verified=1). Oturum açılmaz; kullanıcı giriş sayfasına yönlenir.
+    return ok({ message: "Kayıt oluşturuldu. Şimdi giriş yapabilirsiniz." }, 201);
   } catch (err) {
     return serverError("[POST /api/auth/register]", err);
   }

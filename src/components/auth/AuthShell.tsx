@@ -2,7 +2,7 @@ import { Corners } from "@/components/Corners";
 
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <main className="grid-bg" style={{ minHeight: "calc(100vh - 140px)", display: "grid", placeItems: "center", padding: "clamp(40px,8vw,96px) 20px" }}>
+    <main style={{ minHeight: "calc(100vh - 140px)", display: "grid", placeItems: "center", padding: "clamp(40px,8vw,96px) 20px" }}>
       <div className="card blueprint elev-md" style={{ width: "min(460px,100%)", background: "#ffffff", padding: "clamp(24px,5vw,40px)", gap: 18 }}>
         <Corners />
         <div>

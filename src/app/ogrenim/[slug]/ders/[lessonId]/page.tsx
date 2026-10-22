@@ -8,7 +8,11 @@ import { isVideoKey } from "@/lib/video-key";
 import { previewLessonIds } from "@/lib/preview";
 import { canAccessCourse, flattenTree, getCourseBySlug, getCourseTree, getLesson } from "@/lib/lms";
 
-export const metadata: Metadata = { title: "Ders" };
+export async function generateMetadata({ params }: { params: Promise<{ slug: string; lessonId: string }> }): Promise<Metadata> {
+  const id = parseId((await params).lessonId);
+  const lesson = id ? await getLesson(id) : null;
+  return { title: lesson?.title ?? "Ders" };
+}
 
 export default async function LessonPage({ params }: { params: Promise<{ slug: string; lessonId: string }> }) {
   const { slug, lessonId } = await params;

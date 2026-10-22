@@ -95,7 +95,7 @@ export default async function CoursePage({ params }: Props) {
 
   return (
     <main>
-      <section className="grid-bg" style={{ position: "relative", overflow: "hidden", borderBottom: "1px solid var(--color-divider)", backgroundImage: "linear-gradient(to right, color-mix(in srgb,#3a5fdc 7%,transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb,#3a5fdc 7%,transparent) 1px, transparent 1px)" }}>
+      <section style={{ position: "relative", overflow: "hidden", borderBottom: "1px solid var(--color-divider)" }}>
         <div aria-hidden data-fx="1" data-py="0.25" data-rot="0.04" data-br="45" style={{ position: "absolute", right: -80, top: 40, width: 420, height: 420, border: "1px solid var(--color-accent-2-300)", transform: "rotate(45deg)" }} />
         <div className="wrap" style={{ position: "relative", paddingBlock: "40px 64px" }}>
           <nav aria-label="Konum" style={{ display: "flex", gap: 8, fontSize: 14, marginBottom: 40, color: "var(--muted-55)" }}>
