@@ -105,7 +105,7 @@ const scenarioQ = z.object({
   questions: z.array(scenarioChild).min(1, "Senaryoda en az bir soru olmalı.").max(20, "Bir senaryoda en çok 20 soru olabilir."),
 });
 
-const quizItemSchema = z.preprocess(
+export const quizItemSchema = z.preprocess(
   withDefaultKind,
   z.discriminatedUnion("kind", [singleQ, multipleQ, categorizeQ, scenarioQ]).superRefine((q, ctx) => {
     if (q.kind !== "scenario") checkQuestion(q, ctx);

@@ -5,21 +5,20 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, CirclePlay, FileText, Pencil, Trash2 } from "lucide-react";
 import { Corners } from "@/components/Corners";
-import { FormMessage } from "@/components/auth/AuthShell";
+import { Toast, useFlash } from "./Toast";
 import type { AdminLesson, AdminModule, AdminQuizRef, CourseRow } from "@/lib/lms";
 import { adminApi } from "./api";
 import { VideoUploadField } from "./VideoUploadField";
 import { CoverUploadField } from "./CoverUploadField";
 
 type Props = { course: CourseRow; modules: AdminModule[]; finalQuiz: AdminQuizRef | null };
-type Flash = { kind: "ok" | "error"; text: string } | null;
 
 const input = { background: "#fff", fontSize: 15, minHeight: 38 } as const;
 const iconBtn = { width: 32, height: 32 } as const;
 
 export function CourseBuilder({ course, modules, finalQuiz }: Props) {
   const router = useRouter();
-  const [flash, setFlash] = useState<Flash>(null);
+  const [flash, setFlash] = useFlash();
 
   // Her başarılı işlemden sonra sunucu verisini tazele.
   async function run(promise: ReturnType<typeof adminApi>, okText?: string) {
@@ -31,7 +30,7 @@ export function CourseBuilder({ course, modules, finalQuiz }: Props) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 48 }}>
-      {flash && <FormMessage kind={flash.kind}>{flash.text}</FormMessage>}
+      <Toast flash={flash} onClose={() => setFlash(null)} />
       <CourseForm course={course} run={run} onDeleted={() => router.push("/admin/kurslar")} />
 
       <section>

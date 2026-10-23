@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FormMessage } from "@/components/auth/AuthShell";
+import { Toast, useFlash } from "./Toast";
 import { formatDate } from "@/lib/format";
 import { adminApi } from "./api";
 
@@ -14,7 +14,7 @@ export type AdminUser = {
 export function UsersTable({ users, currentUserId }: { users: AdminUser[]; currentUserId: number }) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [flash, setFlash] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [flash, setFlash] = useFlash();
 
   async function act(p: ReturnType<typeof adminApi>) {
     const r = await p;
@@ -30,7 +30,7 @@ export function UsersTable({ users, currentUserId }: { users: AdminUser[]; curre
         <input className="input" placeholder="Ad veya e-posta ara…" value={q} onChange={(e) => setQ(e.target.value)} style={{ background: "#fff", maxWidth: 320 }} aria-label="Kullanıcı ara" />
         <span style={{ fontSize: 13, color: "var(--muted-55)" }}>{shown.length} kullanıcı</span>
       </div>
-      {flash && <div style={{ marginBottom: 12 }}><FormMessage kind={flash.kind}>{flash.text}</FormMessage></div>}
+      <Toast flash={flash} onClose={() => setFlash(null)} />
       <div className="admin-table-wrap">
         <table className="table">
           <thead><tr><th>Ad</th><th>E-posta</th><th>Rol</th><th>Durum</th><th>Kayıt</th><th>Plus</th><th>Son giriş</th><th>İşlemler</th></tr></thead>

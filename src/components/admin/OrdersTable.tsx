@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { FormMessage } from "@/components/auth/AuthShell";
+import { Toast, useFlash } from "./Toast";
 import { formatDate, formatPrice } from "@/lib/format";
 import { adminApi } from "./api";
 
@@ -11,7 +11,7 @@ const STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedild
 
 export function OrdersTable({ orders }: { orders: OrderRow[] }) {
   const router = useRouter();
-  const [flash, setFlash] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [flash, setFlash] = useFlash();
 
   async function act(id: number, action: "approve" | "reject") {
     if (!confirm(action === "approve" ? "Ödeme alındı olarak işaretlenip erişim verilsin mi?" : "Sipariş reddedilsin mi?")) return;
@@ -22,7 +22,7 @@ export function OrdersTable({ orders }: { orders: OrderRow[] }) {
 
   return (
     <>
-      {flash && <div style={{ marginBottom: 12 }}><FormMessage kind={flash.kind}>{flash.text}</FormMessage></div>}
+      <Toast flash={flash} onClose={() => setFlash(null)} />
       <div className="admin-table-wrap">
         <table className="table">
           <thead><tr><th>#</th><th>Kullanıcı</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th><th /></tr></thead>

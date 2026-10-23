@@ -1,11 +1,20 @@
 // Yönetici sınav editörünün durum tipleri ve tip dönüşümleri. Saf modül.
 
+import type { z } from "zod";
+import type { quizSchema } from "./admin-schemas.ts";
+
 export type Opt = { option_text: string; is_correct: boolean };
 export type ChoiceQ = { kind: "single" | "multiple"; question_text: string; explanation: string; options: Opt[] };
 export type CatQ = { kind: "categorize"; question_text: string; explanation: string; categories: string[]; cards: { card_text: string; category_index: number }[] };
 export type ScenQ = { kind: "scenario"; scenario_text: string; scenario_prompt: string; questions: ChoiceQ[] };
 export type EditorItem = ChoiceQ | CatQ | ScenQ;
 export type ItemKind = "single" | "multiple" | "categorize";
+
+/** Doğrulanmış sınav girdisi → editör durumu (isteğe bağlı alanlar boş metin olur). */
+export function toEditor(q: z.infer<typeof quizSchema>["questions"][number]): EditorItem {
+  if (q.kind === "scenario") return { kind: "scenario", scenario_text: q.scenario_text, scenario_prompt: q.scenario_prompt ?? "", questions: q.questions.map((c) => ({ ...c, explanation: c.explanation ?? "" })) };
+  return { ...q, explanation: q.explanation ?? "" };
+}
 
 export const blankChoice = (kind: ChoiceQ["kind"] = "single"): ChoiceQ => ({
   kind,

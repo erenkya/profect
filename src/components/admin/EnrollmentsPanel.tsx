@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Corners } from "@/components/Corners";
-import { FormMessage } from "@/components/auth/AuthShell";
+import { Toast, useFlash } from "./Toast";
 import { formatDate } from "@/lib/format";
 import { adminApi } from "./api";
 
@@ -16,7 +16,7 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
   const router = useRouter();
   const [userIds, setUserIds] = useState<number[]>([]);
   const [courseIds, setCourseIds] = useState<number[]>([]);
-  const [flash, setFlash] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [flash, setFlash] = useFlash();
   const [filter, setFilter] = useState("");
 
   const toggle = (arr: number[], set: (v: number[]) => void, id: number) => set(arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]);
@@ -75,7 +75,7 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
         <div><button className="btn btn-primary blueprint" disabled={!userIds.length || !courseIds.length} onClick={assign}><Corners />Ata</button></div>
       </div>
 
-      {flash && <div style={{ marginBottom: 12 }}><FormMessage kind={flash.kind}>{flash.text}</FormMessage></div>}
+      <Toast flash={flash} onClose={() => setFlash(null)} />
       <input className="input" placeholder="Kullanıcı veya kurs ara…" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ background: "#fff", maxWidth: 320, marginBottom: 16 }} aria-label="Kayıt ara" />
       <div className="admin-table-wrap">
         <table className="table">

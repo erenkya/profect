@@ -3,24 +3,24 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Corners } from "@/components/Corners";
-import { FormMessage } from "@/components/auth/AuthShell";
+import { Toast, useFlash } from "./Toast";
 import { adminApi } from "./api";
 
 export function NewCourseForm() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ title: "", description: "", category: "", price: "" });
-  const [error, setError] = useState("");
+  const [flash, setFlash] = useFlash();
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setError("");
+    setFlash(null);
     const r = await adminApi("POST", "/api/admin/courses", { title: f.title, description: f.description, category: f.category, price: Number(f.price) || 0 });
     setBusy(false);
     if (r.ok) router.push(`/admin/kurslar/${r.json.courseId}`);
-    else setError(r.message);
+    else setFlash({ kind: "error", text: r.message });
   }
 
   if (!open) return <button className="btn btn-primary blueprint" onClick={() => setOpen(true)}><Corners />Yeni kurs</button>;
@@ -34,7 +34,7 @@ export function NewCourseForm() {
         <div className="field"><label htmlFor="nc-cat">Kategori</label><input id="nc-cat" className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} style={input} /></div>
         <div className="field"><label htmlFor="nc-price">Fiyat (₺)</label><input id="nc-price" className="input" type="number" min={0} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} style={input} /></div>
       </div>
-      {error && <FormMessage kind="error">{error}</FormMessage>}
+      <Toast flash={flash} onClose={() => setFlash(null)} />
       <div style={{ display: "flex", gap: 10 }}>
         <button type="submit" disabled={busy} className="btn btn-primary blueprint"><Corners />{busy ? "Oluşturuluyor…" : "Oluştur ve düzenle"}</button>
         <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>Vazgeç</button>
