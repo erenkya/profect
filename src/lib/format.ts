@@ -1,7 +1,7 @@
 /** 1490 → "₺1.490" */
 export function formatPrice(value: number | string | null | undefined): string {
   const n = Number(value ?? 0);
-  return "₺" + new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 }).format(n);
+  return "₺" + new Intl.NumberFormat("tr-TR", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 }).format(n);
 }
 
 /** Kutuya sertifika numarası ya da sertifika linki (…/sertifika/PRF-2026-000001) girilebilir; numarayı ayıklar. */

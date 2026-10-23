@@ -3,6 +3,8 @@ import { fail, getBaseUrl, ok, parseBody, serverError } from "@/lib/http";
 import pool from "@/lib/db";
 import { checkoutSchema, normalizePhone } from "@/lib/checkout-schema";
 import { quoteCart } from "@/lib/cart-quote";
+import { allocateDiscount, computeDiscount } from "@/lib/coupon-schema";
+import { validateCoupon } from "@/lib/coupons";
 import { createCartOrder } from "@/lib/orders";
 import { fulfillOrder } from "@/lib/lms";
 import { paymentProvider } from "@/lib/payment";
@@ -28,11 +30,28 @@ export async function POST(request: Request) {
   try {
     const quote = await quoteCart(body.data.items, userId);
     if (quote.payable.length === 0) return fail("Sepetinizde satın alınabilir ürün yok.", 409);
-    if (provider.requiresCard && !card) return fail("Kart bilgileri eksik.", 400);
+    // Kupon: sunucuda yeniden doğrulanır ve hesaplanır (ön izlemedeki tutara güvenilmez).
+    let coupon: { id: number; code: string } | null = null;
+    let discount = 0;
+    let total = quote.total;
+    if (body.data.coupon_code) {
+      const v = await validateCoupon({ code: body.data.coupon_code, userId });
+      if (!v.ok) return fail(v.message, 400);
+      const d = computeDiscount(quote.total, v.coupon.discount_type, v.coupon.discount_value);
+      coupon = { id: v.coupon.id, code: v.coupon.code };
+      discount = d.discount;
+      total = d.total;
+    }
+    const free = total <= 0; // %100 indirim: tahsilat yok, sipariş anında tamamlanır
+    if (!free && provider.requiresCard && !card) return fail("Kart bilgileri eksik.", 400);
 
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-    const orderId = await createCartOrder({ userId, lines: quote.payable, total: quote.total, billing, provider: provider.id, ip });
+    const orderId = await createCartOrder({ userId, lines: quote.payable, total, billing, provider: free ? "free" : provider.id, ip, coupon, discount });
 
+    if (free) {
+      await fulfillOrder(orderId);
+      return ok({ orderId, status: "paid" }, 201);
+    }
     if (provider.id === "mock") {
       await fulfillOrder(orderId);
       return ok({ orderId, status: "paid" }, 201);
@@ -54,9 +73,10 @@ export async function POST(request: Request) {
       companyName: k?.company_name,
       contactName: billing.full_name, phoneNumber: phone, emailAddress: billing.email,
     };
+    const netPrices = allocateDiscount(quote.payable.map((x) => x.price), discount);
     const data = await authPayment3D({
       orderId: ref,
-      amount: quote.total,
+      amount: total,
       currency: "TRY",
       installmentCount: 1,
       paymentGroup: "PRODUCT",
@@ -73,10 +93,11 @@ export async function POST(request: Request) {
       shippingAddress: address,
       basket: {
         basketId: ref,
-        basketItems: quote.payable.map((l) => ({
-          itemId: l.key, name: l.title.slice(0, 100), itemType: "PHYSICAL", category: "Eğitim", subCategory: l.item.type === "plus" ? "Abonelik" : "Kurs",
-          numberOfProducts: 1, unitPrice: l.price, totalPrice: l.price,
-        })),
+        // Sepet toplamı tahsil edilen tutara eşit olmalı: kupon indirimi kalemlere orantılı dağıtılır.
+        basketItems: quote.payable.map((l, i) => {
+          const price = netPrices[i];
+          return { itemId: l.key, name: l.title.slice(0, 100), itemType: "PHYSICAL" as const, category: "Eğitim", subCategory: l.item.type === "plus" ? "Abonelik" : "Kurs", numberOfProducts: 1, unitPrice: price, totalPrice: price };
+        }),
       },
     });
     if (!data.success) {

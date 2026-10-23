@@ -33,3 +33,10 @@
 .card-fields .co-two { grid-template-columns: 1fr 110px; }
 .card-brand { position: absolute; right: 10px; top: 0; bottom: 0; display: flex; align-items: center; pointer-events: none; }
 .card-brand img { display: block; }
+
+.co-coupon { border-top: 1px solid var(--color-divider); padding-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.co-coupon-label { font-size: 12px; color: color-mix(in srgb, var(--color-text) 70%, transparent); }
+.co-coupon-row { display: flex; gap: 8px; }
+.co-coupon-row .input { text-transform: uppercase; letter-spacing: .04em; }
+.co-coupon-applied { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 12px; font-size: 14px; background: #e8f7ef; border: 1px solid #a8e0c0; color: #14663d; }
+.co-coupon-applied button { background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; color: inherit; font-size: 13px; }

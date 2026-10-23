@@ -324,6 +324,10 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
         : o.course_id
           ? [{ item_type: "course", course_id: o.course_id }]
           : [];
+    if (o.coupon_id) {
+      // UNIQUE(order_id) → sipariş yeniden onaylansa da kupon bir kez sayılır.
+      await conn.execute("INSERT IGNORE INTO coupon_redemptions (coupon_id, user_id, order_id, discount_amount) VALUES (?, ?, ?, ?)", [o.coupon_id, o.user_id, orderId, o.discount_amount ?? 0]);
+    }
     for (const line of lines) {
       if (line.item_type === "course" && line.course_id) {
         await conn.execute("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'purchase')", [o.user_id, line.course_id]);

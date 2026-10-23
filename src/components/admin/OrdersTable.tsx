@@ -6,7 +6,7 @@ import { Toast, useFlash } from "./Toast";
 import { formatDate, formatPrice } from "@/lib/format";
 import { adminApi } from "./api";
 
-export type OrderRow = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected"; provider: string; created_at: string; paid_at: string | null; user_name: string; user_email: string; course_title: string | null; items_summary: string | null; invoice_type: "bireysel" | "kurumsal" | null; company_name: string | null; tckn: string | null; tax_number: string | null; tax_office: string | null; phone: string | null; address: string | null; city: string | null; district: string | null; error_message: string | null };
+export type OrderRow = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected"; provider: string; created_at: string; paid_at: string | null; user_name: string; user_email: string; course_title: string | null; items_summary: string | null; invoice_type: "bireysel" | "kurumsal" | null; company_name: string | null; tckn: string | null; tax_number: string | null; tax_office: string | null; phone: string | null; address: string | null; city: string | null; district: string | null; error_message: string | null; coupon_code: string | null; discount_amount: string };
 const STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi" } as const;
 
 export function OrdersTable({ orders }: { orders: OrderRow[] }) {
@@ -41,6 +41,7 @@ export function OrdersTable({ orders }: { orders: OrderRow[] }) {
                       <div>{o.address}, {o.district}/{o.city}</div>
                     </details>
                   )}
+                  {o.coupon_code && <div style={{ fontSize: 12, color: "#1d8a55" }}>Kupon {o.coupon_code} · −{formatPrice(o.discount_amount)}</div>}
                   {o.error_message && <div style={{ fontSize: 12, color: "var(--color-accent-2-700)" }}>{o.error_message}</div>}
                 </td>
                 <td>{formatPrice(o.amount)}</td>

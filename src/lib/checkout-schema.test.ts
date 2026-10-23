@@ -93,3 +93,49 @@ test("numara ve CVC uzunluk sınırları kart ağına göre", () => {
   assert.equal(cvcLength("visa"), 3);
   assert.equal(cvcLength(null), 3);
 });
+
+import { computeDiscount, couponCreateSchema, generateCouponCode, normalizeCouponCode } from "./coupon-schema.ts";
+
+test("kupon indirimi hesabı", () => {
+  assert.deepEqual(computeDiscount(1939, "percentage", 20), { discount: 387.8, total: 1551.2 });
+  assert.deepEqual(computeDiscount(1000, "fixed", 150), { discount: 150, total: 850 });
+  assert.deepEqual(computeDiscount(100, "fixed", 500), { discount: 100, total: 0 }); // toplamı aşamaz
+  assert.deepEqual(computeDiscount(100, "percentage", 100), { discount: 100, total: 0 });
+  assert.deepEqual(computeDiscount(0, "percentage", 50), { discount: 0, total: 0 });
+});
+
+test("kupon kodu normalleştirme ve şema", () => {
+  assert.equal(normalizeCouponCode("  yaz 20 "), "YAZ20");
+  const ok = couponCreateSchema.safeParse({ code: "yaz20", discount_type: "percentage", discount_value: "20", valid_from: "", valid_until: "", max_uses: "", max_uses_per_user: "1" });
+  assert.equal(ok.success && ok.data.code, "YAZ20");
+  assert.equal(ok.success && ok.data.max_uses, null);
+  assert.equal(ok.success && ok.data.max_uses_per_user, 1);
+  const base = { code: "YAZ20", discount_type: "percentage", discount_value: 20 };
+  assert.equal(couponCreateSchema.safeParse({ ...base, discount_value: 101 }).success, false);
+  assert.equal(couponCreateSchema.safeParse({ ...base, discount_value: 0 }).success, false);
+  assert.equal(couponCreateSchema.safeParse({ ...base, code: "a!" }).success, false);
+  assert.equal(couponCreateSchema.safeParse({ ...base, valid_from: "2026-12-01", valid_until: "2026-11-01" }).success, false);
+  assert.equal(couponCreateSchema.safeParse({ ...base, discount_type: "fixed", discount_value: 150.5 }).success, true);
+  assert.match(generateCouponCode(), /^PRF-[A-Z2-9]{6}$/);
+});
+
+import { allocateDiscount } from "./coupon-schema.ts";
+
+test("indirim kalemlere dağıtılınca toplam tutuyor", () => {
+  const out = allocateDiscount([1490, 449], 387.8);
+  assert.equal(Math.round(out.reduce((a, b) => a + b, 0) * 100) / 100, 1551.2);
+  assert.ok(out.every((p) => p >= 0));
+  assert.deepEqual(allocateDiscount([100, 50], 150), [0, 0]);
+  assert.deepEqual(allocateDiscount([100, 50], 0), [100, 50]);
+  const odd = allocateDiscount([33.33, 33.33, 33.34], 10);
+  assert.equal(Math.round(odd.reduce((a, b) => a + b, 0) * 100) / 100, 90);
+});
+
+import { formatPrice } from "./format.ts";
+
+test("fiyat biçimi: tam sayıda kuruş yok, küsuratta iki hane", () => {
+  assert.equal(formatPrice(1490), "₺1.490");
+  assert.equal(formatPrice(387.8), "₺387,80");
+  assert.equal(formatPrice("1551.2"), "₺1.551,20");
+  assert.equal(formatPrice(0), "₺0");
+});

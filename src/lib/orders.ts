@@ -15,6 +15,8 @@ type OrderInput = {
   billing: Billing;
   provider: string;
   ip: string;
+  coupon?: { id: number; code: string } | null;
+  discount?: number;
 };
 
 const BILLING_COLUMNS = `invoice_type = ?, full_name = ?, email = ?, phone = ?, tckn = ?, company_name = ?, tax_office = ?, tax_number = ?,
@@ -59,6 +61,7 @@ export async function createCartOrder(input: OrderInput): Promise<number> {
       orderId = res.insertId;
       await conn.execute(`UPDATE orders SET ${BILLING_COLUMNS} WHERE id = ?`, [...billingValues(input.billing, input.ip), orderId]);
     }
+    await conn.execute("UPDATE orders SET coupon_id = ?, coupon_code = ?, discount_amount = ? WHERE id = ?", [input.coupon?.id ?? null, input.coupon?.code ?? null, input.discount ?? 0, orderId]);
     await insertItems(conn, orderId, input.lines);
     await conn.commit();
     return orderId;

@@ -471,3 +471,6 @@ a:hover > .acc-stat { transform: translateY(-4px); border-color: var(--color-acc
   @keyframes toast-in { from { opacity: 0; transform: translateY(24px) scale(.97); } to { opacity: 1; transform: none; } }
   @keyframes toast-attn { 0% { box-shadow: 0 12px 32px rgba(20, 20, 40, .18), 0 0 0 0 rgba(74, 42, 158, .45); } 100% { box-shadow: 0 12px 32px rgba(20, 20, 40, .18), 0 0 0 14px rgba(74, 42, 158, 0); } }
 }
+
+/* — yönetici: kupon formu — */
+.coupon-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }

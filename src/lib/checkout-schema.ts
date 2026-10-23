@@ -93,5 +93,6 @@ export const checkoutSchema = z.object({
   billing: billingSchema,
   consents: consentsSchema,
   card: cardSchema.optional(),
+  coupon_code: z.string().trim().max(60).optional(),
 });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
