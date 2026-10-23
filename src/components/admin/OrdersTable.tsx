@@ -33,10 +33,10 @@ export function OrdersTable({ orders }: { orders: OrderRow[] }) {
                 <td>{o.user_name}<div style={{ fontSize: 12, color: "var(--muted-55)" }}>{o.user_email}</div></td>
                 <td>
                   {o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—")}
-                  {o.invoice_type && (
+                  {o.invoice_type === "kurumsal" && (
                     <details style={{ fontSize: 12, color: "var(--muted-55)", whiteSpace: "normal" }}>
-                      <summary style={{ cursor: "pointer" }}>Fatura bilgisi ({o.invoice_type})</summary>
-                      {o.invoice_type === "kurumsal" ? <div>{o.company_name} · {o.tax_office} V.D. · VKN {o.tax_number}</div> : <div>TCKN {o.tckn}</div>}
+                      <summary style={{ cursor: "pointer" }}>Kurumsal fatura bilgisi</summary>
+                      <div>{o.company_name} · {o.tax_office} V.D. · VKN {o.tax_number}</div>
                       <div>{o.phone}</div>
                       <div>{o.address}, {o.district}/{o.city}</div>
                     </details>

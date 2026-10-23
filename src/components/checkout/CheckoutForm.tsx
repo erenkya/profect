@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import "@/components/checkout/checkout.css";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Lock } from "lucide-react";
@@ -8,11 +9,13 @@ import { Corners } from "@/components/Corners";
 import { FormMessage } from "@/components/auth/AuthShell";
 import { KvkkDialog } from "@/components/legal/KvkkDialog";
 import { CheckoutPrivacyContent, DeliveryReturnContent, DistanceSalesContent } from "@/components/legal/CheckoutLegalContent";
+import { CARD_BRAND_ICON, CARD_BRAND_LABEL, detectCardBrand, formatCardNumber } from "@/lib/card-brand";
 import { CONSENT_KEYS, billingSchema, cardSchema, type ConsentKey } from "@/lib/checkout-schema";
 import { useCart } from "@/lib/cart";
 import { formatPrice } from "@/lib/format";
 import { CartLines } from "./CartLines";
 import { ConsentCheckbox } from "./ConsentCheckbox";
+import { PaymentBadges } from "./PaymentBadges";
 import { useQuote } from "./useQuote";
 
 type Defaults = { full_name: string; email: string; phone: string };
@@ -21,9 +24,6 @@ type Errors = Record<string, string>;
 const input = { background: "#fff", minHeight: 44, fontSize: 16 } as const;
 const BUTTON_LABEL = { manual: "Siparişi oluştur", mock: "Öde (test modu)", tami: "Öde" } as const;
 
-function groupCard(v: string) {
-  return v.replace(/\D/g, "").slice(0, 19).replace(/(.{4})/g, "$1 ").trim();
-}
 function formatExpiry(v: string) {
   const d = v.replace(/\D/g, "").slice(0, 4);
   return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
@@ -35,7 +35,7 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
   const q = useQuote(items, ready);
 
   const [invoiceType, setInvoiceType] = useState<"bireysel" | "kurumsal">("bireysel");
-  const [f, setF] = useState({ ...defaults, tckn: "", company_name: "", tax_office: "", tax_number: "", address: "", city: "", district: "", zip_code: "" });
+  const [f, setF] = useState({ ...defaults, company_name: "", tax_office: "", tax_number: "", address: "", city: "", district: "", zip_code: "" });
   const [card, setCard] = useState({ holder_name: "", number: "", expiry: "", cvv: "" });
   const [consents, setConsents] = useState<Record<ConsentKey, boolean>>({ distance_sales: false, privacy: false, delivery_return: false, kvkk: false });
   const [errors, setErrors] = useState<Errors>({});
@@ -46,6 +46,7 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
   const setConsent = (k: ConsentKey) => (v: boolean) => setConsents((c) => ({ ...c, [k]: v }));
   const allConsents = CONSENT_KEYS.every((k) => consents[k]);
   const needsCard = q.provider === "tami";
+  const brand = detectCardBrand(card.number);
 
   if (!ready || q.loading) return <p style={{ color: "var(--muted-72)" }} aria-live="polite">Sipariş özetin yükleniyor…</p>;
   if (items.length === 0 || q.payable.length === 0) {
@@ -64,7 +65,7 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
     e.preventDefault();
     setError("");
     const billing = invoiceType === "bireysel"
-      ? { invoice_type: invoiceType, full_name: f.full_name, email: f.email, phone: f.phone, address: f.address, city: f.city, district: f.district, zip_code: f.zip_code, tckn: f.tckn }
+      ? { invoice_type: invoiceType, full_name: f.full_name, email: f.email }
       : { invoice_type: invoiceType, full_name: f.full_name, email: f.email, phone: f.phone, address: f.address, city: f.city, district: f.district, zip_code: f.zip_code, company_name: f.company_name, tax_office: f.tax_office, tax_number: f.tax_number };
 
     const errs: Errors = {};
@@ -127,71 +128,68 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
             ))}
           </div>
           {field("full_name", "Ad soyad", { autoComplete: "name" })}
-          <div className="co-two">
-            {field("email", "E-posta", { type: "email", autoComplete: "email" })}
-            {field("phone", "Cep telefonu", { type: "tel", autoComplete: "tel", placeholder: "5XX XXX XX XX" })}
-          </div>
-          {invoiceType === "bireysel" ? (
-            field("tckn", "TC kimlik no", { inputMode: "numeric", maxLength: 11, autoComplete: "off" })
-          ) : (
+          {field("email", "E-posta", { type: "email", autoComplete: "email" })}
+          {invoiceType === "kurumsal" && (
             <>
+              {field("phone", "Cep telefonu", { type: "tel", autoComplete: "tel", placeholder: "5XX XXX XX XX" })}
               {field("company_name", "Şirket unvanı", { autoComplete: "organization" })}
               <div className="co-two">
                 {field("tax_office", "Vergi dairesi")}
                 {field("tax_number", "Vergi numarası", { inputMode: "numeric", maxLength: 10 })}
               </div>
+              <div className="field">
+                <label htmlFor="co-address">Adres</label>
+                <textarea id="co-address" className="input" rows={3} value={f.address} onChange={set("address")} autoComplete="street-address" aria-invalid={!!errors.address} style={{ ...input, minHeight: 80 }} />
+                {errors.address && <div role="alert" className="field-err">{errors.address}</div>}
+              </div>
+              <div className="co-three">
+                {field("city", "İl", { autoComplete: "address-level1" })}
+                {field("district", "İlçe", { autoComplete: "address-level2" })}
+                {field("zip_code", "Posta kodu", { inputMode: "numeric", maxLength: 5, autoComplete: "postal-code" })}
+              </div>
             </>
           )}
-          <div className="field">
-            <label htmlFor="co-address">Adres</label>
-            <textarea id="co-address" className="input" rows={3} value={f.address} onChange={set("address")} autoComplete="street-address" aria-invalid={!!errors.address} style={{ ...input, minHeight: 80 }} />
-            {errors.address && <div role="alert" className="field-err">{errors.address}</div>}
-          </div>
-          <div className="co-three">
-            {field("city", "İl", { autoComplete: "address-level1" })}
-            {field("district", "İlçe", { autoComplete: "address-level2" })}
-            {field("zip_code", "Posta kodu", { inputMode: "numeric", maxLength: 5, autoComplete: "postal-code" })}
-          </div>
         </section>
 
         <section className="card blueprint" style={{ background: "#fff", padding: 24, gap: 14 }}>
           <Corners />
           <h2 className="co-h">Ödeme</h2>
           {needsCard ? (
-            <>
-              <p style={{ margin: 0, fontSize: 13, color: "var(--muted-55)", display: "flex", gap: 6, alignItems: "center" }}>
-                <Lock size={14} aria-hidden /> Kart bilgilerin saklanmaz; 3D Secure ile bankanda doğrulanır.
-              </p>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--muted-55)", display: "flex", gap: 6, alignItems: "center" }}>
+              <Lock size={14} aria-hidden /> Kart bilgilerin saklanmaz; 3D Secure ile bankanda doğrulanır.
+            </p>
+          ) : q.provider === "mock" ? (
+            <FormMessage kind="ok">Test modu: ödeme alınmaz, sipariş anında “ödendi” sayılır ve erişim açılır. Kart bilgileri hiçbir yere gönderilmez.</FormMessage>
+          ) : null}
+              <div className="card-fields">
               <div className="field">
                 <label htmlFor="co-card-name">Kart üzerindeki isim</label>
-                <input id="co-card-name" className="input" autoComplete="cc-name" value={card.holder_name} onChange={(e) => setCard((c) => ({ ...c, holder_name: e.target.value }))} aria-invalid={!!errors["card.holder_name"]} style={input} />
+                <input id="co-card-name" className="input" autoComplete={needsCard ? "cc-name" : "off"} value={card.holder_name} onChange={(e) => setCard((c) => ({ ...c, holder_name: e.target.value }))} aria-invalid={!!errors["card.holder_name"]} style={input} />
                 {errors["card.holder_name"] && <div role="alert" className="field-err">{errors["card.holder_name"]}</div>}
               </div>
               <div className="field">
                 <label htmlFor="co-card-no">Kart numarası</label>
-                <input id="co-card-no" className="input" inputMode="numeric" autoComplete="cc-number" placeholder="0000 0000 0000 0000" value={card.number} onChange={(e) => setCard((c) => ({ ...c, number: groupCard(e.target.value) }))} aria-invalid={!!errors["card.number"]} style={input} />
+                <div style={{ position: "relative" }}>
+                  <input id="co-card-no" className="input" inputMode="numeric" autoComplete={needsCard ? "cc-number" : "off"} placeholder="0000 0000 0000 0000" value={card.number} onChange={(e) => setCard((c) => ({ ...c, number: formatCardNumber(e.target.value) }))} aria-invalid={!!errors["card.number"]} style={{ ...input, paddingRight: 64 }} />
+                  <span className="card-brand" aria-live="polite">
+                    {brand && <img src={CARD_BRAND_ICON[brand].src} width={CARD_BRAND_ICON[brand].w} height={CARD_BRAND_ICON[brand].h} alt={CARD_BRAND_LABEL[brand]} />}
+                  </span>
+                </div>
                 {errors["card.number"] && <div role="alert" className="field-err">{errors["card.number"]}</div>}
               </div>
               <div className="co-two">
                 <div className="field">
                   <label htmlFor="co-card-exp">Son kullanma</label>
-                  <input id="co-card-exp" className="input" inputMode="numeric" autoComplete="cc-exp" placeholder="AA/YY" value={card.expiry} onChange={(e) => setCard((c) => ({ ...c, expiry: formatExpiry(e.target.value) }))} aria-invalid={!!errors["card.expiry"]} style={input} />
+                  <input id="co-card-exp" className="input" inputMode="numeric" autoComplete={needsCard ? "cc-exp" : "off"} placeholder="AA/YY" value={card.expiry} onChange={(e) => setCard((c) => ({ ...c, expiry: formatExpiry(e.target.value) }))} aria-invalid={!!errors["card.expiry"]} style={input} />
                   {errors["card.expiry"] && <div role="alert" className="field-err">{errors["card.expiry"]}</div>}
                 </div>
                 <div className="field">
                   <label htmlFor="co-card-cvv">CVC</label>
-                  <input id="co-card-cvv" className="input" inputMode="numeric" autoComplete="cc-csc" maxLength={4} placeholder="000" value={card.cvv} onChange={(e) => setCard((c) => ({ ...c, cvv: e.target.value.replace(/\D/g, "") }))} aria-invalid={!!errors["card.cvv"]} style={input} />
+                  <input id="co-card-cvv" className="input" inputMode="numeric" autoComplete={needsCard ? "cc-csc" : "off"} maxLength={4} placeholder="000" value={card.cvv} onChange={(e) => setCard((c) => ({ ...c, cvv: e.target.value.replace(/\D/g, "") }))} aria-invalid={!!errors["card.cvv"]} style={input} />
                   {errors["card.cvv"] && <div role="alert" className="field-err">{errors["card.cvv"]}</div>}
                 </div>
               </div>
-            </>
-          ) : q.provider === "mock" ? (
-            <FormMessage kind="ok">Test modu: ödeme alınmaz, sipariş anında “ödendi” sayılır ve erişim açılır.</FormMessage>
-          ) : (
-            <p style={{ margin: 0, fontSize: 15, color: "var(--muted-72)" }}>
-              Online kart ödemesi çok yakında. Şimdilik <strong style={{ fontWeight: 600 }}>ödeme alınmaz</strong>: siparişin “onay bekliyor” olarak kaydedilir, ödeme onaylandığında erişimin açılır ve e-posta ile bilgilendirilirsin.
-            </p>
-          )}
+              </div>
         </section>
 
         <section className="card blueprint" style={{ background: "#fff", padding: 24, gap: 12 }}>
@@ -224,6 +222,7 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
           {busy ? "İşleniyor…" : q.provider === "tami" ? `${formatPrice(q.total)} öde` : BUTTON_LABEL[q.provider]}
         </button>
         {!allConsents && <div style={{ fontSize: 13, color: "var(--muted-55)", textAlign: "center" }}>Devam etmek için dört onayın tümünü işaretle.</div>}
+        <PaymentBadges secured={needsCard} />
         <Link href="/sepet" style={{ fontSize: 14, textAlign: "center" }}>← Sepete dön</Link>
       </aside>
     </form>

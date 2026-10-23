@@ -21,10 +21,11 @@ const BILLING_COLUMNS = `invoice_type = ?, full_name = ?, email = ?, phone = ?, 
   address = ?, city = ?, district = ?, zip_code = ?, consents_accepted_at = NOW(), consent_ip = ?`;
 
 function billingValues(b: Billing, ip: string) {
+  const k = b.invoice_type === "kurumsal" ? b : null;
   return [
-    b.invoice_type, b.full_name, b.email, normalizePhone(b.phone), b.invoice_type === "bireysel" ? b.tckn : null,
-    b.invoice_type === "kurumsal" ? b.company_name : null, b.invoice_type === "kurumsal" ? b.tax_office : null, b.invoice_type === "kurumsal" ? b.tax_number : null,
-    b.address, b.city, b.district, b.zip_code, ip,
+    b.invoice_type, b.full_name, b.email, k ? normalizePhone(k.phone) : null, null,
+    k?.company_name ?? null, k?.tax_office ?? null, k?.tax_number ?? null,
+    k?.address ?? null, k?.city ?? null, k?.district ?? null, k?.zip_code ?? null, ip,
   ];
 }
 

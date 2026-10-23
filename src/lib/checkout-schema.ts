@@ -22,28 +22,25 @@ export function normalizePhone(value: string): string | null {
 const text = (label: string, max: number, min = 2) =>
   z.string({ required_error: `${label} zorunludur.` }).trim().min(min, `${label} zorunludur.`).max(max, `${label} en fazla ${max} karakter olabilir.`);
 
-const common = {
+const identity = {
   full_name: text("Ad soyad", 160, 3),
   email: z.string().trim().toLowerCase().email("Geçerli bir e-posta girin.").max(190),
-  phone: z.string().trim().refine((v) => normalizePhone(v) !== null, "Geçerli bir cep telefonu girin (5XX XXX XX XX)."),
-  address: text("Adres", 500, 10),
-  city: text("İl", 80),
-  district: text("İlçe", 80),
-  zip_code: z.string().trim().regex(/^\d{5}$/, "Posta kodu 5 haneli olmalı."),
 };
 
+// Bireysel faturada yalnızca hesaptan gelen ad ve e-posta alınır; kurumsalda tam fatura bilgisi zorunludur.
 export const billingSchema = z.discriminatedUnion("invoice_type", [
-  z.object({
-    invoice_type: z.literal("bireysel"),
-    ...common,
-    tckn: z.string().trim().refine(isValidTckn, "Geçerli bir TC kimlik numarası girin."),
-  }),
+  z.object({ invoice_type: z.literal("bireysel"), ...identity }),
   z.object({
     invoice_type: z.literal("kurumsal"),
-    ...common,
+    ...identity,
+    phone: z.string().trim().refine((v) => normalizePhone(v) !== null, "Geçerli bir cep telefonu girin (5XX XXX XX XX)."),
     company_name: text("Şirket unvanı", 200),
     tax_office: text("Vergi dairesi", 120),
     tax_number: z.string().trim().regex(/^\d{10}$/, "Vergi numarası 10 haneli olmalı."),
+    address: text("Adres", 500, 10),
+    city: text("İl", 80),
+    district: text("İlçe", 80),
+    zip_code: z.string().trim().regex(/^\d{5}$/, "Posta kodu 5 haneli olmalı."),
   }),
 ]);
 export type Billing = z.infer<typeof billingSchema>;

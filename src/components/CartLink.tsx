@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import "@/components/checkout/checkout.css";
 import { ShoppingCart } from "lucide-react";
 import { useCart } from "@/lib/cart";
 

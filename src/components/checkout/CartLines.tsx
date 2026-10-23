@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import "@/components/checkout/checkout.css";
 import { Trash2 } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import { removeFromCart } from "@/lib/cart";
@@ -28,7 +29,6 @@ export function CartLines({ lines, editable }: { lines: QuoteLine[]; editable?: 
             {l.status === "ok" && (
               <>
                 <div className="cart-price">{formatPrice(l.price)}</div>
-                {l.oldPrice && <div className="cart-old">{formatPrice(l.oldPrice)}</div>}
               </>
             )}
           </div>

@@ -45,10 +45,14 @@ export async function POST(request: Request) {
     await pool.execute("UPDATE orders SET provider_ref = ? WHERE id = ?", [ref, orderId]);
     const [first, ...rest] = billing.full_name.split(/\s+/);
     const now = new Date().toISOString().replace("Z", "");
+    // Bireysel faturada adres/telefon/TCKN alınmaz; Tami'nin zorunlu alanları için sabit yer tutucular kullanılır.
+    // TODO: yeni Tami hesabı bireysel için bu alanları kabul etmezse formda yeniden istenmeli.
+    const k = billing.invoice_type === "kurumsal" ? billing : null;
+    const phone = k ? normalizePhone(k.phone)! : "5000000000";
     const address = {
-      address: billing.address, city: billing.city, district: billing.district, country: "Türkiye", zipCode: billing.zip_code,
-      companyName: billing.invoice_type === "kurumsal" ? billing.company_name : undefined,
-      contactName: billing.full_name, phoneNumber: normalizePhone(billing.phone)!, emailAddress: billing.email,
+      address: k?.address ?? "Dijital ürün (adres alınmadı)", city: k?.city ?? "İstanbul", district: k?.district ?? "Merkez", country: "Türkiye", zipCode: k?.zip_code ?? "34000",
+      companyName: k?.company_name,
+      contactName: billing.full_name, phoneNumber: phone, emailAddress: billing.email,
     };
     const data = await authPayment3D({
       orderId: ref,
@@ -61,9 +65,9 @@ export async function POST(request: Request) {
       card: { number: card!.number, holderName: card!.holder_name, expireMonth: mm, expireYear: 2000 + yy, cvv: card!.cvv },
       buyer: {
         ipAddress: ip, buyerId: String(userId), name: first, surName: rest.join(" ") || first,
-        identityNumber: billing.invoice_type === "bireysel" ? billing.tckn : billing.tax_number,
-        emailAddress: billing.email, phoneNumber: address.phoneNumber, city: billing.city, country: "Türkiye", zipCode: billing.zip_code,
-        registrationAddress: billing.address, registrationDate: now, lastLoginDate: now,
+        identityNumber: k?.tax_number ?? "11111111111",
+        emailAddress: billing.email, phoneNumber: phone, city: address.city, country: "Türkiye", zipCode: address.zipCode,
+        registrationAddress: address.address, registrationDate: now, lastLoginDate: now,
       },
       billingAddress: address,
       shippingAddress: address,

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import "@/components/checkout/checkout.css";
 import { Corners } from "@/components/Corners";
 import { formatPrice } from "@/lib/format";
 import { useCart } from "@/lib/cart";

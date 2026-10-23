@@ -1,4 +1,5 @@
 import { COMPANY } from "./company";
+import "@/components/checkout/checkout.css";
 
 // Taslak metinlerdir: yayından önce bir hukukçu tarafından incelenmeli ve şirket bilgileri (company.ts) doldurulmalıdır.
 // İade süresi sitede verilen "14 gün içinde koşulsuz iade" taahhüdüyle tutarlıdır.
@@ -48,7 +49,7 @@ export function CheckoutPrivacyContent() {
       <h3>1. Kapsam</h3>
       <p>Bu metin, Alıcı’nın sipariş ve ödeme sürecinde paylaştığı bilgilerin işlenmesi ve korunmasına ilişkin esasları düzenler. Platformun genel kullanımına ilişkin veri işleme KVKK Aydınlatma Metni’nde ayrıca açıklanmıştır.</p>
       <h3>2. İşlenen veriler</h3>
-      <p>Fatura bilgileri (ad soyad/unvan, TC kimlik veya vergi numarası, vergi dairesi, adres), iletişim bilgileri (e-posta, telefon) ve sipariş bilgileri (ürün, tutar, tarih).</p>
+      <p>Bireysel siparişte ad soyad ve e-posta; kurumsal siparişte ek olarak şirket unvanı, vergi dairesi ve numarası, adres ve telefon. Ayrıca sipariş bilgileri (ürün, tutar, tarih).</p>
       <h3>3. Kart bilgilerinin korunması</h3>
       <p>
         Kart numarası, son kullanma tarihi ve güvenlik kodu Satıcı’nın veritabanında <strong>saklanmaz</strong>. Bu bilgiler yalnızca ödeme işlemi sırasında şifreli bağlantıyla, PCI-DSS uyumlu ödeme kuruluşuna iletilir.
