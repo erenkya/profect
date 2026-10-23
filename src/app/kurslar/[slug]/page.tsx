@@ -10,7 +10,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 import { previewLessonIds } from "@/lib/preview";
-import { PLUS_PRICE, canAccessCourse, getCourseBySlug, getCourseTree, paymentMode } from "@/lib/lms";
+import { PLUS_PRICE, canAccessCourse, getCourseBySlug, getCourseTree } from "@/lib/lms";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -166,14 +166,12 @@ export default async function CoursePage({ params }: Props) {
 
         <PurchasePanel
           slug={course.slug}
-          title={course.title}
           priceLabel={formatPrice(course.price)}
           oldPriceLabel={course.old_price ? formatPrice(course.old_price) : null}
           plusPriceLabel={formatPrice(PLUS_PRICE)}
           includes={includes}
           loggedIn={!!user}
           hasAccess={hasAccess}
-          paymentMode={paymentMode()}
         />
       </section>
     </main>

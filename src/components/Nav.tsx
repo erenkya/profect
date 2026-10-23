@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Corners } from "./Corners";
+import { CartLink } from "./CartLink";
 import { ProfileMenu } from "./ProfileMenu";
 import type { SessionUser } from "@/lib/auth";
 
@@ -32,6 +33,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
       <Link className="nav-link" href="/#sertifika">Sertifikalar</Link>
       <Link className="nav-link" href="/hakkimizda" aria-current={onAbout ? "page" : undefined}>Hakkımızda</Link>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <CartLink />
         {user ? (
           <ProfileMenu user={user} />
         ) : (

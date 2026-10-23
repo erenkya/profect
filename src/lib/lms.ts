@@ -298,9 +298,6 @@ export async function getModuleForKey(moduleId: number): Promise<{ id: number; t
 // ── Siparişler ────────────────────────────────────────────────────────────────
 export const PLUS_PRICE = 449;
 export const PLUS_DAYS = 30;
-export type PaymentMode = "manual" | "mock";
-/** manual: sipariş beklemede kalır, admin onaylar. mock: yalnızca geliştirme/demo — anında "ödendi". */
-export const paymentMode = (): PaymentMode => (process.env.PAYMENT_MODE === "mock" ? "mock" : "manual");
 
 /** Siparişi "ödendi" yapar ve erişimi verir. Zaten ödenmişse hiçbir şey yapmaz (idempotent). */
 export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reason?: string }> {
@@ -318,16 +315,24 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
       return { ok: true };
     }
     await conn.execute("UPDATE orders SET status = 'paid', paid_at = NOW() WHERE id = ?", [orderId]);
-    if (o.plan === "single" && o.course_id) {
-      await conn.execute(
-        "INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'purchase')",
-        [o.user_id, o.course_id],
-      );
-    } else if (o.plan === "plus") {
-      await conn.execute(
-        "UPDATE users SET plus_until = DATE_ADD(GREATEST(NOW(), COALESCE(plus_until, NOW())), INTERVAL ? DAY) WHERE id = ?",
-        [PLUS_DAYS, o.user_id],
-      );
+    const [items] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id FROM order_items WHERE order_id = ?", [orderId]);
+    // Eski (tek kalemli) siparişlerde kalem satırı yoktur: plan/course_id alanlarından türetilir.
+    const lines: { item_type: "course" | "plus"; course_id: number | null }[] = items.length
+      ? (items as { item_type: "course" | "plus"; course_id: number | null }[])
+      : o.plan === "plus"
+        ? [{ item_type: "plus", course_id: null }]
+        : o.course_id
+          ? [{ item_type: "course", course_id: o.course_id }]
+          : [];
+    for (const line of lines) {
+      if (line.item_type === "course" && line.course_id) {
+        await conn.execute("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'purchase')", [o.user_id, line.course_id]);
+      } else if (line.item_type === "plus") {
+        await conn.execute(
+          "UPDATE users SET plus_until = DATE_ADD(GREATEST(NOW(), COALESCE(plus_until, NOW())), INTERVAL ? DAY) WHERE id = ?",
+          [PLUS_DAYS, o.user_id],
+        );
+      }
     }
     await conn.commit();
     return { ok: true };
@@ -416,13 +421,23 @@ export async function listMyCertificates(userId: number) {
   return rows as { certificate_code: string; issued_at: string; score: number | null; course_title: string; slug: string }[];
 }
 
-export async function listMyOrders(userId: number) {
+/** Sipariş kalemlerinin okunur özeti: "Kurs A, Kurs B + Profect Plus". Kalem satırı olmayan eski siparişler için null. */
+export const ORDER_ITEMS_SUMMARY_SQL = `(SELECT GROUP_CONCAT(oi.title ORDER BY oi.id SEPARATOR ' · ') FROM order_items oi WHERE oi.order_id = o.id)`;
+
+export type MyOrder = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected"; created_at: string; course_title: string | null; items_summary: string | null };
+
+export async function listMyOrders(userId: number): Promise<MyOrder[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT o.id, o.plan, o.amount, o.status, o.created_at, c.title AS course_title
+    `SELECT o.id, o.plan, o.amount, o.status, o.created_at, c.title AS course_title, ${ORDER_ITEMS_SUMMARY_SQL} AS items_summary
        FROM orders o LEFT JOIN courses c ON c.id = o.course_id WHERE o.user_id = ? ORDER BY o.created_at DESC LIMIT 50`,
     [userId],
   );
-  return rows as { id: number; plan: "single" | "plus"; amount: string; status: "pending" | "paid" | "rejected"; created_at: string; course_title: string | null }[];
+  return rows as MyOrder[];
+}
+
+/** Sipariş ürün adı (eski ve yeni siparişler için tek yerden). */
+export function orderLabel(o: { plan: "single" | "plus" | "cart"; course_title: string | null; items_summary: string | null }): string {
+  return o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—");
 }
 
 export type AccountProfile = { full_name: string; email: string; phone: string | null; email_verified: boolean; created_at: string };
@@ -440,7 +455,7 @@ export async function getAccountProfile(userId: number): Promise<AccountProfile 
 export async function getPlusInfo(userId: number) {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT DATE_FORMAT(plus_until, '%Y-%m-%d %H:%i:%s') AS plus_until, (plus_until > NOW()) AS active,
-            EXISTS(SELECT 1 FROM orders o WHERE o.user_id = users.id AND o.plan = 'plus' AND o.status = 'pending') AS pending_order
+            EXISTS(SELECT 1 FROM orders o WHERE o.user_id = users.id AND o.status = 'pending' AND (o.plan = 'plus' OR EXISTS(SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.item_type = 'plus'))) AS pending_order
        FROM users WHERE id = ?`,
     [userId],
   );

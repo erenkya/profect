@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { PageTitle } from "@/components/account/PageTitle";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDate, formatPrice } from "@/lib/format";
-import { listMyOrders } from "@/lib/lms";
+import { listMyOrders, orderLabel } from "@/lib/lms";
 
 export const metadata: Metadata = { title: "Siparişlerim" };
 
@@ -27,7 +27,7 @@ export default async function MyOrdersPage() {
               {orders.map((o) => (
                 <tr key={o.id}>
                   <td>{o.id}</td>
-                  <td>{o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—"}</td>
+                  <td>{orderLabel(o)}</td>
                   <td>{formatPrice(o.amount)}</td>
                   <td>{ORDER_STATUS[o.status]}</td>
                   <td>{formatDate(o.created_at)}</td>

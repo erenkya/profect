@@ -1,236 +1,86 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Check, ShoppingCart } from "lucide-react";
 import { Corners } from "./Corners";
-import { BLUE, PURP } from "@/data/courses";
-
-type Step = "plan" | "pay" | "done";
-type Plan = "single" | "plus";
+import { addToCart, useCart } from "@/lib/cart";
 
 type Props = {
   slug: string;
-  title: string;
   priceLabel: string;
   oldPriceLabel: string | null;
   plusPriceLabel: string;
   includes: string[];
   loggedIn: boolean;
   hasAccess: boolean;
-  paymentMode: "manual" | "mock";
 };
 
-const fieldStyle = { background: "#ffffff", fontSize: 15, minHeight: 42 } as const;
+const big = { fontSize: 19, padding: 15, marginTop: 0 } as const;
 
-export function PurchasePanel({ slug, title, priceLabel, oldPriceLabel, plusPriceLabel, includes, loggedIn, hasAccess, paymentMode }: Props) {
-  const [step, setStep] = useState<Step | null>(null);
-  const [plan, setPlan] = useState<Plan>("single");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [orderStatus, setOrderStatus] = useState<"paid" | "pending">("pending");
-  const titleId = useId();
+export function PurchasePanel({ slug, priceLabel, oldPriceLabel, plusPriceLabel, includes, loggedIn, hasAccess }: Props) {
+  const router = useRouter();
+  const { items, ready } = useCart();
+  const inCart = ready && items.some((i) => i.type === "course" && i.slug === slug);
+  const plusInCart = ready && items.some((i) => i.type === "plus");
 
-  useEffect(() => {
-    if (!step) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setStep(null);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [step]);
-
-  const summary = plan === "plus" ? { label: "Profect Plus · aylık", price: plusPriceLabel } : { label: title, price: priceLabel };
-  const stepIdx = step ? { plan: 0, pay: 1, done: 2 }[step] : 0;
-  const plans: { id: Plan; t: string; d: string; price: string }[] = [
-    { id: "single", t: "Yalnızca bu kurs", d: "Ömür boyu erişim · 1 sertifika", price: priceLabel },
-    { id: "plus", t: "Profect Plus", d: "Tüm kurslar · sınırsız sertifika · aylık", price: `${plusPriceLabel}/ay` },
-  ];
-
-  async function submitOrder() {
-    setBusy(true);
-    setError("");
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(plan === "plus" ? { plan: "plus" } : { plan: "single", course_slug: slug }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.message ?? "Sipariş oluşturulamadı.");
-        return;
-      }
-      setOrderStatus(json.status);
-      setStep("done");
-    } catch {
-      setError("Bağlantı hatası. Lütfen tekrar deneyin.");
-    } finally {
-      setBusy(false);
-    }
+  function buyNow() {
+    addToCart({ type: "course", slug });
+    router.push(loggedIn ? "/odeme" : `/giris?next=${encodeURIComponent("/odeme")}`);
   }
 
   return (
-    <>
-      <aside style={{ position: "sticky", top: 96, minWidth: 0 }}>
-        <div className="card blueprint elev-lg" style={{ background: "#ffffff", padding: 28, gap: 16 }}>
-          <Corners />
-          <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-            <span style={{ fontFamily: "var(--font-heading)", fontSize: 52, lineHeight: 1, fontWeight: 700, color: "var(--color-accent-2)" }}>{priceLabel}</span>
-            {oldPriceLabel && <span style={{ fontSize: 15, textDecoration: "line-through", color: "color-mix(in srgb,var(--color-text) 45%,transparent)" }}>{oldPriceLabel}</span>}
-          </div>
-
-          {hasAccess ? (
-            <Link href={`/ogrenim/${slug}`} className="btn btn-primary blueprint btn-block" style={{ fontSize: 19, padding: 15, marginTop: 0 }}>
-              <Corners />
-              Derse Git
-            </Link>
-          ) : loggedIn ? (
-            <button className="btn btn-primary blueprint btn-block" onClick={() => setStep("plan")} style={{ fontSize: 19, padding: 15, marginTop: 0 }}>
-              <Corners />
-              Satın Al ve Başla
-            </button>
-          ) : (
-            <Link href={`/giris?next=${encodeURIComponent(`/kurslar/${slug}`)}`} className="btn btn-primary blueprint btn-block" style={{ fontSize: 19, padding: 15, marginTop: 0 }}>
-              <Corners />
-              Giriş Yap ve Satın Al
-            </Link>
-          )}
-
-          <div style={{ fontSize: 13, textAlign: "center", color: "var(--muted-55)" }}>14 gün içinde koşulsuz iade</div>
-          <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12, fontSize: 15 }}>
-            {includes.map((t) => (
-              <div key={t} style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <span className="diamond" style={{ width: 8, height: 8, border: "1.5px solid var(--color-accent)", flex: "none" }} />
-                {t}
-              </div>
-            ))}
-          </div>
-          <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 16, fontSize: 14 }}>
-            <strong style={{ fontWeight: 600, color: "var(--color-accent-2-700)" }}>Profect Plus</strong> ile tüm kurslara ve sertifikalara aylık {plusPriceLabel}’dan erişebilirsin.
-          </div>
+    <aside style={{ position: "sticky", top: 96, minWidth: 0 }}>
+      <div className="card blueprint elev-lg" style={{ background: "#ffffff", padding: 28, gap: 16 }}>
+        <Corners />
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <span style={{ fontFamily: "var(--font-heading)", fontSize: 52, lineHeight: 1, fontWeight: 700, color: "var(--color-accent-2)" }}>{priceLabel}</span>
+          {oldPriceLabel && <span style={{ fontSize: 15, textDecoration: "line-through", color: "color-mix(in srgb,var(--color-text) 45%,transparent)" }}>{oldPriceLabel}</span>}
         </div>
-      </aside>
 
-      {step && (
-        <div
-          className="dialog-backdrop"
-          data-lenis-prevent
-          onClick={() => setStep(null)}
-          style={{ zIndex: 100, background: "color-mix(in srgb,#1d0f45 55%,transparent)", backdropFilter: "blur(4px)" }}
-        >
-          <div
-            className="dialog blueprint"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: "min(560px,100%)", background: "#ffffff", padding: 32, gap: 20, boxShadow: "var(--shadow-lg)", maxHeight: "100%", overflowY: "auto" }}
-          >
+        {hasAccess ? (
+          <Link href={`/ogrenim/${slug}`} className="btn btn-primary blueprint btn-block" style={big}>
             <Corners />
-            <div style={{ display: "flex", gap: 8 }} aria-hidden>
-              {[0, 1, 2].map((i) => (
-                <span key={i} style={{ flex: 1, height: 3, background: i <= stepIdx ? (i === 2 ? PURP : BLUE) : "var(--color-divider)", transition: "background .4s" }} />
-              ))}
+            Derse Git
+          </Link>
+        ) : (
+          <>
+            <button type="button" className="btn btn-primary blueprint btn-block" onClick={buyNow} style={big}>
+              <Corners />
+              Hemen Satın Al
+            </button>
+            {inCart ? (
+              <Link href="/sepet" className="btn btn-secondary btn-block" style={{ marginTop: 0 }}>
+                <Check size={16} aria-hidden /> Sepette · Sepete git
+              </Link>
+            ) : (
+              <button type="button" className="btn btn-secondary btn-block" style={{ marginTop: 0 }} onClick={() => addToCart({ type: "course", slug })}>
+                <ShoppingCart size={16} aria-hidden /> Sepete Ekle
+              </button>
+            )}
+          </>
+        )}
+
+        <div style={{ fontSize: 13, textAlign: "center", color: "var(--muted-55)" }}>14 gün içinde koşulsuz iade</div>
+        <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12, fontSize: 15 }}>
+          {includes.map((t) => (
+            <div key={t} style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <span className="diamond" style={{ width: 8, height: 8, border: "1.5px solid var(--color-accent)", flex: "none" }} />
+              {t}
             </div>
-
-            {step === "plan" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div id={titleId} className="dialog-title" style={{ fontSize: 30, textTransform: "uppercase" }}>Planını seç</div>
-                <div role="radiogroup" aria-labelledby={titleId} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {plans.map((p) => (
-                    <button key={p.id} type="button" role="radio" aria-checked={plan === p.id} className="plan-opt blueprint" onClick={() => setPlan(p.id)}>
-                      <span className="plan-dot" />
-                      <span>
-                        <span style={{ display: "block", fontFamily: "var(--font-heading)", fontSize: 20, fontWeight: 600 }}>{p.t}</span>
-                        <span style={{ display: "block", fontSize: 13, color: "color-mix(in srgb,var(--color-text) 60%,transparent)" }}>{p.d}</span>
-                      </span>
-                      <span style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 700, color: "var(--color-accent-2)" }}>{p.price}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="dialog-actions">
-                  <button className="btn btn-secondary" onClick={() => setStep(null)} style={{ fontSize: 16, padding: "10px 18px" }}>Vazgeç</button>
-                  <button className="btn btn-primary blueprint" onClick={() => setStep("pay")} style={{ fontSize: 16, padding: "10px 22px" }}>
-                    <Corners />
-                    Devam et
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {step === "pay" && (
-              <form
-                style={{ display: "flex", flexDirection: "column", gap: 14 }}
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  submitOrder();
-                }}
-              >
-                <div id={titleId} className="dialog-title" style={{ fontSize: 30, textTransform: "uppercase" }}>Ödeme</div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, padding: "12px 0", borderTop: "1px solid var(--color-divider)", borderBottom: "1px solid var(--color-divider)" }}>
-                  <span>{summary.label}</span>
-                  <strong style={{ fontWeight: 600 }}>{summary.price}</strong>
-                </div>
-
-                {paymentMode === "mock" ? (
-                  <>
-                    <p style={{ fontSize: 13, color: "var(--muted-55)", margin: 0 }}>Test modu: kart bilgileri hiçbir yere gönderilmez veya kaydedilmez.</p>
-                    <div className="field"><label htmlFor="ck-name">Kart üzerindeki isim</label><input id="ck-name" className="input" placeholder="Ad Soyad" autoComplete="off" style={fieldStyle} /></div>
-                    <div className="field"><label htmlFor="ck-no">Kart numarası</label><input id="ck-no" className="input" placeholder="0000 0000 0000 0000" inputMode="numeric" autoComplete="off" style={fieldStyle} /></div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                      <div className="field"><label htmlFor="ck-exp">Son kullanma</label><input id="ck-exp" className="input" placeholder="AA/YY" autoComplete="off" style={fieldStyle} /></div>
-                      <div className="field"><label htmlFor="ck-cvc">CVC</label><input id="ck-cvc" className="input" placeholder="000" inputMode="numeric" autoComplete="off" style={fieldStyle} /></div>
-                    </div>
-                  </>
-                ) : (
-                  <p style={{ fontSize: 15, color: "var(--muted-72)", margin: 0 }}>
-                    Online kart ödemesi çok yakında. Şimdilik siparişin bize ulaşır; ödeme onaylandığında erişimin açılır ve e-posta ile bilgilendirilirsin.
-                  </p>
-                )}
-
-                {error && <div role="alert" style={{ fontSize: 14, color: "var(--color-accent-2-700)" }}>{error}</div>}
-                <div className="dialog-actions">
-                  <button type="button" className="btn btn-secondary" onClick={() => setStep("plan")} style={{ fontSize: 16, padding: "10px 18px" }}>Geri</button>
-                  <button type="submit" disabled={busy} className="btn btn-primary blueprint" style={{ fontSize: 16, padding: "10px 22px" }}>
-                    <Corners />
-                    {busy ? "İşleniyor…" : paymentMode === "mock" ? `${summary.price} öde` : "Siparişi oluştur"}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {step === "done" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
-                <span className="diamond brand-diamond" style={{ width: 44, height: 44, margin: "10px 0 10px 8px" }} />
-                <div id={titleId} className="dialog-title" style={{ fontSize: 30, textTransform: "uppercase" }}>
-                  {orderStatus === "paid" ? "Kaydın tamamlandı" : "Siparişin alındı"}
-                </div>
-                <p style={{ fontSize: 15, color: "var(--muted-72)", margin: 0 }}>
-                  {orderStatus === "paid" ? (
-                    <><strong style={{ fontWeight: 600 }}>{plan === "plus" ? "Profect Plus" : title}</strong> erişimin açıldı. Modül 1 seni bekliyor; final sınavını geçtiğinde sertifikan hesabına eklenecek.</>
-                  ) : (
-                    <>Siparişin onay bekliyor. Ödemen doğrulandığında <strong style={{ fontWeight: 600 }}>{plan === "plus" ? "Profect Plus" : title}</strong> erişimin <Link href="/hesabim">hesabında</Link> açılacak.</>
-                  )}
-                </p>
-                {orderStatus === "paid" ? (
-                  <a className="btn btn-primary blueprint btn-block" href={plan === "plus" ? "/hesabim" : `/ogrenim/${slug}`} style={{ fontSize: 17, padding: 13 }}>
-                    <Corners />
-                    Derse başla
-                  </a>
-                ) : (
-                  <button className="btn btn-primary blueprint btn-block" onClick={() => setStep(null)} style={{ fontSize: 17, padding: 13 }}>
-                    <Corners />
-                    Tamam
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+          ))}
         </div>
-      )}
-    </>
+        <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 16, fontSize: 14 }}>
+          <strong style={{ fontWeight: 600, color: "var(--color-accent-2-700)" }}>Profect Plus</strong> ile tüm kurslara ve sertifikalara aylık {plusPriceLabel}’dan erişebilirsin.{" "}
+          {plusInCart ? (
+            <Link href="/sepet">Sepette →</Link>
+          ) : (
+            <button type="button" onClick={() => addToCart({ type: "plus" })} style={{ background: "none", border: 0, padding: 0, cursor: "pointer", textDecoration: "underline", color: "var(--color-accent-600)" }}>
+              Plus’ı sepete ekle
+            </button>
+          )}
+        </div>
+      </div>
+    </aside>
   );
 }

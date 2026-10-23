@@ -33,5 +33,5 @@ export async function proxy(req: NextRequest) {
 
 // /ogrenim burada yok: ilk 2 ders girişsiz de açılır; kurs içi sayfalar kendi erişim kontrolünü yapar.
 export const config = {
-  matcher: ["/admin/:path*", "/hesabim/:path*"],
+  matcher: ["/admin/:path*", "/hesabim/:path*", "/odeme/:path*"],
 };

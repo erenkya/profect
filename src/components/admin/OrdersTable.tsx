@@ -6,7 +6,7 @@ import { Toast, useFlash } from "./Toast";
 import { formatDate, formatPrice } from "@/lib/format";
 import { adminApi } from "./api";
 
-export type OrderRow = { id: number; plan: "single" | "plus"; amount: string; status: "pending" | "paid" | "rejected"; provider: string; created_at: string; paid_at: string | null; user_name: string; user_email: string; course_title: string | null };
+export type OrderRow = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected"; provider: string; created_at: string; paid_at: string | null; user_name: string; user_email: string; course_title: string | null; items_summary: string | null; invoice_type: "bireysel" | "kurumsal" | null; company_name: string | null; tckn: string | null; tax_number: string | null; tax_office: string | null; phone: string | null; address: string | null; city: string | null; district: string | null; error_message: string | null };
 const STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi" } as const;
 
 export function OrdersTable({ orders }: { orders: OrderRow[] }) {
@@ -31,7 +31,18 @@ export function OrdersTable({ orders }: { orders: OrderRow[] }) {
               <tr key={o.id}>
                 <td>{o.id}</td>
                 <td>{o.user_name}<div style={{ fontSize: 12, color: "var(--muted-55)" }}>{o.user_email}</div></td>
-                <td>{o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—"}</td>
+                <td>
+                  {o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—")}
+                  {o.invoice_type && (
+                    <details style={{ fontSize: 12, color: "var(--muted-55)", whiteSpace: "normal" }}>
+                      <summary style={{ cursor: "pointer" }}>Fatura bilgisi ({o.invoice_type})</summary>
+                      {o.invoice_type === "kurumsal" ? <div>{o.company_name} · {o.tax_office} V.D. · VKN {o.tax_number}</div> : <div>TCKN {o.tckn}</div>}
+                      <div>{o.phone}</div>
+                      <div>{o.address}, {o.district}/{o.city}</div>
+                    </details>
+                  )}
+                  {o.error_message && <div style={{ fontSize: 12, color: "var(--color-accent-2-700)" }}>{o.error_message}</div>}
+                </td>
                 <td>{formatPrice(o.amount)}</td>
                 <td><span className={`tag ${o.status === "paid" ? "tag-accent" : "tag-neutral"}`}>{STATUS[o.status]}</span></td>
                 <td>{formatDate(o.created_at)}</td>
