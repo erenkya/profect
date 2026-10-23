@@ -20,7 +20,7 @@ export const FOUNDERS = [
     bio: "36 yıllık iş deneyiminin 31 yılını Siemens’te Almanya, Avusturya, İsrail, Polonya, Rusya ve Türkiye’de yöneticilik yaparak geçirdi; İnsan Kaynakları, Strateji, Tedarik Zinciri ve Bilgi Teknolojileri birimlerini yönetti. 2013’te Türkiye’nin ilk tedarik zinciri yönetimi derneği TEDAR’ı kurdu ve kurucu başkanı olarak yönetmeye devam ediyor. Bugün Tuğrul Günal Danışmanlık çatısı altında kurumlara liderlik, dönüşüm ve tedarik zinciri stratejisi alanlarında destek veriyor.",
     quote: "Bir beceriyi öğrenmek kadar, onu kanıtlayabilmek de önemli." },
   { n: "02", name: "Kaan Tunçbilek", role: "Kurucu Ortak", color: PURP, order: 1,
-    photo: "/images/kaan.jpeg",
+    photo: "/images/kaan-tuncbilek.jpeg",
     linkedin: "https://www.linkedin.com/in/kaan-tuncbilek/",
     short: "15+ yıllık kurumsal dönüşüm ve yapay zekâ deneyimine sahip. Xellence’ın kurucusu; kurumlara yapay zekâ yol haritası ve dönüşüm danışmanlığı veriyor.",
     bio: "Enerji, sağlık, hızlı tüketim, otomotiv ve altyapı sektörlerinde 15 yılı aşkın süredir dijital dönüşüm ve yapay zekâ benimsenmesi projelerine liderlik etti; 20’den fazla ülkede 475’ten fazla otomasyon ve analitik çözümünü ölçeklendirdi. İTÜ mezunu; Lean Six Sigma Black Belt ve INSEAD İleri Liderlik Programı sertifikalarına sahip. Xellence’ın kurucusu olarak şirketlerin yapay zekâya hazırlığı, yol haritası ve program hızlandırma alanlarında danışmanlık yapıyor.",
