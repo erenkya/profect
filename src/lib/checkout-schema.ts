@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidExpiry } from "./card-brand.ts";
 
 // İstemci formu ve /api/checkout aynı şemayı kullanır (kural tek yerde kalsın).
 
@@ -68,7 +69,7 @@ export const cartItemsSchema = z
 export const cardSchema = z.object({
   holder_name: text("Kart üzerindeki isim", 120, 3),
   number: z.string().transform((v) => v.replace(/\s+/g, "")).refine((v) => /^\d{15,19}$/.test(v) && luhn(v), "Kart numarası geçersiz."),
-  expiry: z.string().regex(/^(0[1-9]|1[0-2])\/\d{2}$/, "Son kullanma tarihi AA/YY biçiminde olmalı."),
+  expiry: z.string().regex(/^(0[1-9]|1[0-2])\/\d{2}$/, "Son kullanma tarihi AA/YY biçiminde olmalı.").refine((v) => !/^(0[1-9]|1[0-2])\/\d{2}$/.test(v) || isValidExpiry(v), "Kartın son kullanma tarihi geçmiş ya da geçersiz."),
   cvv: z.string().regex(/^\d{3,4}$/, "CVC 3 veya 4 haneli olmalı."),
 });
 

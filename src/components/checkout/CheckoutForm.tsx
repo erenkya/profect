@@ -9,12 +9,13 @@ import { Corners } from "@/components/Corners";
 import { FormMessage } from "@/components/auth/AuthShell";
 import { KvkkDialog } from "@/components/legal/KvkkDialog";
 import { CheckoutPrivacyContent, DeliveryReturnContent, DistanceSalesContent } from "@/components/legal/CheckoutLegalContent";
-import { CARD_BRAND_ICON, CARD_BRAND_LABEL, detectCardBrand, formatCardNumber } from "@/lib/card-brand";
+import { CARD_BRAND_ICON, CARD_BRAND_LABEL, cvcLength, detectCardBrand, formatCardNumber, formatExpiry, isValidExpiry } from "@/lib/card-brand";
 import { CONSENT_KEYS, billingSchema, cardSchema, type ConsentKey } from "@/lib/checkout-schema";
 import { useCart } from "@/lib/cart";
 import { formatPrice } from "@/lib/format";
 import { CartLines } from "./CartLines";
 import { ConsentCheckbox } from "./ConsentCheckbox";
+import { CardPreview, type CardField } from "./CardPreview";
 import { PaymentBadges } from "./PaymentBadges";
 import { useQuote } from "./useQuote";
 
@@ -23,11 +24,6 @@ type Errors = Record<string, string>;
 
 const input = { background: "#fff", minHeight: 44, fontSize: 16 } as const;
 const BUTTON_LABEL = { manual: "Siparişi oluştur", mock: "Öde (test modu)", tami: "Öde" } as const;
-
-function formatExpiry(v: string) {
-  const d = v.replace(/\D/g, "").slice(0, 4);
-  return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
-}
 
 export function CheckoutForm({ defaults }: { defaults: Defaults }) {
   const router = useRouter();
@@ -38,6 +34,7 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
   const [f, setF] = useState({ ...defaults, company_name: "", tax_office: "", tax_number: "", address: "", city: "", district: "", zip_code: "" });
   const [card, setCard] = useState({ holder_name: "", number: "", expiry: "", cvv: "" });
   const [consents, setConsents] = useState<Record<ConsentKey, boolean>>({ distance_sales: false, privacy: false, delivery_return: false, kvkk: false });
+  const [cardFocus, setCardFocus] = useState<CardField | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,6 +44,8 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
   const allConsents = CONSENT_KEYS.every((k) => consents[k]);
   const needsCard = q.provider === "tami";
   const brand = detectCardBrand(card.number);
+  const expiryProblem = card.expiry.length === 5 && !isValidExpiry(card.expiry) ? "Kartın son kullanma tarihi geçmiş ya da geçersiz." : "";
+  const fp = (f: CardField) => ({ onFocus: () => setCardFocus(f), onBlur: () => setCardFocus(null) });
 
   if (!ready || q.loading) return <p style={{ color: "var(--muted-72)" }} aria-live="polite">Sipariş özetin yükleniyor…</p>;
   if (items.length === 0 || q.payable.length === 0) {
@@ -161,16 +160,17 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
           ) : q.provider === "mock" ? (
             <FormMessage kind="ok">Test modu: ödeme alınmaz, sipariş anında “ödendi” sayılır ve erişim açılır. Kart bilgileri hiçbir yere gönderilmez.</FormMessage>
           ) : null}
+            <div className="pay-row">
               <div className="card-fields">
               <div className="field">
                 <label htmlFor="co-card-name">Kart üzerindeki isim</label>
-                <input id="co-card-name" className="input" autoComplete={needsCard ? "cc-name" : "off"} value={card.holder_name} onChange={(e) => setCard((c) => ({ ...c, holder_name: e.target.value }))} aria-invalid={!!errors["card.holder_name"]} style={input} />
+                <input id="co-card-name" {...fp("name")} className="input" autoComplete={needsCard ? "cc-name" : "off"} value={card.holder_name} maxLength={40} onChange={(e) => setCard((c) => ({ ...c, holder_name: e.target.value.replace(/[^\p{L}\s.'’-]/gu, "") }))} aria-invalid={!!errors["card.holder_name"]} style={input} />
                 {errors["card.holder_name"] && <div role="alert" className="field-err">{errors["card.holder_name"]}</div>}
               </div>
               <div className="field">
                 <label htmlFor="co-card-no">Kart numarası</label>
                 <div style={{ position: "relative" }}>
-                  <input id="co-card-no" className="input" inputMode="numeric" autoComplete={needsCard ? "cc-number" : "off"} placeholder="0000 0000 0000 0000" value={card.number} onChange={(e) => setCard((c) => ({ ...c, number: formatCardNumber(e.target.value) }))} aria-invalid={!!errors["card.number"]} style={{ ...input, paddingRight: 64 }} />
+                  <input id="co-card-no" {...fp("number")} className="input" inputMode="numeric" autoComplete={needsCard ? "cc-number" : "off"} placeholder="0000 0000 0000 0000" value={card.number} onChange={(e) => setCard((c) => ({ ...c, number: formatCardNumber(e.target.value) }))} aria-invalid={!!errors["card.number"]} style={{ ...input, paddingRight: 64 }} />
                   <span className="card-brand" aria-live="polite">
                     {brand && <img src={CARD_BRAND_ICON[brand].src} width={CARD_BRAND_ICON[brand].w} height={CARD_BRAND_ICON[brand].h} alt={CARD_BRAND_LABEL[brand]} />}
                   </span>
@@ -180,21 +180,27 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
               <div className="co-two">
                 <div className="field">
                   <label htmlFor="co-card-exp">Son kullanma</label>
-                  <input id="co-card-exp" className="input" inputMode="numeric" autoComplete={needsCard ? "cc-exp" : "off"} placeholder="AA/YY" value={card.expiry} onChange={(e) => setCard((c) => ({ ...c, expiry: formatExpiry(e.target.value) }))} aria-invalid={!!errors["card.expiry"]} style={input} />
-                  {errors["card.expiry"] && <div role="alert" className="field-err">{errors["card.expiry"]}</div>}
+                  <input id="co-card-exp" {...fp("expiry")} className="input" inputMode="numeric" autoComplete={needsCard ? "cc-exp" : "off"} placeholder="AA/YY" value={card.expiry} onChange={(e) => setCard((c) => ({ ...c, expiry: formatExpiry(e.target.value) }))} aria-invalid={!!(expiryProblem || errors["card.expiry"])} style={input} />
+                  {(expiryProblem || errors["card.expiry"]) && <div role="alert" className="field-err">{expiryProblem || errors["card.expiry"]}</div>}
                 </div>
                 <div className="field">
                   <label htmlFor="co-card-cvv">CVC</label>
-                  <input id="co-card-cvv" className="input" inputMode="numeric" autoComplete={needsCard ? "cc-csc" : "off"} maxLength={4} placeholder="000" value={card.cvv} onChange={(e) => setCard((c) => ({ ...c, cvv: e.target.value.replace(/\D/g, "") }))} aria-invalid={!!errors["card.cvv"]} style={input} />
+                  <input id="co-card-cvv" {...fp("cvv")} className="input" inputMode="numeric" autoComplete={needsCard ? "cc-csc" : "off"} maxLength={cvcLength(brand)} placeholder={brand === "amex" ? "0000" : "000"} value={card.cvv} onChange={(e) => setCard((c) => ({ ...c, cvv: e.target.value.replace(/\D/g, "").slice(0, cvcLength(brand)) }))} aria-invalid={!!errors["card.cvv"]} style={input} />
                   {errors["card.cvv"] && <div role="alert" className="field-err">{errors["card.cvv"]}</div>}
                 </div>
               </div>
               </div>
+              <CardPreview number={card.number} name={card.holder_name} expiry={card.expiry} cvv={card.cvv} focus={cardFocus} />
+            </div>
         </section>
+      </div>
 
-        <section className="card blueprint" style={{ background: "#fff", padding: 24, gap: 12 }}>
-          <Corners />
-          <h2 className="co-h">Onaylar</h2>
+      <aside className="card blueprint elev-md checkout-summary" style={{ background: "#fff", padding: 24, gap: 14 }}>
+        <Corners />
+        <div className="dialog-title" style={{ fontSize: 24, textTransform: "uppercase" }}>Sipariş özeti</div>
+        <CartLines lines={q.lines} />
+        <div className="sum-row sum-total"><span>Toplam (KDV dahil)</span><span>{formatPrice(q.total)}</span></div>
+        <div className="co-consents" style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--color-divider)", paddingTop: 14 }}>
           <ConsentCheckbox id="consent-distance-sales" checked={consents.distance_sales} onChange={setConsent("distance_sales")} linkText="Mesafeli Satış Sözleşmesi" suffix="’ni okudum ve kabul ediyorum." title="Mesafeli Satış Sözleşmesi">
             <DistanceSalesContent />
           </ConsentCheckbox>
@@ -208,14 +214,7 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
             <input id="consent-kvkk" type="checkbox" checked={consents.kvkk} onChange={(e) => setConsent("kvkk")(e.target.checked)} required style={{ marginTop: 3 }} />
             <span>Kişisel verilerimin işlenmesine ilişkin <KvkkDialog>KVKK aydınlatma metnini</KvkkDialog> okudum ve kabul ediyorum.</span>
           </label>
-        </section>
-      </div>
-
-      <aside className="card blueprint elev-md checkout-summary" style={{ background: "#fff", padding: 24, gap: 14 }}>
-        <Corners />
-        <div className="dialog-title" style={{ fontSize: 24, textTransform: "uppercase" }}>Sipariş özeti</div>
-        <CartLines lines={q.lines} />
-        <div className="sum-row sum-total"><span>Toplam (KDV dahil)</span><span>{formatPrice(q.total)}</span></div>
+        </div>
         {error && <FormMessage kind="error">{error}</FormMessage>}
         <button type="submit" disabled={busy || !allConsents} className="btn btn-primary blueprint btn-block" style={{ fontSize: 18, padding: 14 }}>
           <Corners />
