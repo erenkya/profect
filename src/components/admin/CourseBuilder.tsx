@@ -10,13 +10,14 @@ import type { AdminLesson, AdminModule, AdminQuizRef, CourseRow } from "@/lib/lm
 import { adminApi } from "./api";
 import { VideoUploadField } from "./VideoUploadField";
 import { CoverUploadField } from "./CoverUploadField";
+import { CategoryField } from "./CategoryField";
 
-type Props = { course: CourseRow; modules: AdminModule[]; finalQuiz: AdminQuizRef | null };
+type Props = { course: CourseRow; modules: AdminModule[]; finalQuiz: AdminQuizRef | null; categories: string[] };
 
 const input = { background: "#fff", fontSize: 15, minHeight: 38 } as const;
 const iconBtn = { width: 32, height: 32 } as const;
 
-export function CourseBuilder({ course, modules, finalQuiz }: Props) {
+export function CourseBuilder({ course, modules, finalQuiz, categories }: Props) {
   const router = useRouter();
   const [flash, setFlash] = useFlash();
 
@@ -31,7 +32,7 @@ export function CourseBuilder({ course, modules, finalQuiz }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 48 }}>
       <Toast flash={flash} onClose={() => setFlash(null)} />
-      <CourseForm course={course} run={run} onDeleted={() => router.push("/admin/kurslar")} />
+      <CourseForm course={course} categories={categories} run={run} onDeleted={() => router.push("/admin/kurslar")} />
 
       <section>
         <h2 style={{ fontSize: 36, textTransform: "uppercase", marginBottom: 16 }}>Müfredat</h2>
@@ -54,9 +55,9 @@ export function CourseBuilder({ course, modules, finalQuiz }: Props) {
 
 type Run = (p: ReturnType<typeof adminApi>, okText?: string) => Promise<{ ok: boolean }>;
 
-function CourseForm({ course, run, onDeleted }: { course: CourseRow; run: Run; onDeleted: () => void }) {
+function CourseForm({ course, categories, run, onDeleted }: { course: CourseRow; categories: string[]; run: Run; onDeleted: () => void }) {
   const [f, setF] = useState({
-    title: course.title, slug: course.slug, code: course.code, category: course.category, level: course.level, instructor: course.instructor,
+    title: course.title, category: course.category, level: course.level, instructor: course.instructor,
     hours: String(course.hours), rating: course.rating ?? "", price: String(course.price), old_price: course.old_price == null ? "" : String(course.old_price),
     description: course.description, outcomes: course.outcomes.join("\n"), is_published: course.is_published,
   });
@@ -71,7 +72,7 @@ function CourseForm({ course, run, onDeleted }: { course: CourseRow; run: Run; o
     if (published !== f.is_published) setF({ ...f, is_published: published });
     run(
       adminApi("PATCH", `/api/admin/courses/${course.id}`, {
-        title: f.title, slug: f.slug, code: f.code, category: f.category, level: f.level, instructor: f.instructor,
+        title: f.title, category: f.category, level: f.level, instructor: f.instructor,
         hours: Number(f.hours) || 0, rating: f.rating === "" ? null : Number(f.rating), price: Number(f.price) || 0,
         old_price: f.old_price === "" ? null : Number(f.old_price), description: f.description,
         outcomes: f.outcomes.split("\n").map((s) => s.trim()).filter(Boolean), is_published: published,
@@ -105,9 +106,7 @@ function CourseForm({ course, run, onDeleted }: { course: CourseRow; run: Run; o
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14 }}>
         <div className="field"><label>Başlık</label><input className="input" required value={f.title} onChange={set("title")} style={input} /></div>
-        <div className="field"><label>Slug (URL)</label><input className="input" required pattern="[a-z0-9-]+" value={f.slug} onChange={set("slug")} style={input} /></div>
-        <div className="field"><label>Kod</label><input className="input" required value={f.code} onChange={set("code")} style={input} /></div>
-        <div className="field"><label>Kategori</label><input className="input" value={f.category} onChange={set("category")} style={input} /></div>
+        <div className="field"><label htmlFor="cb-cat">Kategori</label><CategoryField id="cb-cat" categories={categories} value={f.category} onChange={(category) => setF({ ...f, category })} style={input} /></div>
         <div className="field"><label>Seviye</label><input className="input" value={f.level} onChange={set("level")} style={input} /></div>
         <div className="field"><label>Eğitmen</label><input className="input" value={f.instructor} onChange={set("instructor")} style={input} /></div>
         <div className="field"><label>Süre (saat)</label><input className="input" type="number" min={0} value={f.hours} onChange={set("hours")} style={input} /></div>

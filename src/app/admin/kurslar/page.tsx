@@ -1,18 +1,18 @@
 import Link from "next/link";
 import { NewCourseForm } from "@/components/admin/NewCourseForm";
 import { formatPrice } from "@/lib/format";
-import { listAllCourses } from "@/lib/lms";
+import { listAllCourses, listCategories } from "@/lib/lms";
 
 export const metadata = { title: "Kurslar" };
 
 export default async function AdminCourses() {
-  const courses = await listAllCourses();
+  const [courses, categories] = await Promise.all([listAllCourses(), listCategories()]);
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
         <h1 style={{ fontSize: 56, textTransform: "uppercase", margin: 0 }}>Kurslar</h1>
       </div>
-      <NewCourseForm />
+      <NewCourseForm categories={categories} />
       <div className="admin-table-wrap">
         <table className="table">
           <thead><tr><th>Kod</th><th>Başlık</th><th>Kategori</th><th>Modül</th><th>Ders</th><th>Fiyat</th><th>Durum</th><th /></tr></thead>

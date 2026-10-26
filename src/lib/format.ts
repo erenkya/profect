@@ -40,3 +40,21 @@ export function slugify(input: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 100);
 }
+
+/** `base` doluysa `base-2`, `base-3`… şeklinde ilk boş slug'ı döndürür. */
+export function uniqueSlug(base: string, taken: Iterable<string>): string {
+  const used = new Set(taken);
+  const root = base || "kurs";
+  if (!used.has(root)) return root;
+  for (let n = 2; ; n++) {
+    const candidate = `${root.slice(0, 100 - String(n).length - 1)}-${n}`;
+    if (!used.has(candidate)) return candidate;
+  }
+}
+
+/** Okunaklı rastgele kurs kodu: PRF-7K3QX9 (0/O, 1/I gibi karışan karakterler yok). */
+export function randomCourseCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(6));
+  return `PRF-${Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("")}`;
+}

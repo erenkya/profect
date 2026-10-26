@@ -5,8 +5,9 @@ import { useState } from "react";
 import { Corners } from "@/components/Corners";
 import { Toast, useFlash } from "./Toast";
 import { adminApi } from "./api";
+import { CategoryField } from "./CategoryField";
 
-export function NewCourseForm() {
+export function NewCourseForm({ categories }: { categories: string[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ title: "", description: "", category: "", price: "" });
@@ -31,7 +32,7 @@ export function NewCourseForm() {
       <div className="field"><label htmlFor="nc-title">Başlık</label><input id="nc-title" className="input" required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} style={input} /></div>
       <div className="field"><label htmlFor="nc-desc">Açıklama</label><textarea id="nc-desc" className="input" required rows={3} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} style={{ background: "#fff", fontSize: 15 }} /></div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <div className="field"><label htmlFor="nc-cat">Kategori</label><input id="nc-cat" className="input" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} style={input} /></div>
+        <div className="field"><label htmlFor="nc-cat">Kategori</label><CategoryField id="nc-cat" categories={categories} value={f.category} onChange={(category) => setF({ ...f, category })} style={input} /></div>
         <div className="field"><label htmlFor="nc-price">Fiyat (₺)</label><input id="nc-price" className="input" type="number" min={0} value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} style={input} /></div>
       </div>
       <Toast flash={flash} onClose={() => setFlash(null)} />

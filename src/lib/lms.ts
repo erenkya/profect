@@ -72,6 +72,14 @@ export async function listAllCourses(): Promise<CourseRow[]> {
   return rows.map(mapCourse);
 }
 
+/** Kurslarda kullanılan benzersiz kategoriler (alfabetik). */
+export async function listCategories(): Promise<string[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT DISTINCT category FROM courses WHERE category <> '' ORDER BY category",
+  );
+  return rows.map((r) => r.category as string);
+}
+
 export async function getCourseBySlug(slug: string, opts: { includeDraft?: boolean } = {}): Promise<CourseRow | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT ${COURSE_COLUMNS} FROM courses c WHERE c.slug = ? ${opts.includeDraft ? "" : "AND c.is_published = 1"} LIMIT 1`,
