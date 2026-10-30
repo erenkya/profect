@@ -120,3 +120,13 @@ test("quizSchema: senaryo alt sorusunun kesin işareti havuz doğrulamasına gir
   assert.equal(qz({ mode: "pool", draw_count: 1, questions: [scenario] }).success, true);
   assert.equal(qz({ mode: "pool", draw_count: 1, draw_by_type: { multiple: 1 }, questions: [scenario] }).success, false);
 });
+
+test("quizSchema: sabit modda gizli alanlardaki büyük eski değerler kaydı engellemez", () => {
+  assert.equal(qz({ mode: "fixed", draw_count: 250, draw_by_type: { single: 250 } }).success, true);
+});
+
+test("quizSchema: havuz modunda havuzdan büyük sayı anlaşılır bir hatayla reddedilir (genel sınır hatasıyla değil)", () => {
+  const r = qz({ mode: "pool", draw_count: 250, draw_by_type: { single: 250 } });
+  assert.equal(r.success, false);
+  if (!r.success) assert.ok(r.error.issues.some((i) => i.message.includes("havuzda 3 soru var")), r.error.issues.map((i) => i.message).join("|"));
+});

@@ -44,7 +44,7 @@ export function PoolSettings({ mode, onMode, drawCount, onDrawCount, byType, onB
         <>
           <div className="field" style={{ maxWidth: 320 }}>
             <label htmlFor="pool-draw-count">Sınavda gösterilecek soru sayısı</label>
-            <input id="pool-draw-count" className="input" type="number" min={1} max={200} placeholder={`Hepsi (${total})`} value={drawCount} onChange={(e) => onDrawCount(e.target.value)} style={input} />
+            <input id="pool-draw-count" className="input" type="number" min={1} placeholder={`Hepsi (${total})`} value={drawCount} onChange={(e) => onDrawCount(e.target.value)} style={input} />
           </div>
 
           <div>
@@ -55,7 +55,7 @@ export function PoolSettings({ mode, onMode, drawCount, onDrawCount, byType, onB
               {POOL_KINDS.map((kind) => (
                 <div key={kind} className="field" style={{ width: 150 }}>
                   <label htmlFor={`pool-quota-${kind}`}>{cap(KIND_LABEL[kind])}</label>
-                  <input id={`pool-quota-${kind}`} className="input" type="number" min={1} max={200} value={byType[kind]} onChange={(e) => onByType(kind, e.target.value)} style={input} />
+                  <input id={`pool-quota-${kind}`} className="input" type="number" min={1} value={byType[kind]} onChange={(e) => onByType(kind, e.target.value)} style={input} />
                   <span style={{ fontSize: 12, color: "var(--muted-55)" }}>havuzda {poolCounts[kind]}</span>
                 </div>
               ))}

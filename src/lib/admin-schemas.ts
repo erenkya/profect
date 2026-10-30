@@ -115,14 +115,15 @@ export const quizItemSchema = z.preprocess(
   }),
 );
 
-const poolQuota = z.number().int().min(1, "Tip kotası en az 1 olmalı.").max(200).optional();
+// Üst sınır yalnızca taşmayı önler: gerçek sınır havuz doğrulamasındadır; sabit modda gizli kalan eski değerler kaydı engellememeli.
+const poolQuota = z.number().int().min(1, "Tip kotası en az 1 olmalı.").max(100000).optional();
 
 export const quizBaseSchema = z.object({
   title: z.string().trim().min(1).max(255),
   passing_score_percentage: z.coerce.number().int().min(1).max(100).default(70),
   duration_minutes: z.coerce.number({ invalid_type_error: "Sınav süresi zorunlu." }).int().min(1, "Sınav süresi en az 1 dk olmalı.").max(100000),
   mode: z.enum(["fixed", "pool"]).default("fixed"),
-  draw_count: z.number().int().min(1, "Gösterilecek soru sayısı en az 1 olmalı.").max(200).nullable().default(null), // null = havuzun tamamı
+  draw_count: z.number().int().min(1, "Gösterilecek soru sayısı en az 1 olmalı.").max(100000).nullable().default(null), // null = havuzun tamamı
   draw_by_type: z.object({ single: poolQuota, multiple: poolQuota, categorize: poolQuota }).strict().default({}),
   questions: z.array(quizItemSchema).max(200),
 });
