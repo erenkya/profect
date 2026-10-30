@@ -4,7 +4,7 @@
 import { quizItemSchema } from "./admin-schemas.ts";
 import { toEditor, type EditorItem } from "./quiz-editor.ts";
 
-export const CSV_COLUMNS = ["tip", "senaryo", "soru", "senaryo_sorusu", "secenekler", "dogru", "aciklama"] as const;
+export const CSV_COLUMNS = ["tip", "senaryo", "soru", "senaryo_sorusu", "secenekler", "dogru", "aciklama", "kesin"] as const;
 const REQUIRED = ["tip", "soru", "secenekler", "dogru"];
 export const MAX_IMPORT_QUESTIONS = 200;
 
@@ -32,15 +32,16 @@ const TEMPLATE_NOTES = [
   "# dogru: tek için doğru şıkkın numarası (2), coklu için numaralar ; ile (1;3). suruklebirak ve senaryo satırlarında boş bırakılır.",
   "# senaryo: senaryo satırına bir kod (S1) yazılır, soru sütunu senaryo metnidir. Alt sorular (yalnızca tek/coklu) aynı kodu senaryo sütununda taşır ve senaryo satırının altına yazılır.",
   "# senaryo_sorusu yalnızca senaryo satırında ve isteğe bağlıdır; aciklama (yanlış cevaplayana gösterilir) isteğe bağlıdır.",
+  "# kesin (isteğe bağlı): evet yazılan soru, soru havuzu sınavında her öğrenciye mutlaka çıkar. Yalnızca soru satırlarında (senaryo alt soruları dahil) kullanılır; boş ya da hayır = kesin değil.",
 ];
 
 const TEMPLATE_ROWS: string[][] = [
-  ["tek", "", "Türkiye'nin başkenti neresidir?", "", "İstanbul|Ankara|İzmir|Bursa", "2", "Başkent 1923'ten beri Ankara'dır."],
-  ["coklu", "", "Aşağıdakilerden hangileri asal sayıdır?", "", "2|4|5|9", "1;3", "2 ve 5 yalnızca 1'e ve kendilerine bölünür."],
-  ["suruklebirak", "", "Aşağıdaki hayvanları sınıflarına ayırın.", "", "Kartal => Kuş|Yunus => Memeli|Serçe => Kuş|Balina => Memeli", "", ""],
-  ["senaryo", "S1", "Bir e-ticaret sitesi kampanya gününde yüksek trafik alıyor ve sayfalar yavaşlıyor.", "Aşağıdaki soruları bu duruma göre cevaplayın.", "", "", ""],
-  ["tek", "S1", "Sorunu teşhis etmek için önce hangi ölçüm yapılmalı?", "", "Sunucu yanıt süresi|Logo rengi|Footer metni", "1", ""],
-  ["coklu", "S1", "Hangi önlemler yükü azaltmaya yardımcı olur?", "", "Önbellekleme|Yük dengeleme|Sayfa sayısını artırma", "1;2", ""],
+  ["tek", "", "Türkiye'nin başkenti neresidir?", "", "İstanbul|Ankara|İzmir|Bursa", "2", "Başkent 1923'ten beri Ankara'dır.", "evet"],
+  ["coklu", "", "Aşağıdakilerden hangileri asal sayıdır?", "", "2|4|5|9", "1;3", "2 ve 5 yalnızca 1'e ve kendilerine bölünür.", ""],
+  ["suruklebirak", "", "Aşağıdaki hayvanları sınıflarına ayırın.", "", "Kartal => Kuş|Yunus => Memeli|Serçe => Kuş|Balina => Memeli", "", "", ""],
+  ["senaryo", "S1", "Bir e-ticaret sitesi kampanya gününde yüksek trafik alıyor ve sayfalar yavaşlıyor.", "Aşağıdaki soruları bu duruma göre cevaplayın.", "", "", "", ""],
+  ["tek", "S1", "Sorunu teşhis etmek için önce hangi ölçüm yapılmalı?", "", "Sunucu yanıt süresi|Logo rengi|Footer metni", "1", "", ""],
+  ["coklu", "S1", "Hangi önlemler yükü azaltmaya yardımcı olur?", "", "Önbellekleme|Yük dengeleme|Sayfa sayısını artırma", "1;2", "", ""],
 ];
 
 /** İndirilecek şablon: UTF-8 BOM'lu (Excel'de Türkçe karakterler bozulmasın), CRLF satır sonlu. */
@@ -109,6 +110,14 @@ function parseCorrect(raw: string, n: number): number[] | string {
   return out;
 }
 
+/** kesin sütunu: evet/e/1/x/true → kesin, boş/hayır/h/0/false → değil, diğerleri null (geçersiz). */
+function parseKesin(raw: string): boolean | null {
+  const v = fold(raw);
+  if (["evet", "e", "1", "x", "true"].includes(v)) return true;
+  if (["", "hayir", "h", "0", "false"].includes(v)) return false;
+  return null;
+}
+
 const splitList = (raw: string) => raw.split("|").map((s) => s.trim()).filter(Boolean);
 
 type Entry = { row: number; value: Record<string, unknown>; children?: { row: number; value: Record<string, unknown> }[] };
@@ -146,6 +155,9 @@ export function parseQuizCsv(input: string): CsvResult {
     }
     const code = fold(get("senaryo"));
     const explanation = get("aciklama");
+    const kesin = parseKesin(get("kesin"));
+    if (kesin === null) { fail(`kesin sütunu evet ya da hayır olmalı ("${get("kesin")}" geçersiz).`); continue; }
+    if (kind === "scenario" && kesin) { fail("kesin yalnızca soru satırlarında kullanılır; senaryo satırında olamaz (alt sorulara yazın)."); continue; }
 
     if (kind === "scenario") {
       if (!code) { fail("senaryo satırında senaryo kodu (S1 gibi) olmalı."); continue; }
@@ -174,7 +186,7 @@ export function parseQuizCsv(input: string): CsvResult {
         if (category_index < 0) category_index = categories.push(category) - 1;
         cards.push({ card_text, category_index });
       }
-      if (!bad) entries.push({ row, value: { kind, question_text: get("soru"), explanation, categories, cards } });
+      if (!bad) entries.push({ row, value: { kind, question_text: get("soru"), explanation, is_required: kesin, categories, cards } });
       continue;
     }
 
@@ -182,7 +194,7 @@ export function parseQuizCsv(input: string): CsvResult {
     const texts = splitList(get("secenekler"));
     const correct = parseCorrect(get("dogru"), texts.length);
     if (typeof correct === "string") { fail(correct); continue; }
-    const value = { kind, question_text: get("soru"), explanation, options: texts.map((option_text, i) => ({ option_text, is_correct: correct.includes(i) })) };
+    const value = { kind, question_text: get("soru"), explanation, is_required: kesin, options: texts.map((option_text, i) => ({ option_text, is_correct: correct.includes(i) })) };
     if (!code) { entries.push({ row, value }); continue; }
     const parent = scenarios.get(code);
     if (!parent) { fail(`"${get("senaryo")}" kodlu senaryo bulunamadı (senaryo satırı alt sorulardan önce gelmeli).`); continue; }

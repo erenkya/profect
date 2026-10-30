@@ -21,7 +21,7 @@ test("şablon kendi ayrıştırıcısından geçer: dört tipten birer soru", ()
 
 test("şablon BOM'lu ve CRLF'li", () => {
   const t = quizCsvTemplate();
-  assert.ok(t.startsWith("﻿" + HEAD + "\r\n"));
+  assert.ok(t.startsWith("﻿" + HEAD + ",kesin\r\n"));
 });
 
 test("tek ve çok cevaplı: şık numarası, harf ve doğru şıklar", () => {
@@ -96,4 +96,39 @@ test("kart biçimi, bilinmeyen tip, fazla sütun, eksik başlık, boş dosya", (
   assert.ok(errorsOf("tip,soru\ntek,S").some((e) => e.includes("eksik sütun")));
   assert.ok(errorsOf("").some((e) => e.includes("boş")));
   assert.ok(errorsOf(HEAD).some((e) => e.includes("soru bulunamadı")));
+});
+
+// — kesin sütunu —
+const HEADK = HEAD + ",kesin";
+const required = (csv: string) => {
+  const r = parseQuizCsv(csv);
+  assert.ok(r.ok, r.ok ? "" : r.errors.join("\n"));
+  return r.ok ? r.items.map((q) => q.kind !== "scenario" && q.is_required) : [];
+};
+
+test("kesin: evet kesin, boş ve hayır değil", () => {
+  assert.deepEqual(required(`${HEADK}\ntek,,S1,,a|b,1,,evet\ntek,,S2,,a|b,1,,\ntek,,S3,,a|b,1,,hayır\nsuruklebirak,,S4,,x => A|y => B,,,x`), [true, false, false, true]);
+});
+
+test("kesin: kesin sütunu olmayan eski CSV çözülür, hiçbir soru kesin olmaz", () => {
+  assert.deepEqual(required(`${HEAD}\ntek,,S1,,a|b,1,`), [false]);
+});
+
+test("kesin: tanınmayan değer satır numaralı hata verir", () => {
+  const e = errorsOf(`${HEADK}\ntek,,S1,,a|b,1,,belki`);
+  assert.ok(e.some((m) => m.startsWith("Satır 2") && m.includes("kesin")), e.join("\n"));
+});
+
+test("kesin: senaryo satırında olamaz, alt soruda olabilir", () => {
+  const e = errorsOf(`${HEADK}\nsenaryo,S1,Metin,,,,,evet\ntek,S1,Alt,,a|b,1,,`);
+  assert.ok(e.some((m) => m.startsWith("Satır 2") && m.includes("kesin")), e.join("\n"));
+  const r = parseQuizCsv(`${HEADK}\nsenaryo,S1,Metin,,,,,\ntek,S1,Alt,,a|b,1,,evet`);
+  assert.ok(r.ok);
+  if (r.ok) assert.equal(r.items[0].kind === "scenario" && r.items[0].questions[0].is_required, true);
+});
+
+test("kesin: şablonda kesin işaretli örnek soru var", () => {
+  const r = parseQuizCsv(quizCsvTemplate());
+  assert.ok(r.ok);
+  if (r.ok) assert.equal(r.items[0].kind === "single" && r.items[0].is_required, true);
 });
