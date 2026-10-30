@@ -193,8 +193,16 @@ button { font: inherit; }
   .mod-btn { grid-template-columns: 40px 1fr 24px; }
   .mod-btn .mod-meta { display: none; }
 }
-.founder-row { display: grid; grid-template-columns: 160px 1fr; gap: 24px; align-items: start; }
-@media (max-width: 520px) { .founder-row { grid-template-columns: 1fr; } }
+/* Kurucular: iki yanda fotoğraf, ortada metin */
+.founders-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 64px); align-items: center; }
+.founders-stage .founder-photo-0 { grid-column: 1; grid-row: 1; }
+.founders-stage .founders-copy { grid-column: 2; grid-row: 1; text-align: center; }
+.founders-stage .founder-photo-1 { grid-column: 3; grid-row: 1; }
+@media (max-width: 900px) {
+  .founders-stage { grid-template-columns: 1fr 1fr; }
+  .founders-stage .founders-copy { grid-column: 1 / -1; grid-row: 2; }
+  .founders-stage .founder-photo-1 { grid-column: 2; }
+}
 
 /* — Markdown ders içeriği — */
 .md { font-size: 17px; line-height: 1.7; max-width: 72ch; }

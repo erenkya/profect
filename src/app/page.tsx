@@ -154,6 +154,39 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* FOUNDERS — iki yanda büyük fotoğraf, ortada metin */}
+        <section className="wrap section-pad" style={{ paddingBottom: "clamp(56px,8vw,120px)" }}>
+          <div className="founders-stage">
+            {FOUNDERS.map((f, i) => (
+              <div key={f.n} data-reveal="1" data-delay={i * 150} className={`founder-photo founder-photo-${i}`}>
+                <div className="blueprint" style={{ aspectRatio: "4/5", overflow: "visible" }}>
+                  <Corners />
+                  <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+                    <Image src={f.photo} alt={f.name} fill sizes="(max-width: 900px) 50vw, 30vw" style={{ objectFit: "cover" }} priority={false} />
+                  </div>
+                  <span aria-hidden style={{ position: "absolute", left: 14, bottom: 12, fontFamily: "var(--font-heading)", fontSize: 44, lineHeight: 1, fontWeight: 700, color: "#ffffff", textShadow: "0 1px 12px rgba(23,20,43,.45)" }}>{f.n}</span>
+                </div>
+              </div>
+            ))}
+
+            <div data-reveal="1" data-delay="100" className="founders-copy">
+              <div className="eyebrow">02 — Kurucular</div>
+              <h2 className="h-section" style={{ margin: "0 auto 40px", maxWidth: 560 }}>İki kurucu, tek hedef: ölçülebilir öğrenme</h2>
+              <div style={{ display: "grid", gap: 36 }}>
+                {FOUNDERS.map((f) => (
+                  <div key={f.n}>
+                    <div className="card-kicker" style={{ fontSize: 11, color: f.color, marginBottom: 6 }}>{f.n} · {f.role}</div>
+                    <h3 style={{ fontSize: 34, textTransform: "uppercase", marginBottom: 10 }}>{f.name}</h3>
+                    <p style={{ fontSize: 15, color: "var(--muted-72)", textWrap: "pretty", maxWidth: 440, margin: "0 auto 10px" }}>{f.short}</p>
+                    <a href={f.linkedin} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 15 }} aria-label={`${f.name} LinkedIn profili`}>LinkedIn →</a>
+                  </div>
+                ))}
+              </div>
+              <Link href="/hakkimizda" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px", marginTop: 36 }}>Hikâyemizi oku</Link>
+            </div>
+          </div>
+        </section>
+
         {/* PARALLAX WORD BAND */}
         <section aria-hidden style={{ position: "relative", overflow: "hidden", padding: "30px 0", borderTop: "1px solid var(--color-divider)", borderBottom: "1px solid var(--color-divider)" }}>
           <div data-fx="1" data-pxx="0.5" style={{ whiteSpace: "nowrap", fontFamily: "var(--font-heading)", fontWeight: 700, textTransform: "uppercase", fontSize: "clamp(80px,11vw,170px)", lineHeight: 1, color: "transparent", WebkitTextStroke: "1px var(--color-accent-300)", marginLeft: "-20%" }}>
@@ -168,7 +201,7 @@ export default async function HomePage() {
         <section className="wrap section-pad">
           <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 56 }}>
             <div>
-              <div className="eyebrow">02 — Öne çıkan kurslar</div>
+              <div className="eyebrow">03 — Öne çıkan kurslar</div>
               <h2 className="h-section">Kariyerine iş katan programlar</h2>
             </div>
             <Link href="/kurslar" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px" }}>
@@ -185,7 +218,7 @@ export default async function HomePage() {
         <section id="sertifika" className="anchor" style={{ position: "relative", overflow: "hidden", borderTop: "1px solid var(--color-divider)", background: "var(--color-surface)" }}>
           <div className="wrap section-pad" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,440px),1fr))", gap: 64, alignItems: "center" }}>
             <div data-reveal="1">
-              <div className="eyebrow" style={{ color: "var(--color-accent-2-700)" }}>03 — Sertifikasyon</div>
+              <div className="eyebrow" style={{ color: "var(--color-accent-2-700)" }}>04 — Sertifikasyon</div>
               <h2 className="h-section" style={{ margin: "0 0 22px" }}>Sınavla kazanılır, tek tıkla doğrulanır</h2>
               <p style={{ fontSize: 17, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", maxWidth: 480, textWrap: "pretty", marginBottom: 32 }}>
                 Final sınavını geçen her öğrenciye benzersiz numaralı bir sertifika verilir. İşverenler sertifika numarasıyla ya da QR kodla belgenin geçerliliğini anında kontrol edebilir.
@@ -223,33 +256,6 @@ export default async function HomePage() {
                 </div>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* FOUNDERS TEASER */}
-        <section className="wrap section-pad">
-          <div data-reveal="1" style={{ marginBottom: 56 }}>
-            <div className="eyebrow">04 — Kurucular</div>
-            <h2 className="h-section" style={{ maxWidth: 820 }}>İki kurucu, tek hedef: ölçülebilir öğrenme</h2>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,420px),1fr))", gap: 40 }}>
-            {FOUNDERS.map((f, i) => (
-              <div key={f.n} data-reveal="1" data-delay={i * 150} className="founder-row">
-                <div className="blueprint" style={{ aspectRatio: "4/5", overflow: "visible" }}>
-                  <Corners />
-                  <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
-                    <Image src={f.photo} alt={f.name} fill sizes="(max-width: 520px) 100vw, 160px" style={{ objectFit: "cover" }} />
-                  </div>
-                </div>
-                <div>
-                  <div className="card-kicker" style={{ fontSize: 11, color: f.color, marginBottom: 6 }}>{f.role}</div>
-                  <h3 style={{ fontSize: 32, textTransform: "uppercase", marginBottom: 10 }}>{f.name}</h3>
-                  <p style={{ fontSize: 15, color: "var(--muted-72)", textWrap: "pretty" }}>{f.short}</p>
-                  <Link href="/hakkimizda" className="btn btn-ghost" style={{ fontSize: 15 }}>Hikâyemizi oku →</Link>
-                  <a href={f.linkedin} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 15 }} aria-label={`${f.name} LinkedIn profili`}>LinkedIn →</a>
-                </div>
-              </div>
-            ))}
           </div>
         </section>
       </main>
