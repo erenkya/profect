@@ -95,6 +95,13 @@ export async function getCourseById(id: number): Promise<CourseRow | null> {
 
 // ── Müfredat ağacı ────────────────────────────────────────────────────────────
 export type LessonNode = { id: number; title: string; lesson_type: "video" | "text"; duration_minutes: number | null; sort_order: number; completed?: boolean };
+/**
+ * Sınavda öğrenciye gösterilen soru sayısı (SQL ifadesi): havuz modunda `draw_count`, değilse (ya da NULL = hepsi) puanlanan soru sayısı.
+ * `alias`: quizzes tablosunun sorgudaki adı.
+ */
+export const quizShownCountSql = (alias: string) =>
+  `IF(${alias}.mode = 'pool' AND ${alias}.draw_count IS NOT NULL, ${alias}.draw_count, (SELECT COUNT(*) FROM questions x WHERE x.quiz_id = ${alias}.id AND x.type <> 'scenario'))`;
+
 export type QuizNode = { id: number; title: string; module_id: number | null; passing_score_percentage: number; question_count: number; passed?: boolean };
 export type ModuleNode = { id: number; title: string; sort_order: number; lessons: LessonNode[]; quiz: QuizNode | null };
 export type CourseTree = { modules: ModuleNode[]; finalQuiz: QuizNode | null };
@@ -113,7 +120,7 @@ export async function getCourseTree(courseId: number, userId?: number): Promise<
   );
   const [quizRows] = await pool.query<RowDataPacket[]>(
     `SELECT q.id, q.title, q.module_id, q.passing_score_percentage,
-            (SELECT COUNT(*) FROM questions qu WHERE qu.quiz_id = q.id AND qu.type <> 'scenario') AS question_count
+            ${quizShownCountSql("q")} AS question_count
        FROM quizzes q WHERE q.course_id = ? ORDER BY q.id`,
     [courseId],
   );
@@ -477,7 +484,7 @@ export async function getPlusInfo(userId: number) {
 
 // ── Yönetici görünümü (içerik dahil) ──────────────────────────────────────────
 export type AdminLesson = { id: number; module_id: number; title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null; sort_order: number };
-export type AdminQuizRef = { id: number; title: string; module_id: number | null; passing_score_percentage: number; question_count: number };
+export type AdminQuizRef = { id: number; title: string; module_id: number | null; passing_score_percentage: number; question_count: number; pool_count: number };
 export type AdminModule = { id: number; title: string; sort_order: number; lessons: AdminLesson[]; quiz: AdminQuizRef | null };
 
 export async function getCourseAdminTree(courseId: number) {
@@ -491,11 +498,12 @@ export async function getCourseAdminTree(courseId: number) {
   );
   const [quizzes] = await pool.query<RowDataPacket[]>(
     `SELECT q.id, q.title, q.module_id, q.passing_score_percentage,
-            (SELECT COUNT(*) FROM questions x WHERE x.quiz_id = q.id AND x.type <> 'scenario') AS question_count
+            ${quizShownCountSql("q")} AS question_count,
+            (SELECT COUNT(*) FROM questions p WHERE p.quiz_id = q.id AND p.type <> 'scenario') AS pool_count
        FROM quizzes q WHERE q.course_id = ?`,
     [courseId],
   );
-  const toQuiz = (q: RowDataPacket): AdminQuizRef => ({ id: q.id, title: q.title, module_id: q.module_id, passing_score_percentage: q.passing_score_percentage, question_count: Number(q.question_count) });
+  const toQuiz = (q: RowDataPacket): AdminQuizRef => ({ id: q.id, title: q.title, module_id: q.module_id, passing_score_percentage: q.passing_score_percentage, question_count: Number(q.question_count), pool_count: Number(q.pool_count) });
   return {
     course,
     modules: modules.map((m): AdminModule => ({

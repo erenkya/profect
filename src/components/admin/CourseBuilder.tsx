@@ -280,7 +280,7 @@ function QuizRow({ quiz, createUrl, createBody, run }: { quiz: AdminQuizRef | nu
   }
   return (
     <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-      <span style={{ fontSize: 15 }}>{quiz.title} <span style={{ color: "var(--muted-55)" }}>· {quiz.question_count} soru · geçme %{quiz.passing_score_percentage}</span></span>
+      <span style={{ fontSize: 15 }}>{quiz.title} <span style={{ color: "var(--muted-55)" }}>· {quiz.pool_count !== quiz.question_count ? `havuz ${quiz.pool_count} · sınavda ${quiz.question_count} soru` : `${quiz.question_count} soru`} · geçme %{quiz.passing_score_percentage}</span></span>
       <Link href={`/admin/sinav/${quiz.id}`} className="btn btn-secondary" style={{ padding: "6px 14px" }}>Soruları düzenle</Link>
       <button className="btn btn-ghost" onClick={() => confirm("Sınav ve tüm soruları silinsin mi?") && run(adminApi("DELETE", `/api/admin/quizzes/${quiz.id}`), "Sınav silindi.")}>Sil</button>
     </div>

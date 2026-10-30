@@ -6,7 +6,7 @@ import type { QuizReview } from "@/components/learn/QuizReview";
 import { getCurrentUser } from "@/lib/auth";
 import pool from "@/lib/db";
 import { parseId } from "@/lib/http";
-import { canAccessCourse, flattenTree, getCourseBySlug, getCourseTree } from "@/lib/lms";
+import { canAccessCourse, flattenTree, getCourseBySlug, getCourseTree, quizShownCountSql } from "@/lib/lms";
 import { flatQuestions, loadQuiz } from "@/lib/quiz-data";
 import { gradeQuestion, parseStoredAnswers } from "@/lib/quiz-grading";
 
@@ -58,7 +58,7 @@ export default async function QuizPage({ params }: { params: Promise<{ slug: str
 
   const [q] = await pool.query<RowDataPacket[]>(
     `SELECT course_id, title, module_id, passing_score_percentage, duration_minutes,
-            (SELECT COUNT(*) FROM questions WHERE quiz_id = quizzes.id AND type <> 'scenario') AS question_count
+            ${quizShownCountSql("quizzes")} AS question_count
        FROM quizzes WHERE id = ?`,
     [id],
   );
