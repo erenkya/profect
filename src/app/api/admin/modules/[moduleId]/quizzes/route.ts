@@ -2,7 +2,7 @@ import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
-import { quizSchema } from "@/lib/admin-schemas";
+import { quizBaseSchema } from "@/lib/admin-schemas";
 import { writeQuestions } from "@/lib/quiz-admin";
 
 /** Modül sınavı oluşturur (modül başına bir tane). */
@@ -11,7 +11,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ mod
   if (guard.error) return guard.error;
   const moduleId = parseId((await params).moduleId);
   if (!moduleId) return fail("Geçersiz modül.", 400);
-  const body = await parseBody(request, quizSchema.partial({ questions: true, duration_minutes: true }));
+  const body = await parseBody(request, quizBaseSchema.omit({ mode: true, draw_count: true, draw_by_type: true }).partial({ questions: true, duration_minutes: true }));
   if (body.error) return body.error;
   const d = body.data;
   const conn = await pool.getConnection();

@@ -9,13 +9,13 @@ import { orderForStudent, type PublicQuestion, type QuizItem, type ScenarioRef }
 
 type QuizInput = z.infer<typeof quizSchema>;
 
-type QRow = { id: number; type: "single" | "multiple" | "categorize" | "scenario"; parent_id: number | null; question_text: string; explanation: string | null; scenario_prompt: string | null };
+type QRow = { id: number; type: "single" | "multiple" | "categorize" | "scenario"; parent_id: number | null; question_text: string; explanation: string | null; scenario_prompt: string | null; is_required: number };
 type ORow = { id: number; question_id: number; option_text: string; is_correct: number; category_id: number | null };
 type CRow = { id: number; question_id: number; name: string };
 
 async function fetchRows(quizId: number) {
   const [questions] = await pool.query<RowDataPacket[]>(
-    "SELECT id, type, parent_id, question_text, explanation, scenario_prompt FROM questions WHERE quiz_id = ? ORDER BY position, id",
+    "SELECT id, type, parent_id, question_text, explanation, scenario_prompt, is_required FROM questions WHERE quiz_id = ? ORDER BY position, id",
     [quizId],
   );
   const ids = questions.map((q) => q.id);
@@ -81,6 +81,7 @@ export async function loadQuizForEditor(quizId: number): Promise<QuizInput["ques
     kind: q.type === "multiple" ? ("multiple" as const) : ("single" as const),
     question_text: q.question_text,
     explanation: q.explanation ?? "",
+    is_required: q.is_required === 1,
     options: options.filter((o) => o.question_id === q.id).map((o) => ({ option_text: o.option_text, is_correct: o.is_correct === 1 })),
   });
   return questions
@@ -95,6 +96,7 @@ export async function loadQuizForEditor(quizId: number): Promise<QuizInput["ques
           kind: "categorize" as const,
           question_text: q.question_text,
           explanation: q.explanation ?? "",
+          is_required: q.is_required === 1,
           categories: cats.map((c) => c.name),
           cards: options.filter((o) => o.question_id === q.id).map((o) => ({ card_text: o.option_text, category_index: cats.findIndex((c) => c.id === o.category_id) })),
         };

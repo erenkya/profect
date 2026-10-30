@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { MAX_VIDEO_BYTES, isVideoKey } from "./video-key.ts";
 import { MAX_COVER_BYTES, isCoverKey, isCoverType } from "./cover-key.ts";
+import { validatePool } from "./quiz-pool.ts";
 
 const money = z.coerce.number().min(0).max(1_000_000);
 
@@ -67,12 +68,14 @@ const choiceOptions = z
   .min(2, "Her soruda en az 2 şık olmalı.")
   .max(12, "Bir soruda en çok 12 şık olabilir.");
 
-const singleQ = z.object({ kind: z.literal("single"), question_text: questionText, explanation, options: choiceOptions });
-const multipleQ = z.object({ kind: z.literal("multiple"), question_text: questionText, explanation, options: choiceOptions });
+const isRequired = z.boolean().default(false); // havuz modunda her sınavda mutlaka çıkar
+const singleQ = z.object({ kind: z.literal("single"), question_text: questionText, explanation, is_required: isRequired, options: choiceOptions });
+const multipleQ = z.object({ kind: z.literal("multiple"), question_text: questionText, explanation, is_required: isRequired, options: choiceOptions });
 const categorizeQ = z.object({
   kind: z.literal("categorize"),
   question_text: questionText,
   explanation,
+  is_required: isRequired,
   categories: z.array(z.string().trim().min(1, "Kategori adı boş olamaz.").max(500)).min(2, "En az 2 kategori olmalı.").max(8, "En çok 8 kategori olabilir."),
   cards: z
     .array(z.object({ card_text: z.string().trim().min(1, "Kart metni boş olamaz."), category_index: z.number().int().min(0, "Her kartın bir kategorisi olmalı.") }))
@@ -112,11 +115,23 @@ export const quizItemSchema = z.preprocess(
   }),
 );
 
-export const quizSchema = z.object({
+const poolQuota = z.number().int().min(1, "Tip kotası en az 1 olmalı.").max(200).optional();
+
+export const quizBaseSchema = z.object({
   title: z.string().trim().min(1).max(255),
   passing_score_percentage: z.coerce.number().int().min(1).max(100).default(70),
   duration_minutes: z.coerce.number({ invalid_type_error: "Sınav süresi zorunlu." }).int().min(1, "Sınav süresi en az 1 dk olmalı.").max(100000),
+  mode: z.enum(["fixed", "pool"]).default("fixed"),
+  draw_count: z.number().int().min(1, "Gösterilecek soru sayısı en az 1 olmalı.").max(200).nullable().default(null), // null = havuzun tamamı
+  draw_by_type: z.object({ single: poolQuota, multiple: poolQuota, categorize: poolQuota }).strict().default({}),
   questions: z.array(quizItemSchema).max(200),
+});
+
+/** Havuz modunda ayarlar sorulara göre tutarlı olmalı (senaryo alt soruları kendi tipiyle sayılır). Sabit modda havuz alanları yok sayılır. */
+export const quizSchema = quizBaseSchema.superRefine((d, ctx) => {
+  if (d.mode !== "pool") return;
+  const flat = d.questions.flatMap((q) => (q.kind === "scenario" ? q.questions : [q])).map((q) => ({ kind: q.kind, required: q.is_required }));
+  for (const message of validatePool(flat, { drawCount: d.draw_count, byType: d.draw_by_type })) ctx.addIssue({ code: "custom", path: ["draw_count"], message });
 });
 
 export const reorderSchema = z.object({ ids: z.array(z.coerce.number().int().positive()).min(1).max(500) });

@@ -3,11 +3,12 @@ import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { fail, ok, parseBody, serverError } from "@/lib/http";
-import { quizSchema } from "@/lib/admin-schemas";
+import { quizBaseSchema } from "@/lib/admin-schemas";
 import { writeQuestions } from "@/lib/quiz-admin";
 
 /** Kurs FİNAL sınavı oluşturur (kurs başına bir tane). */
-const schema = quizSchema.partial({ questions: true, duration_minutes: true }).extend({ course_id: z.coerce.number().int().positive() });
+// Yeni sınav sabit modda doğar (havuz ayarları editörden kaydedilir).
+const schema = quizBaseSchema.omit({ mode: true, draw_count: true, draw_by_type: true }).partial({ questions: true, duration_minutes: true }).extend({ course_id: z.coerce.number().int().positive() });
 
 export async function POST(request: Request) {
   const guard = await requireAdmin();

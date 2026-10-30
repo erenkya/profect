@@ -77,3 +77,46 @@ test("videoUploadSchema: 2 GB üstü, boş dosya, mp4 dışı tür ve başlıks�
   assert.equal(videoUploadSchema.safeParse({ ...ok, lesson_title: "  " }).success, false);
   assert.equal(videoUploadSchema.safeParse({ ...ok, module_id: 0 }).success, false);
 });
+
+// — Sınav modu ve havuz ayarları —
+const sq = (over: Record<string, unknown> = {}) => ({ kind: "single", question_text: "Soru", options: [{ option_text: "a", is_correct: true }, { option_text: "b", is_correct: false }], ...over });
+const qz = (over: Record<string, unknown> = {}) => quizSchema.safeParse({ title: "Sınav", duration_minutes: 20, questions: [sq(), sq(), sq()], ...over });
+
+test("quizSchema: mode verilmezse fixed, draw_count null, draw_by_type boş", () => {
+  const r = qz();
+  assert.ok(r.success);
+  if (r.success) assert.deepEqual([r.data.mode, r.data.draw_count, r.data.draw_by_type], ["fixed", null, {}]);
+});
+
+test("quizSchema: havuz modunda geçerli ayar kabul edilir", () => {
+  assert.equal(qz({ mode: "pool", draw_count: 2, questions: [sq({ is_required: true }), sq(), sq()] }).success, true);
+});
+
+test("quizSchema: havuzdan fazla soru istenirse reddedilir", () => {
+  const r = qz({ mode: "pool", draw_count: 5 });
+  assert.equal(r.success, false);
+  if (!r.success) assert.ok(r.error.issues.some((i) => i.message.includes("havuzda 3 soru var")));
+});
+
+test("quizSchema: havuzdan sabit moda geçerken eski draw_count, kota ve kesin işaretleri hata vermez", () => {
+  assert.equal(qz({ mode: "fixed", draw_count: 99, draw_by_type: { single: 50 }, questions: [sq({ is_required: true }), sq()] }).success, true);
+});
+
+test("quizSchema: kota 0 ya da tamsayı olmayan değer her modda reddedilir", () => {
+  for (const mode of ["fixed", "pool"]) {
+    assert.equal(qz({ mode, draw_by_type: { single: 0 } }).success, false, `${mode} 0`);
+    assert.equal(qz({ mode, draw_by_type: { single: 1.5 } }).success, false, `${mode} 1.5`);
+  }
+});
+
+test("quizSchema: is_required verilmeyen soru false olur", () => {
+  const r = qz();
+  assert.ok(r.success);
+  if (r.success) assert.equal(r.data.questions[0].kind === "single" && r.data.questions[0].is_required, false);
+});
+
+test("quizSchema: senaryo alt sorusunun kesin işareti havuz doğrulamasına girer", () => {
+  const scenario = { kind: "scenario", scenario_text: "Senaryo", questions: [sq({ is_required: true })] };
+  assert.equal(qz({ mode: "pool", draw_count: 1, questions: [scenario] }).success, true);
+  assert.equal(qz({ mode: "pool", draw_count: 1, draw_by_type: { multiple: 1 }, questions: [scenario] }).success, false);
+});

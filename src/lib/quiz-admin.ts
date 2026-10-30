@@ -18,7 +18,7 @@ async function insertQuestion(conn: PoolConnection, cols: Record<string, string 
 }
 
 async function writeChoice(conn: PoolConnection, quizId: number, q: ChoiceInput, position: number, parentId: number | null) {
-  const id = await insertQuestion(conn, { quiz_id: quizId, type: q.kind, parent_id: parentId, question_text: q.question_text, explanation: q.explanation || null, position });
+  const id = await insertQuestion(conn, { quiz_id: quizId, type: q.kind, parent_id: parentId, question_text: q.question_text, explanation: q.explanation || null, position, is_required: q.is_required ? 1 : 0 });
   for (const o of q.options) {
     await conn.execute("INSERT INTO options (question_id, option_text, is_correct) VALUES (?, ?, ?)", [id, o.option_text, o.is_correct ? 1 : 0]);
   }
@@ -31,7 +31,7 @@ export async function writeQuestions(conn: PoolConnection, quizId: number, quest
       const id = await insertQuestion(conn, { quiz_id: quizId, type: "scenario", question_text: q.scenario_text, scenario_prompt: q.scenario_prompt || null, position });
       for (const [i, child] of q.questions.entries()) await writeChoice(conn, quizId, child, i, id);
     } else if (q.kind === "categorize") {
-      const id = await insertQuestion(conn, { quiz_id: quizId, type: "categorize", question_text: q.question_text, explanation: q.explanation || null, position });
+      const id = await insertQuestion(conn, { quiz_id: quizId, type: "categorize", question_text: q.question_text, explanation: q.explanation || null, position, is_required: q.is_required ? 1 : 0 });
       const categoryIds: number[] = [];
       for (const [i, name] of q.categories.entries()) {
         const [res] = await conn.execute<ResultSetHeader>("INSERT INTO question_categories (question_id, name, position) VALUES (?, ?, ?)", [id, name, i]);

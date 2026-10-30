@@ -23,7 +23,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   }
 }
 
-/** Başlık, geçme notu, süre ve TÜM soruları değiştirir (transaction). */
+/** Başlık, geçme notu, süre, mod/havuz ayarları ve TÜM soruları değiştirir (transaction). */
 export async function PUT(request: Request, { params }: Ctx) {
   const guard = await requireAdmin();
   if (guard.error) return guard.error;
@@ -35,7 +35,7 @@ export async function PUT(request: Request, { params }: Ctx) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [upd] = await conn.execute<ResultSetHeader>("UPDATE quizzes SET title = ?, passing_score_percentage = ?, duration_minutes = ? WHERE id = ?", [d.title, d.passing_score_percentage, d.duration_minutes, id]);
+    const [upd] = await conn.execute<ResultSetHeader>("UPDATE quizzes SET title = ?, passing_score_percentage = ?, duration_minutes = ?, mode = ?, draw_count = ?, draw_by_type = ? WHERE id = ?", [d.title, d.passing_score_percentage, d.duration_minutes, d.mode, d.draw_count, Object.values(d.draw_by_type).some((v) => v !== undefined) ? JSON.stringify(d.draw_by_type) : null, id]);
     if (upd.affectedRows === 0) {
       await conn.rollback();
       return fail("Sınav bulunamadı.", 404);
