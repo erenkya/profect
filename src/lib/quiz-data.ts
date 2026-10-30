@@ -5,7 +5,8 @@ import pool from "@/lib/db";
 import { shuffle } from "@/lib/lms";
 import type { quizSchema } from "@/lib/admin-schemas";
 import type { GradingQuestion } from "@/lib/quiz-grading";
-import { orderForStudent, type PublicQuestion, type QuizItem, type ScenarioRef } from "@/lib/quiz-model";
+import type { PublicQuestion, QuizItem, ScenarioRef } from "@/lib/quiz-model";
+import { parseByType, selectForStudent, type QuizSetup } from "@/lib/quiz-pool";
 
 type QuizInput = z.infer<typeof quizSchema>;
 
@@ -29,10 +30,21 @@ async function fetchRows(quizId: number) {
 
 /**
  * Sınavın soruları editör sırasıyla. `items` öğrenciye gidebilir (doğru bilgisi yok);
- * `grading` yalnızca sunucuda puanlama için (puanlanan soru id'si → doğru cevaplar).
+ * `grading` yalnızca sunucuda puanlama için (puanlanan soru id'si → doğru cevaplar);
+ * `setup` sınavın modu ve havuz ayarları, `required` kesin işaretli puanlanan soru id'leri (ikisi de öğrenciye gitmez).
  */
-export async function loadQuiz(quizId: number): Promise<{ items: QuizItem[]; grading: Map<number, GradingQuestion> }> {
-  const { questions, options, categories } = await fetchRows(quizId);
+export async function loadQuiz(quizId: number): Promise<{ items: QuizItem[]; grading: Map<number, GradingQuestion>; setup: QuizSetup; required: Set<number> }> {
+  const [{ questions, options, categories }, [quizRows]] = await Promise.all([
+    fetchRows(quizId),
+    pool.query<RowDataPacket[]>("SELECT mode, draw_count, draw_by_type FROM quizzes WHERE id = ?", [quizId]),
+  ]);
+  const quizRow = quizRows[0];
+  const setup: QuizSetup = {
+    mode: quizRow?.mode === "pool" ? "pool" : "fixed",
+    drawCount: quizRow?.draw_count == null ? null : Number(quizRow.draw_count),
+    byType: parseByType(quizRow?.draw_by_type),
+  };
+  const required = new Set(questions.filter((q) => q.type !== "scenario" && q.is_required === 1).map((q) => q.id));
   const grading = new Map<number, GradingQuestion>();
 
   const build = (q: QRow, scenario: ScenarioRef | null): PublicQuestion => {
@@ -59,7 +71,7 @@ export async function loadQuiz(quizId: number): Promise<{ items: QuizItem[]; gra
       const scenario: ScenarioRef = { id: q.id, text: q.question_text, prompt: q.scenario_prompt ?? null };
       return { kind: "scenario", scenario, questions: questions.filter((c) => c.parent_id === q.id).map((c) => build(c, scenario)) };
     });
-  return { items, grading };
+  return { items, grading, setup, required };
 }
 
 /** Puanlanan sorular editör sırasıyla (senaryolar alt sorularına açılır). */
@@ -67,9 +79,9 @@ export function flatQuestions(items: QuizItem[]): PublicQuestion[] {
   return items.flatMap((it) => (it.kind === "question" ? [it.question] : it.questions));
 }
 
-/** Öğrenciye gidecek sıra: üst düzey öğeler ve şıklar/kartlar karıştırılır, kategoriler sabit. */
-export function studentQuestions(items: QuizItem[]): PublicQuestion[] {
-  return orderForStudent(items, shuffle).map((q) =>
+/** Öğrenciye gidecek sorular (sabit: editör sırası, havuz: çekilen set karışık); şıklar/kartlar karıştırılır, kategoriler sabit. */
+export function studentQuestions(items: QuizItem[], required: ReadonlySet<number>, setup: QuizSetup): PublicQuestion[] {
+  return selectForStudent(items, required, setup, shuffle).map((q) =>
     q.kind === "categorize" ? { ...q, cards: shuffle(q.cards) } : { ...q, options: shuffle(q.options) },
   );
 }

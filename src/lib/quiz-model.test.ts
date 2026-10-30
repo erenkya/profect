@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applySavedOrder, isAnswered, orderForStudent, pickItems, snapshotOrder, type PublicQuestion, type QuizItem, type ScenarioRef } from "./quiz-model.ts";
+import { applySavedOrder, isAnswered, orderForStudent, pickItems, savedQuestionIds, snapshotOrder, type PublicQuestion, type QuizItem, type ScenarioRef } from "./quiz-model.ts";
 
 const single = (id: number, scenario: ScenarioRef | null = null): PublicQuestion => ({ id, kind: "single", text: `S${id}`, scenario, options: [{ id: 1, text: "a" }, { id: 2, text: "b" }] });
 const multiple: PublicQuestion = { id: 10, kind: "multiple", text: "M", scenario: null, options: [{ id: 5, text: "a" }, { id: 6, text: "b" }, { id: 7, text: "c" }], correctCount: 2 };
@@ -91,4 +91,13 @@ test("pickItems: hiç alt sorusu seçilmeyen senaryo sınavda görünmez", () =>
   const s: ScenarioRef = { id: 99, text: "Senaryo", prompt: null };
   const items: QuizItem[] = [{ kind: "question", question: single(1) }, { kind: "scenario", scenario: s, questions: [single(3, s), single(4, s)] }];
   assert.deepEqual(pickItems(items, new Set([1])).map((it) => it.kind), ["question"]);
+});
+
+test("savedQuestionIds: nesne ve metin biçimini okur, bozuk girdide boş döner", () => {
+  const saved = [{ id: 3, choices: [1] }, { id: 7, choices: [] }];
+  assert.deepEqual(savedQuestionIds(saved), [3, 7]);
+  assert.deepEqual(savedQuestionIds(JSON.stringify(saved)), [3, 7]);
+  assert.deepEqual(savedQuestionIds(null), []);
+  assert.deepEqual(savedQuestionIds("{bozuk"), []);
+  assert.deepEqual(savedQuestionIds([{ id: "x" }, 5, null]), []);
 });

@@ -45,6 +45,20 @@ export function isAnswered(q: PublicQuestion, a: Answer | undefined): boolean {
 /** Bir sınav oturumunda öğrenciye gösterilen sıra: sorular ve her sorunun şık/kart id'leri. */
 export type SavedOrder = { id: number; choices: number[] }[];
 
+/** quiz_sessions.question_order'daki soru id'leri (MySQL nesne, MariaDB metin döndürür); bozuk girdi → boş. */
+export function savedQuestionIds(raw: unknown): number[] {
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(raw)) return [];
+  const ids = raw.map((o) => (typeof o === "object" && o !== null ? (o as { id?: unknown }).id : undefined));
+  return ids.every((id) => typeof id === "number") ? (ids as number[]) : [];
+}
+
 const choicesOf = (q: PublicQuestion) => (q.kind === "categorize" ? q.cards : q.options);
 
 export function snapshotOrder(qs: PublicQuestion[]): SavedOrder {

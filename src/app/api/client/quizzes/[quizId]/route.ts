@@ -10,8 +10,9 @@ import { applySavedOrder, snapshotOrder, type PublicQuestion, type SavedOrder } 
 const parseJson = (v: unknown): unknown => (typeof v === "string" ? (() => { try { return JSON.parse(v); } catch { return null; } })() : v);
 
 /**
- * Soru, şık ve kart sırası her YENİ oturumda karıştırılır (senaryo alt soruları kendi sırasında) ve oturumda saklanır;
- * doğru cevap bilgisi gönderilmez, çok cevaplıda yalnızca doğru şık sayısı.
+ * Her YENİ oturumda sınavın modu uygulanır (sabit: editör sırası; havuz: kesin/kotalı çekim, karışık sıra, senaryo alt soruları
+ * kendi sırasında); şıklar ve kartlar karıştırılır. Çekilen set oturumda saklanır, yenilenince aynı set döner.
+ * Doğru cevap ve kesin bilgisi gönderilmez, çok cevaplıda yalnızca doğru şık sayısı.
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ quizId: string }> }) {
   const guard = await requireUser();
@@ -31,7 +32,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ quizId:
     // Açık oturum varsa (süreli sınavda süresi dolmamışsa) kaldığı yerden devam: aynı soru/şık sırası, kayıtlı cevaplar,
     // süreli sınavda kalan süre (yenileyerek sıfırlanamaz). Yoksa yeni oturum açılır.
     const limitSeconds: number | null = quiz.duration_minutes ? quiz.duration_minutes * 60 : null;
-    const { items } = await loadQuiz(quizId);
+    const { items, setup, required } = await loadQuiz(quizId);
     const [open] = await pool.query<RowDataPacket[]>(
       `SELECT id, TIMESTAMPDIFF(SECOND, started_at, NOW()) AS elapsed, question_order, draft_answers FROM quiz_sessions
         WHERE user_id = ? AND quiz_id = ? AND submitted_at IS NULL ORDER BY id DESC LIMIT 1`,
@@ -44,13 +45,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ quizId:
     let remainingSeconds: number | null = limitSeconds;
     if (session) {
       const saved = parseJson(session.question_order);
-      questions = Array.isArray(saved) ? applySavedOrder(flatQuestions(items), saved as SavedOrder) : null;
+      questions = Array.isArray(saved) ? applySavedOrder(flatQuestions(items), saved as SavedOrder, { subset: setup.mode === "pool" }) : null;
       // Sınav o arada düzenlendiyse eski sıra/cevaplar geçersiz: yeni sırayla, cevapsız devam.
       if (questions) draftAnswers = parseStoredAnswers(session.draft_answers);
       if (limitSeconds !== null) remainingSeconds = limitSeconds - Number(session.elapsed);
     }
     if (!questions) {
-      questions = studentQuestions(items);
+      questions = studentQuestions(items, required, setup);
       if (session) {
         await pool.execute("UPDATE quiz_sessions SET question_order = ?, draft_answers = NULL WHERE id = ?", [JSON.stringify(snapshotOrder(questions)), session.id]);
       } else {

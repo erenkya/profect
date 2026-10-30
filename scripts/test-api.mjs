@@ -175,6 +175,27 @@ try {
   r = await api("user", "POST", `/api/client/quizzes/${qid}/submit`, { answers: right }); check("devam edilen deneme gönderildi", r.json.score === 100);
   r = await api("user", "PUT", `/api/client/quizzes/${qid}/progress`, { answers: {} }); check("gönderimden sonra ilerleme kaydı 409", r.status === 409);
 
+  // — soru havuzu: çekim, kesin soru, aynı set, yalnızca çekilenleri puanlama, bayat oturum
+  const pq = (text, over = {}) => ({ question_text: text, options: [opt("a", true), opt("b")], ...over });
+  const poolQuiz = { title: "Final", passing_score_percentage: 70, duration_minutes: 30, mode: "pool", draw_count: 2, questions: [pq("P1"), pq("P2", { is_required: true }), pq("P3"), pq("P4")] };
+  r = await api("admin", "PUT", `/api/admin/quizzes/${qid}`, { ...poolQuiz, draw_count: 5 }); check("havuz: havuzdan fazla soru reddedildi (400)", r.status === 400);
+  r = await api("admin", "PUT", `/api/admin/quizzes/${qid}`, poolQuiz); check("havuz: sınav kaydedildi", r.status === 200, JSON.stringify(r.json));
+  r = await api("user", "GET", `/api/client/quizzes/${qid}`);
+  const pdraw = r.json.data.questions; const requiredText = "P2";
+  check("havuz: tam 2 soru, kesin soru içinde", pdraw.length === 2 && pdraw.some((q) => q.text === requiredText), JSON.stringify(pdraw.map((q) => q.text)));
+  check("havuz: kesin/doğru bilgisi sızmıyor", !/is_required|required|is_correct/.test(JSON.stringify(r.json)));
+  r = await api("user", "GET", `/api/client/quizzes/${qid}`); check("havuz: yenileyince aynı set", JSON.stringify(r.json.data.questions.map((q) => q.id)) === JSON.stringify(pdraw.map((q) => q.id)));
+  const [pcorrect] = await db.query("SELECT question_id, id FROM options WHERE is_correct=1 AND question_id IN (?)", [pdraw.map((q) => q.id)]);
+  const pright = Object.fromEntries(pcorrect.map((c) => [c.question_id, c.id]));
+  const [[other]] = await db.query("SELECT id FROM questions WHERE quiz_id = ? AND id NOT IN (?) LIMIT 1", [qid, pdraw.map((q) => q.id)]);
+  r = await api("user", "POST", `/api/client/quizzes/${qid}/submit`, { answers: { ...pright, [other.id]: 1 } });
+  check("havuz: yalnızca çekilenler puanlanır (totalQuestions 2, skor 100)", r.json.totalQuestions === 2 && r.json.score === 100 && !(String(other.id) in r.json.results), JSON.stringify(r.json));
+  // sınav sırasında eğitmen kaydeder → gönderim 409, oturum tüketilmez
+  await api("user", "GET", `/api/client/quizzes/${qid}`); // yeni oturum
+  await api("admin", "PUT", `/api/admin/quizzes/${qid}`, poolQuiz); // sorular yeniden yazılır (yeni id'ler)
+  r = await api("user", "POST", `/api/client/quizzes/${qid}/submit`, { answers: {} }); check("havuz: bayat oturumda gönderim 409", r.status === 409, JSON.stringify(r.json));
+  r = await api("user", "GET", `/api/client/quizzes/${qid}`); check("havuz: bayat oturumdan sonra yeniden başlatınca yeni set (2 soru)", r.json.data.questions.length === 2);
+
   // — hesap devre dışı → mevcut JWT hemen geçersiz
   await api("admin", "PATCH", `/api/admin/users/${userId}`, { is_active: false });
   r = await api("user", "GET", "/api/auth/me"); check("pasifleştirilen kullanıcının JWT'si geçersiz (401)", r.status === 401);

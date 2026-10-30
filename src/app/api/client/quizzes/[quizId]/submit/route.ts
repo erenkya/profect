@@ -6,7 +6,7 @@ import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { canAccessCourse } from "@/lib/lms";
 import { loadQuiz } from "@/lib/quiz-data";
 import { gradeQuestion, scoreAttempt } from "@/lib/quiz-grading";
-import type { GradeResult } from "@/lib/quiz-model";
+import { savedQuestionIds, type GradeResult } from "@/lib/quiz-model";
 
 const GRACE_SECONDS = 15; // ağ gecikmesi / otomatik gönderim toleransı
 
@@ -31,32 +31,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
     if (!quiz) return fail("Sınav bulunamadı.", 404);
     if (!(await canAccessCourse(userId, quiz.course_id))) return fail("Bu kursa erişiminiz yok.", 403);
 
-    if (quiz.duration_minutes) {
+    // Havuz modunda yalnızca oturumda saklanan (çekilen) sorular puanlanır; sınav o arada düzenlendiyse oturum tüketilmeden 409.
+    const { grading, setup } = await loadQuiz(quizId);
+    if (grading.size === 0) return fail("Bu sınavda soru yok.", 400);
+    const pooled = setup.mode === "pool";
+    let drawn: Set<number> | null = null;
+
+    if (quiz.duration_minutes || pooled) {
       const [open] = await pool.query<RowDataPacket[]>(
-        `SELECT id, TIMESTAMPDIFF(SECOND, started_at, NOW()) AS elapsed FROM quiz_sessions
+        `SELECT id, TIMESTAMPDIFF(SECOND, started_at, NOW()) AS elapsed, question_order FROM quiz_sessions
           WHERE user_id = ? AND quiz_id = ? AND submitted_at IS NULL ORDER BY id DESC LIMIT 1`,
         [userId, quizId],
       );
       const session = open[0];
       if (!session) return fail("Sınav oturumu bulunamadı. Sayfayı yenileyip sınavı baştan başlatın.", 409);
+      if (pooled) {
+        const ids = savedQuestionIds(session.question_order);
+        if (ids.length === 0 || ids.some((id) => !grading.has(id))) return fail("Sınav güncellendi; sınavı yeniden başlatın.", 409);
+        drawn = new Set(ids);
+      }
       // Oturum bir kez kullanılır: eşzamanlı çift gönderim ikinci kez sayılmaz.
       const [upd] = await pool.execute<ResultSetHeader>("UPDATE quiz_sessions SET submitted_at = NOW() WHERE id = ? AND submitted_at IS NULL", [session.id]);
       if (upd.affectedRows === 0) return fail("Bu sınav oturumu zaten gönderildi.", 409);
-      if (Number(session.elapsed) > quiz.duration_minutes * 60 + GRACE_SECONDS) {
+      if (quiz.duration_minutes && Number(session.elapsed) > quiz.duration_minutes * 60 + GRACE_SECONDS) {
         return fail("Süre doldu. Bu deneme kabul edilmedi; sınavı yeniden başlatabilirsiniz.", 408);
       }
     } else {
-      // Süresiz sınav: oturum yalnızca kaldığı yerden devam için; gönderimle kapanır (zorunlu değil).
+      // Süresiz sabit sınav: oturum yalnızca kaldığı yerden devam için; gönderimle kapanır (zorunlu değil).
       await pool.execute("UPDATE quiz_sessions SET submitted_at = NOW() WHERE user_id = ? AND quiz_id = ? AND submitted_at IS NULL", [userId, quizId]);
     }
 
-    const { grading } = await loadQuiz(quizId);
-    if (grading.size === 0) return fail("Bu sınavda soru yok.", 400);
-
     // Doğru şık / kategori bilgisi BİLEREK dönmez (yanlış yapılan sorunun cevabı sızmasın);
     // açıklama yalnızca tam doğru olmayan soruda döner (gradeQuestion).
+    const graded = [...grading.values()].filter((q) => drawn === null || drawn.has(q.id));
     const results: Record<string, GradeResult> = {};
-    for (const q of grading.values()) results[q.id] = gradeQuestion(q, body.data.answers[String(q.id)]);
+    for (const q of graded) results[q.id] = gradeQuestion(q, body.data.answers[String(q.id)]);
     const { score, points, correctCount } = scoreAttempt(Object.values(results));
     const isPassed = score >= quiz.passing_score_percentage;
 
@@ -72,7 +81,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ qui
       await pool.execute("UPDATE enrollments SET status = 'completed' WHERE user_id = ? AND course_id = ?", [userId, quiz.course_id]);
     }
 
-    return ok({ score, isPassed, correctCount, points, totalQuestions: grading.size, results });
+    return ok({ score, isPassed, correctCount, points, totalQuestions: graded.length, results });
   } catch (err) {
     return serverError("[POST /api/client/quizzes/:id/submit]", err);
   }
