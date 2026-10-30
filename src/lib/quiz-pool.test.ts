@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { drawIds, parseByType, validatePool, type PoolEntry, type PoolKind } from "./quiz-pool.ts";
+import { drawIds, parseByType, selectForStudent, validatePool, type PoolEntry, type PoolKind } from "./quiz-pool.ts";
+import type { PublicQuestion, QuizItem, ScenarioRef } from "./quiz-model.ts";
 
 const identity = <T,>(a: T[]) => a;
 const reverse = <T,>(a: T[]) => [...a].reverse();
@@ -110,4 +111,23 @@ test("parseByType: MySQL nesnesi", () => {
 test("parseByType: null ve bozuk metin → boş nesne", () => {
   assert.deepEqual(parseByType(null), {});
   assert.deepEqual(parseByType("{bozuk"), {});
+});
+
+const pq = (id: number, scenario: ScenarioRef | null = null): PublicQuestion => ({ id, kind: "single", text: `Q${id}`, scenario, options: [{ id: 1, text: "a" }, { id: 2, text: "b" }] });
+const SCEN: ScenarioRef = { id: 99, text: "Senaryo", prompt: null };
+
+test("selectForStudent: sabit modda editör sırası korunur, karıştırma ve kesin işareti yok sayılır", () => {
+  const items: QuizItem[] = [{ kind: "question", question: pq(1) }, { kind: "scenario", scenario: SCEN, questions: [pq(3, SCEN), pq(4, SCEN)] }, { kind: "question", question: pq(2) }];
+  const out = selectForStudent(items, new Set([2]), { mode: "fixed", drawCount: 1, byType: {} }, reverse);
+  assert.deepEqual(out.map((q) => q.id), [1, 3, 4, 2]);
+});
+
+test("selectForStudent: havuzda drawCount kadar soru, kesinler dahil, aynı senaryonun soruları bitişik ve editör sırasında", () => {
+  const items: QuizItem[] = [
+    { kind: "scenario", scenario: SCEN, questions: [pq(10, SCEN), pq(11, SCEN), pq(12, SCEN)] },
+    ...[1, 2, 3, 4].map((id): QuizItem => ({ kind: "question", question: pq(id) })),
+  ];
+  const out = selectForStudent(items, new Set([10, 12]), { mode: "pool", drawCount: 3, byType: {} }, reverse);
+  assert.equal(out.length, 3);
+  assert.deepEqual(out.map((q) => q.id), [4, 10, 12]);
 });

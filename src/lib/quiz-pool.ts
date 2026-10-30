@@ -1,5 +1,7 @@
 // Soru havuzu: kayıtta doğrulama ve öğrenci için soru çekimi. Saf modül (istemci + sunucu); rastgelelik dışarıdan verilir.
 
+import { orderForStudent, pickItems, type PublicQuestion, type QuizItem } from "./quiz-model.ts";
+
 export type PoolKind = "single" | "multiple" | "categorize";
 export type PoolEntry = { id: number; kind: PoolKind; required: boolean };
 /** drawCount: sınavda gösterilecek soru sayısı (null = havuzun tamamı); byType: tip kotaları (olmayan anahtar = kota yok). */
@@ -73,4 +75,18 @@ export function parseByType(raw: unknown): Partial<Record<PoolKind, number>> {
     if (typeof v === "number" && Number.isInteger(v) && v >= 1) out[kind] = v;
   }
   return out;
+}
+
+/** Sınavın modu ve havuz ayarları (quizzes satırından). */
+export type QuizSetup = { mode: "fixed" | "pool" } & PoolConfig;
+
+/**
+ * Öğrenciye gidecek sorular. Sabit: editör sırası, karıştırma yok. Havuz: çekim → seçilenler →
+ * üst düzey öğeler karışık (aynı senaryonun soruları bitişik). Şık/kart karıştırma çağıranın işi.
+ */
+export function selectForStudent(items: QuizItem[], required: ReadonlySet<number>, setup: QuizSetup, shuffle: <T>(a: T[]) => T[]): PublicQuestion[] {
+  const all = items.flatMap((it) => (it.kind === "question" ? [it.question] : it.questions));
+  if (setup.mode === "fixed") return all;
+  const ids = new Set(drawIds(all.map((q) => ({ id: q.id, kind: q.kind, required: required.has(q.id) })), setup, shuffle));
+  return orderForStudent(pickItems(items, ids), shuffle);
 }

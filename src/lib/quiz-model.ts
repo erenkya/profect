@@ -55,8 +55,9 @@ export function snapshotOrder(qs: PublicQuestion[]): SavedOrder {
  * Kaydedilmiş sırayı geri uygular (öğrenci sınava döndüğünde sorular yeniden karışmasın).
  * Soru ya da şık kümesi değiştiyse (yönetici sınavı düzenlediyse) null döner.
  */
-export function applySavedOrder(qs: PublicQuestion[], saved: SavedOrder): PublicQuestion[] | null {
-  if (saved.length !== qs.length) return null;
+export function applySavedOrder(qs: PublicQuestion[], saved: SavedOrder, opts: { subset?: boolean } = {}): PublicQuestion[] | null {
+  // subset (havuz modu): kayıtlı sıra sınav sorularının bir alt kümesidir; yine de her kayıtlı soru sınavda olmalı.
+  if (!opts.subset && saved.length !== qs.length) return null;
   const byId = new Map(qs.map((q) => [q.id, q]));
   const out: PublicQuestion[] = [];
   for (const s of saved) {
@@ -74,4 +75,13 @@ export function applySavedOrder(qs: PublicQuestion[], saved: SavedOrder): Public
 /** Üst düzey öğeler karıştırılır; senaryonun alt soruları kendi sırasında, bitişik kalır. */
 export function orderForStudent(items: QuizItem[], shuffle: <T>(a: T[]) => T[]): PublicQuestion[] {
   return shuffle(items).flatMap((it) => (it.kind === "question" ? [it.question] : it.questions));
+}
+
+/** Seçilen sorulardan oluşan öğeler: seçilmeyen soru düşer, senaryonun seçilen alt soruları editör sırasında kalır, hiç seçilmeyen senaryo düşer. */
+export function pickItems(items: QuizItem[], ids: ReadonlySet<number>): QuizItem[] {
+  return items.flatMap((it): QuizItem[] => {
+    if (it.kind === "question") return ids.has(it.question.id) ? [it] : [];
+    const questions = it.questions.filter((q) => ids.has(q.id));
+    return questions.length ? [{ ...it, questions }] : [];
+  });
 }

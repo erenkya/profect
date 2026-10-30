@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applySavedOrder, isAnswered, orderForStudent, snapshotOrder, type PublicQuestion, type QuizItem, type ScenarioRef } from "./quiz-model.ts";
+import { applySavedOrder, isAnswered, orderForStudent, pickItems, snapshotOrder, type PublicQuestion, type QuizItem, type ScenarioRef } from "./quiz-model.ts";
 
 const single = (id: number, scenario: ScenarioRef | null = null): PublicQuestion => ({ id, kind: "single", text: `S${id}`, scenario, options: [{ id: 1, text: "a" }, { id: 2, text: "b" }] });
 const multiple: PublicQuestion = { id: 10, kind: "multiple", text: "M", scenario: null, options: [{ id: 5, text: "a" }, { id: 6, text: "b" }, { id: 7, text: "c" }], correctCount: 2 };
@@ -62,4 +62,33 @@ test("orderForStudent: alt sorusuz senaryo atlanır", () => {
   const s: ScenarioRef = { id: 99, text: "Senaryo", prompt: "?" };
   const out = orderForStudent([{ kind: "scenario", scenario: s, questions: [] }, { kind: "question", question: single(1) }], (a) => a);
   assert.deepEqual(out.map((q) => q.id), [1]);
+});
+
+test("applySavedOrder: subset=true kayıtlı alt kümeyi kayıtlı sırayla döndürür", () => {
+  const qs = [single(1), single(2), single(3)];
+  const saved = [{ id: 3, choices: [2, 1] }, { id: 1, choices: [1, 2] }];
+  const out = applySavedOrder(qs, saved, { subset: true });
+  assert.deepEqual(out?.map((q) => q.id), [3, 1]);
+  assert.deepEqual(out?.[0].kind === "single" && out[0].options.map((o) => o.id), [2, 1]);
+  assert.equal(applySavedOrder(qs, saved), null); // seçenek yoksa tüm soruları kapsamak zorunda
+});
+
+test("applySavedOrder: subset=true iken sınavda olmayan soru ya da farklı şık kümesi → null", () => {
+  const qs = [single(1), single(2)];
+  assert.equal(applySavedOrder(qs, [{ id: 9, choices: [1, 2] }], { subset: true }), null);
+  assert.equal(applySavedOrder(qs, [{ id: 1, choices: [1] }], { subset: true }), null);
+});
+
+test("pickItems: seçilen alt sorular editör sırasında kalır; seçilmeyen soru düşer", () => {
+  const s: ScenarioRef = { id: 99, text: "Senaryo", prompt: null };
+  const items: QuizItem[] = [{ kind: "question", question: single(1) }, { kind: "scenario", scenario: s, questions: [single(3, s), single(4, s), single(5, s)] }, { kind: "question", question: single(2) }];
+  const out = pickItems(items, new Set([1, 5, 3]));
+  assert.equal(out.length, 2);
+  assert.equal(out[1].kind === "scenario" && out[1].questions.map((q) => q.id).join(), "3,5");
+});
+
+test("pickItems: hiç alt sorusu seçilmeyen senaryo sınavda görünmez", () => {
+  const s: ScenarioRef = { id: 99, text: "Senaryo", prompt: null };
+  const items: QuizItem[] = [{ kind: "question", question: single(1) }, { kind: "scenario", scenario: s, questions: [single(3, s), single(4, s)] }];
+  assert.deepEqual(pickItems(items, new Set([1])).map((it) => it.kind), ["question"]);
 });
