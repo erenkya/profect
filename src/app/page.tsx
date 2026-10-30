@@ -44,7 +44,7 @@ export default async function HomePage() {
               <div data-reveal="1" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
                 <span className="diamond brand-diamond" style={{ width: 10, height: 10 }} />
                 <span style={{ fontSize: 12, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--color-accent-700)", fontWeight: 600 }}>
-                  Sınavlı · Sertifikalı · Online
+                  Güncel Müfredat · Küresel Standartlar · %100 Online · Sektör Uzmanı Eğitmenler
                 </span>
               </div>
               <h1 style={{ fontSize: "clamp(60px,8.4vw,124px)", lineHeight: 0.9, letterSpacing: "-.02em", textTransform: "uppercase", margin: "0 0 28px", fontWeight: 700 }}>
@@ -53,7 +53,7 @@ export default async function HomePage() {
                 <span data-reveal="1" data-delay="240" style={{ display: "inline-block", color: "var(--color-accent-2)" }}>Belgele.</span>
               </h1>
               <p data-reveal="1" data-delay="360" style={{ fontSize: 19, lineHeight: 1.55, maxWidth: 500, color: "color-mix(in srgb,var(--color-text) 78%,transparent)", textWrap: "pretty", marginBottom: 36 }}>
-                Profect’te alanında uzman eğitmenlerin hazırladığı kursları kendi hızında tamamlarsın. Her modülün sonunda sınava girer, final sınavını geçtiğinde doğrulanabilir sertifikanı alırsın.
+                Profect’te sektörün uzmanlarınca hazırlanan, sürekli güncellenen ve küresel standartlarla uyumlu kursları tamamen online, kendi hızında tamamlarsın. Her modülün sonunda sınava girer, final sınavını geçtiğinde doğrulanabilir sertifikanı alırsın.
               </p>
               <div data-reveal="1" data-delay="480" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                 <Link href="/kurslar" className="btn btn-primary blueprint" style={{ fontSize: 18, padding: "14px 26px" }}>
