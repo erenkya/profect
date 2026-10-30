@@ -7,7 +7,7 @@ import { ChoiceEditor } from "./ChoiceEditor";
 export const blankScenario = (): ScenQ => ({ kind: "scenario", scenario_text: "", scenario_prompt: "", questions: [blankChoice()] });
 
 /** Senaryo: metin, isteğe bağlı senaryo sorusu ve tek/çok cevaplı alt sorular (her biri ayrı puanlanır). */
-export function ScenarioEditor({ idPrefix, value: s, onChange }: { idPrefix: string; value: ScenQ; onChange: (s: ScenQ) => void }) {
+export function ScenarioEditor({ idPrefix, value: s, onChange, showRequired = false }: { idPrefix: string; value: ScenQ; onChange: (s: ScenQ) => void; showRequired?: boolean }) {
   const setChild = (i: number, q: ChoiceQ) => onChange({ ...s, questions: s.questions.map((x, k) => (k === i ? q : x)) });
   return (
     <>
@@ -37,7 +37,7 @@ export function ScenarioEditor({ idPrefix, value: s, onChange }: { idPrefix: str
                 )}
               </div>
             </div>
-            <ChoiceEditor idPrefix={`${idPrefix}-${i}`} value={q} onChange={(nq) => setChild(i, nq)} />
+            <ChoiceEditor idPrefix={`${idPrefix}-${i}`} value={q} onChange={(nq) => setChild(i, nq)} showRequired={showRequired} />
           </div>
         ))}
       </div>

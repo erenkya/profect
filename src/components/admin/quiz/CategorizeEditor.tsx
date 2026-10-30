@@ -2,13 +2,13 @@
 
 import { Trash2 } from "lucide-react";
 import type { CatQ } from "@/lib/quiz-editor";
-import { ExplanationField, input } from "./ChoiceEditor";
+import { ExplanationField, RequiredField, input } from "./ChoiceEditor";
 
 const MAX_CATEGORIES = 8;
 const MAX_CARDS = 30;
 
 /** Sürükle-bırak sorusu: kategoriler ve her kartın doğru kategorisi. */
-export function CategorizeEditor({ idPrefix, value: q, onChange }: { idPrefix: string; value: CatQ; onChange: (q: CatQ) => void }) {
+export function CategorizeEditor({ idPrefix, value: q, onChange, showRequired = false }: { idPrefix: string; value: CatQ; onChange: (q: CatQ) => void; showRequired?: boolean }) {
   const removeCategory = (i: number) =>
     onChange({
       ...q,
@@ -86,6 +86,7 @@ export function CategorizeEditor({ idPrefix, value: q, onChange }: { idPrefix: s
       )}
       <div style={{ fontSize: 12, color: "var(--muted-55)" }}>Kısmi puan: öğrenci doğru kategoriye koyduğu kart oranında puan alır. Boş kartlar kaydedilmez.</div>
 
+      {showRequired && <RequiredField id={`${idPrefix}-required`} checked={q.is_required} onChange={(is_required) => onChange({ ...q, is_required })} />}
       <ExplanationField id={`${idPrefix}-explanation`} value={q.explanation} onChange={(explanation) => onChange({ ...q, explanation })} />
     </>
   );

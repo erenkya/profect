@@ -16,8 +16,18 @@ export function ExplanationField({ id, value, onChange }: { id: string; value: s
   );
 }
 
+/** Havuz modunda: işaretli soru her öğrencinin sınavında mutlaka yer alır. */
+export function RequiredField({ id, checked, onChange }: { id: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label htmlFor={id} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14, cursor: "pointer" }}>
+      <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      Kesin çıksın <span style={{ color: "var(--muted-55)", fontSize: 12 }}>(havuz sınavında her öğrenciye bu soru gelir)</span>
+    </label>
+  );
+}
+
 /** Tek / çok cevaplı soru gövdesi: soru metni, şıklar, doğru işaretleri ve açıklama. */
-export function ChoiceEditor({ idPrefix, value: q, onChange }: { idPrefix: string; value: ChoiceQ; onChange: (q: ChoiceQ) => void }) {
+export function ChoiceEditor({ idPrefix, value: q, onChange, showRequired = false }: { idPrefix: string; value: ChoiceQ; onChange: (q: ChoiceQ) => void; showRequired?: boolean }) {
   const multi = q.kind === "multiple";
   const setOpt = (j: number, patch: Partial<Opt>) => onChange({ ...q, options: q.options.map((o, k) => (k === j ? { ...o, ...patch } : o)) });
   const toggleCorrect = (j: number) =>
@@ -53,6 +63,7 @@ export function ChoiceEditor({ idPrefix, value: q, onChange }: { idPrefix: strin
           </button>
         )}
       </div>
+      {showRequired && <RequiredField id={`${idPrefix}-required`} checked={q.is_required} onChange={(is_required) => onChange({ ...q, is_required })} />}
       <ExplanationField id={`${idPrefix}-explanation`} value={q.explanation} onChange={(explanation) => onChange({ ...q, explanation })} />
     </>
   );

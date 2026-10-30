@@ -9,14 +9,16 @@ import { Corners } from "@/components/Corners";
 import { Toast, useFlash } from "./Toast";
 import type { quizSchema } from "@/lib/admin-schemas";
 import { adminApi } from "./api";
-import { blankChoice, changeKind, toEditor, type ChoiceQ, type EditorItem, type ItemKind } from "@/lib/quiz-editor";
+import { blankChoice, changeKind, configFromForm, poolFromEditor, toEditor, type ChoiceQ, type EditorItem, type ItemKind } from "@/lib/quiz-editor";
+import { POOL_KINDS, validatePool, type PoolKind } from "@/lib/quiz-pool";
 import { parseQuizCsv, quizCsvTemplate } from "@/lib/quiz-csv";
 import { ChoiceEditor } from "./quiz/ChoiceEditor";
 import { CategorizeEditor } from "./quiz/CategorizeEditor";
 import { ScenarioEditor, blankScenario } from "./quiz/ScenarioEditor";
+import { PoolSettings } from "./quiz/PoolSettings";
 
 type QuizInputQuestions = z.infer<typeof quizSchema>["questions"];
-type Props = { quizId: number; courseSlug: string; courseId: number; initial: { title: string; passing: number; duration: number | null; questions: QuizInputQuestions } };
+type Props = { quizId: number; courseSlug: string; courseId: number; initial: { title: string; passing: number; duration: number | null; mode: "fixed" | "pool"; drawCount: number | null; drawByType: Partial<Record<PoolKind, number>>; questions: QuizInputQuestions } };
 
 const KIND_LABEL: Record<EditorItem["kind"], string> = { single: "Tek cevaplı", multiple: "Çok cevaplı", categorize: "Sürükle-bırak", scenario: "Senaryo" };
 
@@ -24,6 +26,7 @@ const cleanChoice = (q: ChoiceQ) => ({
   kind: q.kind,
   question_text: q.question_text.trim(),
   explanation: q.explanation.trim(),
+  is_required: q.is_required,
   options: q.options.filter((o) => o.option_text.trim()).map((o) => ({ ...o, option_text: o.option_text.trim() })),
 });
 
@@ -43,6 +46,9 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
   const [title, setTitle] = useState(initial.title);
   const [passing, setPassing] = useState(String(initial.passing));
   const [duration, setDuration] = useState(initial.duration == null ? "" : String(initial.duration));
+  const [mode, setMode] = useState(initial.mode);
+  const [drawCount, setDrawCount] = useState(initial.drawCount == null ? "" : String(initial.drawCount));
+  const [byType, setByType] = useState<Record<PoolKind, string>>({ single: String(initial.drawByType.single ?? ""), multiple: String(initial.drawByType.multiple ?? ""), categorize: String(initial.drawByType.categorize ?? "") });
   const [qs, setQs] = useState<EditorItem[]>(initial.questions.length ? initial.questions.map(toEditor) : [blankChoice()]);
   const [flash, setFlash] = useFlash();
   const [busy, setBusy] = useState(false);
@@ -56,13 +62,22 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
       return b;
     });
 
+  // Havuz ayarları, boş sorular atılmış haliyle sorulara göre denetlenir (sunucuda da aynı kurallar).
+  const entries = poolFromEditor(clean(qs));
+  const config = configFromForm(drawCount, byType);
+  const problems = mode === "pool" ? validatePool(entries, config) : [];
+  const poolCounts = Object.fromEntries(POOL_KINDS.map((k) => [k, entries.filter((e) => e.kind === k).length])) as Record<PoolKind, number>;
+  const reserved = POOL_KINDS.reduce((sum, k) => sum + (config.byType[k] ?? entries.filter((e) => e.kind === k && e.required).length), 0);
+  const remaining = problems.length ? null : Math.max(0, (config.drawCount ?? entries.length) - reserved);
+
   async function save() {
+    if (problems.length) return;
     if (!(Number(duration) >= 1)) {
       setFlash({ kind: "error", text: "Sınav süresi (dk) zorunlu." });
       return;
     }
     setBusy(true);
-    const r = await adminApi("PUT", `/api/admin/quizzes/${quizId}`, { title, passing_score_percentage: Number(passing) || 70, duration_minutes: Number(duration), questions: clean(qs) });
+    const r = await adminApi("PUT", `/api/admin/quizzes/${quizId}`, { title, passing_score_percentage: Number(passing) || 70, duration_minutes: Number(duration), mode, draw_count: config.drawCount, draw_by_type: config.byType, questions: clean(qs) });
     setBusy(false);
     setFlash({ kind: r.ok ? "ok" : "error", text: r.ok ? "Sınav kaydedildi." : r.message });
     if (r.ok) router.refresh();
@@ -108,6 +123,19 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
         <div className="field"><label>Süre (dk)</label><input className="input" type="number" min={1} required value={duration} onChange={(e) => setDuration(e.target.value)} style={input} /></div>
       </div>
 
+      <PoolSettings
+        mode={mode}
+        onMode={setMode}
+        drawCount={drawCount}
+        onDrawCount={setDrawCount}
+        byType={byType}
+        onByType={(kind, v) => setByType((b) => ({ ...b, [kind]: v }))}
+        poolCounts={poolCounts}
+        total={entries.length}
+        remaining={remaining}
+        problems={problems}
+      />
+
       <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
         <button type="button" className="btn btn-secondary" onClick={downloadTemplate}><Download size={15} strokeWidth={1.5} /> CSV şablonunu indir</button>
         <button type="button" className="btn btn-secondary" onClick={() => fileRef.current?.click()}><Upload size={15} strokeWidth={1.5} /> CSV'den soru yükle</button>
@@ -150,11 +178,11 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
                 </div>
               </div>
               {q.kind === "scenario" ? (
-                <ScenarioEditor idPrefix={`q${i}`} value={q} onChange={(v) => setQ(i, v)} />
+                <ScenarioEditor idPrefix={`q${i}`} value={q} onChange={(v) => setQ(i, v)} showRequired={mode === "pool"} />
               ) : q.kind === "categorize" ? (
-                <CategorizeEditor idPrefix={`q${i}`} value={q} onChange={(v) => setQ(i, v)} />
+                <CategorizeEditor idPrefix={`q${i}`} value={q} onChange={(v) => setQ(i, v)} showRequired={mode === "pool"} />
               ) : (
-                <ChoiceEditor idPrefix={`q${i}`} value={q} onChange={(v) => setQ(i, v)} />
+                <ChoiceEditor idPrefix={`q${i}`} value={q} onChange={(v) => setQ(i, v)} showRequired={mode === "pool"} />
               )}
             </div>
           );
@@ -164,7 +192,7 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
       <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
         <button className="btn btn-secondary" onClick={() => setQs((a) => [...a, blankChoice()])}>+ Soru ekle</button>
         <button className="btn btn-secondary" onClick={() => setQs((a) => [...a, blankScenario()])}>+ Senaryo ekle</button>
-        <button className="btn btn-primary blueprint" disabled={busy} onClick={save}><Corners />{busy ? "Kaydediliyor…" : "Sınavı kaydet"}</button>
+        <button className="btn btn-primary blueprint" disabled={busy || problems.length > 0} onClick={save}><Corners />{busy ? "Kaydediliyor…" : "Sınavı kaydet"}</button>
       </div>
     </div>
   );
