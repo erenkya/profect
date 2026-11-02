@@ -96,7 +96,9 @@ export async function notifyQuestion(lessonId: number, q: { studentName: string;
     if (rows.length === 0) return;
     const url = `${q.baseUrl}/egitmen/sorular?soru=${q.commentId}`;
     const mail = { studentName: q.studentName, courseTitle: rows[0].course_title, lessonTitle: rows[0].lesson_title, body: q.body, url };
-    for (const to of await questionRecipients(lessonId)) await sendLessonQuestionEmail(to, mail);
+    // CC adresi birden fazla yöneticiye giden aynı bildirimin her kopyasında değil, yalnızca ilkinde olsun.
+    const recipients = await questionRecipients(lessonId);
+    for (const [i, to] of recipients.entries()) await sendLessonQuestionEmail(to, mail, i === 0);
   } catch (err) {
     console.error("[notifyQuestion]", err);
   }

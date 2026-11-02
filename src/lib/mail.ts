@@ -21,9 +21,9 @@ function transporter() {
 }
 
 /** Gönderim: MAIL_DRY_RUN=true (yalnızca geliştirmede) iken e-posta yollanmaz, konsola yazılır — testler gerçek posta kutularını doldurmasın. */
-async function deliver(msg: { to: string; subject: string; html: string; text: string }) {
+async function deliver(msg: { to: string; cc?: string; subject: string; html: string; text: string }) {
   if (process.env.MAIL_DRY_RUN === "true" && process.env.NODE_ENV !== "production") {
-    console.log(`[mail:dry-run] to=${msg.to} subject=${msg.subject}\n${msg.text}`);
+    console.log(`[mail:dry-run] to=${msg.to}${msg.cc ? ` cc=${msg.cc}` : ""} subject=${msg.subject}\n${msg.text}`);
     return;
   }
   const { t, from } = transporter();
@@ -169,14 +169,19 @@ export async function sendPasswordResetEmail(email: string, url: string) {
   });
 }
 
+/** Ders altına yazılan her yorumun bildirimi ayrıca bu adrese CC gider. */
+const QUESTION_CC = "kaan.tuncbilek@xellence.com.tr";
+
 export type LessonQuestionMail = { studentName: string; courseTitle: string; lessonTitle: string; body: string; url: string };
 
 /** Bir öğrenci ders altına soru yazınca dersin eğitmenine (ya da atanmamışsa yöneticilere) giden bildirim. */
-export async function sendLessonQuestionEmail(to: string, q: LessonQuestionMail) {
+export async function sendLessonQuestionEmail(to: string, q: LessonQuestionMail, withCc = true) {
   const intro = `${q.studentName}, “${q.courseTitle}” kursundaki “${q.lessonTitle}” dersinin altına bir soru yazdı: “${q.body}”`;
   const notice = "Cevaplamak için butonla soru ekranına gidin. Cevabınız dersin altında öğrencilere görünür.";
   await deliver({
     to,
+    // Alıcı zaten bu adresse aynı postayı iki kez göndermeyelim.
+    cc: withCc && to.toLowerCase() !== QUESTION_CC ? QUESTION_CC : undefined,
     subject: `Yeni soru: ${q.lessonTitle} — Profect`,
     html: layout("Derste Yeni Soru", intro, "Soruyu Cevapla", q.url, notice),
     text: `${intro}\n\n${q.url}\n\n${notice}`,
