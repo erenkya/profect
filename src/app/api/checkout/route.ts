@@ -30,6 +30,8 @@ export async function POST(request: Request) {
   try {
     const quote = await quoteCart(body.data.items, userId);
     if (quote.payable.length === 0) return fail("Sepetinizde satın alınabilir ürün yok.", 409);
+    // Task 5: program kaleminin sipariş yazımı (order_items.program_id + fulfillOrder) henüz yok; bozuk sipariş oluşmasın.
+    if (quote.payable.some((l) => l.item.type === "program")) return fail("Program satın alımı henüz etkin değil.", 409);
     // Kupon: sunucuda yeniden doğrulanır ve hesaplanır (ön izlemedeki tutara güvenilmez).
     let coupon: { id: number; code: string } | null = null;
     let discount = 0;
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
     const r = await startTamiCheckout({
       orderId, total, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
       // Sepet toplamı tahsil edilen tutara eşit olmalı: kupon indirimi kalemlere orantılı dağıtılır.
-      basket: quote.payable.map((l, i) => ({ key: l.key, title: l.title, subCategory: l.item.type === "plus" ? "Abonelik" : "Kurs", price: netPrices[i] })),
+      basket: quote.payable.map((l, i) => ({ key: l.key, title: l.title, subCategory: l.item.type === "plus" ? "Abonelik" : l.item.type === "program" ? "Program" : "Kurs", price: netPrices[i] })),
     });
     if (!r.ok) return fail(r.message, 400);
     return ok({ orderId, status: "redirect", threeDSHtmlContent: r.threeDSHtmlContent }, 201);

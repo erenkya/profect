@@ -6,7 +6,8 @@ import { normalizePhone } from "@/lib/checkout-schema";
 import type { QuoteLine } from "@/lib/cart-quote";
 
 const itemKey = (l: { item_type: string; course_id: number | null }) => (l.item_type === "plus" ? "plus" : `course:${l.course_id}`);
-const lineKey = (l: QuoteLine) => (l.item.type === "plus" ? "plus" : `course:${l.courseId}`);
+// Task 5: program kalemi için order_items.program_id anahtarı eklenecek (şimdilik yalnızca tip uyumu).
+const lineKey = (l: QuoteLine) => (l.item.type === "plus" ? "plus" : l.item.type === "program" ? `program:${l.item.slug}` : `course:${l.courseId}`);
 
 type OrderInput = {
   userId: number;

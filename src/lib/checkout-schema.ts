@@ -60,6 +60,7 @@ export const cartItemsSchema = z
   .array(
     z.discriminatedUnion("type", [
       z.object({ type: z.literal("course"), slug: z.string().min(1).max(120) }),
+      z.object({ type: z.literal("program"), slug: z.string().min(1).max(120) }),
       z.object({ type: z.literal("plus") }),
     ]),
   )
