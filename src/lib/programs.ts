@@ -4,7 +4,7 @@ import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import pool from "@/lib/db";
 import { priceProgram, type ProgramQuoteCalc } from "@/lib/program-pricing";
-import { courseProblems, generateProgramCertificateCode, isProgramComplete } from "@/lib/program-rules";
+import { courseProblems, generateProgramCertificateCode, isProgramComplete, type CourseEligibility } from "@/lib/program-rules";
 
 /** Havuz da, transaction bağlantısı da uyar. */
 export type Queryable = Pick<PoolConnection, "query" | "execute">;
@@ -112,6 +112,41 @@ export async function listProgramCourses(programId: number): Promise<ProgramCour
     has_final_quiz: !!r.has_final_quiz,
     sort_order: Number(r.sort_order),
   }));
+}
+
+/** Yönetim listesi: taslaklar dahil tüm programlar; `problem_courses` = yayında olmayan ya da final sınavı eksik kurs sayısı. */
+export async function listAdminPrograms(): Promise<(ProgramRow & { course_count: number; list_total: number; problem_courses: number })[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT ${PROGRAM_COLUMNS},
+            COUNT(c.id) AS course_count,
+            COALESCE(SUM(c.price), 0) AS list_total,
+            COALESCE(SUM(c.is_published = 0 OR NOT ${HAS_FINAL_QUIZ_SQL}), 0) AS problem_courses
+       FROM programs p
+       LEFT JOIN program_courses pc ON pc.program_id = p.id
+       LEFT JOIN courses c ON c.id = pc.course_id
+      GROUP BY p.id
+      ORDER BY p.sort_order, p.id`,
+  );
+  return rows.map((r) => ({ ...mapProgram(r), course_count: Number(r.course_count), list_total: Number(r.list_total), problem_courses: Number(r.problem_courses) }));
+}
+
+/** Verilen kurs kimlikleri için uygunluk bilgisi (yönetim kaydı doğrulaması); sıra girdideki gibi, olmayan kimlikler atlanır. */
+export async function getCourseEligibility(courseIds: readonly number[]): Promise<CourseEligibility[]> {
+  if (courseIds.length === 0) return [];
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT c.id, c.title, c.price, c.is_published, ${HAS_FINAL_QUIZ_SQL} AS has_final_quiz FROM courses c WHERE c.id IN (?)`,
+    [courseIds],
+  );
+  const byId = new Map(rows.map((r) => [Number(r.id), { id: Number(r.id), title: r.title as string, price: Number(r.price), is_published: !!r.is_published, has_final_quiz: !!r.has_final_quiz }]));
+  return courseIds.flatMap((id) => byId.get(id) ?? []);
+}
+
+/** Yönetim kurs seçicisi: yayındaki kurslar (final sınavı eksik olanlar da gelir; editör onları seçilemez gösterir). */
+export async function listPublishedCourseOptions(): Promise<CourseEligibility[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT c.id, c.title, c.price, c.is_published, ${HAS_FINAL_QUIZ_SQL} AS has_final_quiz FROM courses c WHERE c.is_published = 1 ORDER BY c.title`,
+  );
+  return rows.map((r) => ({ id: Number(r.id), title: r.title as string, price: Number(r.price), is_published: true, has_final_quiz: !!r.has_final_quiz }));
 }
 
 /** Edinilmiş kurslar: `source <> 'plus'` (Plus ile geçici açılanlar sayılmaz). */

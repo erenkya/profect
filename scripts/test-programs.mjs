@@ -40,6 +40,7 @@ const programMember = async (userId, programId) => (await db.query("SELECT sourc
 
 let programId, program2Id;
 const courseIds = [];
+const adminProgramIds = []; // admin API ile oluşturulan programlar (slug'ı serbest olabilir; id ile temizlenir)
 try {
   for (const t of ["programs", "program_courses", "program_enrollments", "program_certificates"]) {
     const [[tbl]] = await db.query("SHOW TABLES LIKE ?", [t]);
@@ -666,6 +667,102 @@ try {
   }
   const myPart = await page("/hesabim/programlarim", part.cookie);
   check("Programlarım kısmi: 3/5 kurs", myPart.status === 200 && myPart.text.includes("3/5") && myPart.text.includes(PROGRAM_TITLE_P), String(myPart.status));
+
+  // ── Görev 8: yönetim (/api/admin/programs) ──
+  const AP = "/api/admin/programs";
+  const adm = (path, method, body, cookie = admCookie) => api(path, { method, body, cookie });
+  const ac = [];
+  for (let i = 0; i < 3; i++) ac.push(await mkCourse(90 + i));
+  const cDraft = await mkCourse(93); // yayında olmayan kurs
+  await db.query("UPDATE courses SET is_published = 0 WHERE id = ?", [cDraft]);
+  const [nq] = await db.query("INSERT INTO courses (slug, code, title, description, price, is_published) VALUES (?, ?, 'E2E Sınavsız Kurs', 'e2e', 1000, 1)", [`${PREFIX}-c94`, `E2EP-${stamp}-94`.slice(0, 30)]);
+  const cNoQuiz = nq.insertId; // final sınavı yok
+  const A_SLUG = `${PREFIX}-adm`;
+  const newBody = (over = {}) => ({ title: "E2E Yönetim Programı", description: "e2e", category: "E2E", price: 2000, course_ids: ac, slug: A_SLUG, code: `PRG-E2EA-${stamp}`.slice(0, 30), ...over });
+  const pcOrder = async (id) => (await db.query("SELECT course_id FROM program_courses WHERE program_id = ? ORDER BY sort_order, course_id", [id]))[0].map((r) => r.course_id);
+  const apRow = async (id) => (await db.query("SELECT is_published, price, title FROM programs WHERE id = ?", [id]))[0][0];
+
+  // yetki
+  const nonAdm = await mkUser("adm-nonadmin");
+  const na = [await adm(AP, "POST", newBody(), nonAdm.cookie), await adm(AP, "GET", undefined, nonAdm.cookie), await adm(`${AP}/${programId}`, "GET", undefined, nonAdm.cookie), await adm(`${AP}/${programId}`, "PATCH", { price: 1 }, nonAdm.cookie)];
+  check("admin olmayan: POST/GET/GET:id/PATCH hepsi 403", na.every((r) => r.status === 403), JSON.stringify(na.map((r) => r.status)));
+  const guestAdm = await adm(AP, "GET", undefined, "");
+  check("girişsiz: GET /api/admin/programs 401", guestAdm.status === 401, String(guestAdm.status));
+  check("admin olmayan hiçbir program oluşturamadı", (await db.query("SELECT 1 FROM programs WHERE slug = ?", [A_SLUG]))[0].length === 0);
+
+  // oluşturma: taslak, sıra korunur
+  const cr = await adm(AP, "POST", newBody());
+  const aId = cr.json?.programId;
+  if (aId) adminProgramIds.push(aId);
+  check("admin program oluşturur: 201, programId + slug", cr.status === 201 && !!aId && cr.json.slug === A_SLUG, JSON.stringify(cr));
+  check("oluşturulan program taslak (is_published=0), fiyat 2000", (await apRow(aId))?.is_published === 0 && Number((await apRow(aId)).price) === 2000);
+  check("program_courses verilen sırada yazıldı", JSON.stringify(await pcOrder(aId)) === JSON.stringify(ac), JSON.stringify(await pcOrder(aId)));
+
+  // slug/kod otomatik
+  const auto = await adm(AP, "POST", newBody({ slug: undefined, code: undefined, title: `E2E Otomatik ${stamp}` }));
+  if (auto.json?.programId) adminProgramIds.push(auto.json.programId);
+  const [[autoRow]] = await db.query("SELECT slug, code FROM programs WHERE id = ?", [auto.json?.programId ?? 0]);
+  check("slug/kod verilmezse üretilir (kod PRG- ile başlar)", auto.status === 201 && /^e2e-otomatik-/.test(autoRow?.slug ?? "") && /^PRG-/.test(autoRow?.code ?? ""), JSON.stringify([auto.json, autoRow]));
+  const dupe = await adm(AP, "POST", newBody());
+  check("aynı slug+kod ikinci kez: 409", dupe.status === 409, JSON.stringify(dupe.json));
+
+  // doğrulama: şema, olmayan kurs, kurs sorunları, fiyat
+  check("course_ids boş: 400", (await adm(AP, "POST", newBody({ course_ids: [], slug: `${PREFIX}-x1`, code: "PRG-X1" }))).status === 400);
+  check("olmayan kurs id'si: 400", (await adm(AP, "POST", newBody({ course_ids: [ac[0], 2147483000], slug: `${PREFIX}-x2`, code: "PRG-X2" }))).status === 400);
+  const gd = await adm(AP, "POST", newBody({ course_ids: [ac[0], cDraft], price: 1500, slug: `${PREFIX}-gd`, code: `PRG-E2EG-${stamp}`.slice(0, 30) }));
+  if (gd.json?.programId) adminProgramIds.push(gd.json.programId);
+  check("yayında olmayan kurslu program taslak olarak kaydedilebilir (201)", gd.status === 201, JSON.stringify(gd.json));
+  const pubDraft = await adm(`${AP}/${gd.json?.programId}`, "PATCH", { is_published: true });
+  check("yayında olmayan kurs varken yayına almak 400 ve mesajda kurs adı", pubDraft.status === 400 && String(pubDraft.json?.message).includes("E2E Program Kursu 93") && String(pubDraft.json?.message).includes("yayında değil"), JSON.stringify(pubDraft.json));
+  check("reddedilen yayın: program taslak kaldı", (await apRow(gd.json?.programId))?.is_published === 0);
+  const nqp = await adm(AP, "POST", newBody({ course_ids: [ac[0], cNoQuiz], price: 1500, slug: `${PREFIX}-nq`, code: `PRG-E2EQ-${stamp}`.slice(0, 30) }));
+  if (nqp.json?.programId) adminProgramIds.push(nqp.json.programId);
+  const pubNq = await adm(`${AP}/${nqp.json?.programId}`, "PATCH", { is_published: true });
+  check("final sınavı olmayan kurs → yayına almak 400, mesajda kurs adı + 'final sınavı'", pubNq.status === 400 && String(pubNq.json?.message).includes("E2E Sınavsız Kurs") && String(pubNq.json?.message).includes("final sınavı"), JSON.stringify(pubNq.json));
+
+  const overCreate = await adm(AP, "POST", newBody({ price: 3001, slug: `${PREFIX}-ov`, code: "PRG-OV" }));
+  check("fiyat > kurs toplamı (3000): taslak oluştururken de 400", overCreate.status === 400 && String(overCreate.json?.message).includes("yüksek olamaz"), JSON.stringify(overCreate.json));
+  const overPatch = await adm(`${AP}/${aId}`, "PATCH", { price: 3001 });
+  check("fiyat > kurs toplamı: taslak güncellemede de 400, fiyat değişmedi", overPatch.status === 400 && Number((await apRow(aId)).price) === 2000, JSON.stringify(overPatch.json));
+  check("fiyat = kurs toplamı (3000) kabul edilir", (await adm(`${AP}/${aId}`, "PATCH", { price: 3000 })).status === 200 && Number((await apRow(aId)).price) === 3000);
+  const shrink = await adm(`${AP}/${aId}`, "PATCH", { course_ids: ac.slice(0, 1) });
+  check("kurs listesi daralınca fiyat yeni toplamı (1000) aşarsa 400, liste değişmedi", shrink.status === 400 && JSON.stringify(await pcOrder(aId)) === JSON.stringify(ac), JSON.stringify(shrink.json));
+
+  // düzeltilince yayına alınır
+  const fix = await adm(`${AP}/${aId}`, "PATCH", { price: 2000, is_published: true });
+  check("düzeltilince yayına alınır (200, is_published=1)", fix.status === 200 && (await apRow(aId)).is_published === 1, JSON.stringify(fix.json));
+  const pubPg = await page(`/programlar/${A_SLUG}`);
+  check("yayındaki program herkese açık sayfada görünür", pubPg.status === 200 && pubPg.text.includes("E2E Yönetim Programı"), String(pubPg.status));
+
+  // sıra değiştirme
+  const rev = [...ac].reverse();
+  const reorder = await adm(`${AP}/${aId}`, "PATCH", { course_ids: rev });
+  check("course_ids sırası değiştirilince program_courses.sort_order yeni sırayı yansıtır", reorder.status === 200 && JSON.stringify(await pcOrder(aId)) === JSON.stringify(rev), JSON.stringify(await pcOrder(aId)));
+  const swap = await adm(`${AP}/${aId}`, "PATCH", { course_ids: [ac[1], cDraft, ac[2]], price: 1000 });
+  check("yayındaki programa yayında olmayan kurs eklemek 400, liste değişmedi", swap.status === 400 && JSON.stringify(await pcOrder(aId)) === JSON.stringify(rev), JSON.stringify(swap.json));
+  const unpub = await adm(`${AP}/${aId}`, "PATCH", { is_published: false });
+  check("yayından kaldırma her zaman mümkün", unpub.status === 200 && (await apRow(aId)).is_published === 0);
+
+  // okuma
+  const list = await adm(AP, "GET");
+  const inList = list.json?.data?.find((x) => x.id === aId);
+  check("GET listesi programı döner (kurs sayısı, S, durum)", list.status === 200 && inList?.slug === A_SLUG && inList.course_count === 3 && Number(inList.list_total) === 3000 && inList.is_published === false, JSON.stringify(inList));
+  const one = await adm(`${AP}/${aId}`, "GET");
+  check("GET :id program + sıralı kurslar döner", one.status === 200 && one.json?.program?.id === aId && JSON.stringify(one.json?.courses?.map((c) => c.id)) === JSON.stringify(rev), JSON.stringify(one.json));
+  check("GET olmayan program: 404; geçersiz id: 400", (await adm(`${AP}/2147483000`, "GET")).status === 404 && (await adm(`${AP}/abc`, "GET")).status === 400);
+  const pc404 = await adm(`${AP}/2147483000`, "PATCH", { price: 1 });
+  check("PATCH olmayan program: 404", pc404.status === 404, String(pc404.status));
+  check("PATCH boş gövde: 400", (await adm(`${AP}/${aId}`, "PATCH", {})).status === 400);
+  check("PATCH thumbnail_url null kabul; dolu kapak anahtarı (v1'de kapak yok) 400", (await adm(`${AP}/${aId}`, "PATCH", { thumbnail_url: null })).status === 200 && (await adm(`${AP}/${aId}`, "PATCH", { thumbnail_url: "kapaklar/1-a1b2c3d4.jpg" })).status === 400);
+
+  // yönetim sayfaları (sunucuda oluşturulur; tarayıcı etkileşimi burada sınanmaz)
+  const listAdm = await page("/admin/programlar", admCookie);
+  check("GET /admin/programlar (admin): 200, sekme + oluşturulan programın kodu/başlığı", listAdm.status === 200 && listAdm.text.includes("Programlar") && listAdm.text.includes("E2E Yönetim Programı") && listAdm.text.includes(`PRG-E2EA-${stamp}`.slice(0, 30)), String(listAdm.status));
+  const editAdm = await page(`/admin/programlar/${aId}`, admCookie);
+  check("GET /admin/programlar/<id> (admin): 200, kurs adları ve program başlığı", editAdm.status === 200 && editAdm.text.includes("E2E Yönetim Programı") && editAdm.text.includes("E2E Program Kursu 92"), String(editAdm.status));
+  check("GET /admin/programlar/<olmayan id>: 404", (await page("/admin/programlar/2147483000", admCookie)).status === 404);
+  const listUsr = await page("/admin/programlar", nonAdm.cookie);
+  check("GET /admin/programlar (admin olmayan): 200 değil (yönlendirme/yasak)", listUsr.status !== 200, String(listUsr.status));
 } catch (e) {
   failN++;
   console.log("✗ FAIL beklenmeyen hata:", e);
@@ -673,6 +770,7 @@ try {
   await db.query("DELETE FROM users WHERE email LIKE ?", [`${PREFIX}-%@example.invalid`]); // siparişler/üyelikler/sertifikalar/kayıtlar cascade
   await db.query("DELETE FROM coupon_redemptions WHERE coupon_id IN (SELECT id FROM coupons WHERE code LIKE ?)", [`E2EPROG${stamp}%`]);
   await db.query("DELETE FROM coupons WHERE code LIKE ?", [`E2EPROG${stamp}%`]);
+  if (adminProgramIds.length) await db.query("DELETE FROM programs WHERE id IN (?)", [adminProgramIds]);
   await db.query("DELETE FROM programs WHERE slug LIKE ?", [`${PREFIX}%`]); // program_courses cascade (kurs silinmeden önce)
   await db.query("DELETE FROM courses WHERE slug LIKE ?", [`${PREFIX}-c%`]); // quizzes/questions/options cascade
   const [[left]] = await db.query(
