@@ -62,26 +62,24 @@ export async function POST(request: Request) {
         "UPDATE users SET full_name = ?, phone = ?, password_hash = ?, kvkk_consent_at = NOW() WHERE id = ? AND email_verified = 0",
         [full_name, phone || null, hash, userId],
       );
-      return registered(email, issued.status === "sent");
+      return registered(email);
     }
 
     const issued = await issueVerificationCode(userId, email);
-    return registered(email, issued.status === "sent");
+    return registered(email);
   } catch (err) {
     return serverError("[POST /api/auth/register]", err);
   }
 }
 
 /** Hesap açıldı ama e-posta doğrulanana kadar giriş yapılamaz; istemci kod ekranına yönlenir. */
-function registered(email: string, mailSent: boolean) {
+function registered(email: string) {
   return ok(
     {
       needsVerification: true,
       email,
-      retryAfter: mailSent ? RESEND_COOLDOWN_SECONDS : 0,
-      message: mailSent
-        ? "Kayıt oluşturuldu. E-posta adresinize 6 haneli bir doğrulama kodu gönderdik."
-        : "Kayıt oluşturuldu ancak doğrulama kodu şu an gönderilemedi. Aşağıdan tekrar göndermeyi deneyin.",
+      retryAfter: RESEND_COOLDOWN_SECONDS,
+      message: "Kayıt oluşturuldu. E-posta adresinize 6 haneli bir doğrulama kodu gönderdik.",
     },
     201,
   );

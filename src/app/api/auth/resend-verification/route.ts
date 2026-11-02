@@ -27,7 +27,6 @@ export async function POST(request: Request) {
           { status: 429 },
         );
       }
-      if (issued.status === "mail_failed") return NextResponse.json({ success: false, message: "Kod şu an gönderilemedi. Lütfen biraz sonra tekrar deneyin." }, { status: 502 });
     }
   } catch (err) {
     console.error("[POST /api/auth/resend-verification]", err);

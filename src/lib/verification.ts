@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
 import { sendVerificationCodeEmail } from "@/lib/mail";
@@ -24,14 +25,13 @@ function secret() {
 
 export type IssueResult =
   | { status: "sent" }
-  | { status: "rate_limited"; retryAfter: number }
-  | { status: "mail_failed" };
+  | { status: "rate_limited"; retryAfter: number };
 
 /**
  * Yeni doğrulama kodu üretir ve e-postayla yollar. Önceki kod geçersiz olur, deneme sayacı sıfırlanır.
  * Sıklık sınırı (bekleme süresi + saatlik üst sınır) tek bir koşullu UPDATE ile uygulanır; böylece eş zamanlı
  * isteklerde bile sınır aşılamaz. Zaman karşılaştırmaları DB saatiyle yapılır (uygulama sunucusu saatine bağımlı değil).
- * Mail gönderilemezse hak geri verilir; hesap silinmez, kullanıcı tekrar isteyebilir.
+ * Mail arka planda gider; gönderilemezse hak geri verilir (hesap silinmez, kullanıcı tekrar isteyebilir).
  */
 export async function issueVerificationCode(userId: number, email: string): Promise<IssueResult> {
   const code = generateCode();
@@ -63,18 +63,21 @@ export async function issueVerificationCode(userId: number, email: string): Prom
     return { status: "rate_limited", retryAfter };
   }
 
-  try {
-    await sendVerificationCodeEmail(email, code, CODE_TTL_MINUTES);
-    return { status: "sent" };
-  } catch (err) {
-    console.error("[verification-code] gönderilemedi:", err);
-    if (process.env.NODE_ENV !== "production") console.log("[dev] doğrulama kodu:", code);
-    await pool.execute(
-      "UPDATE users SET verification_sent_at = NULL, verification_send_count = GREATEST(verification_send_count - 1, 0) WHERE id = ?",
-      [userId],
-    );
-    return { status: "mail_failed" };
-  }
+  // Mail yanıtı bekletmesin: DB'ye yazma bittiği anda "sent" döner, gönderim yanıttan sonra yapılır
+  // (after → Vercel'de de işlev bitmeden tamamlanır). Başarısız olursa hak geri verilir, kullanıcı tekrar isteyebilir.
+  after(async () => {
+    try {
+      await sendVerificationCodeEmail(email, code, CODE_TTL_MINUTES);
+    } catch (err) {
+      console.error("[verification-code] gönderilemedi:", err);
+      if (process.env.NODE_ENV !== "production") console.log("[dev] doğrulama kodu:", code);
+      await pool.execute(
+        "UPDATE users SET verification_sent_at = NULL, verification_send_count = GREATEST(verification_send_count - 1, 0) WHERE id = ? AND verification_token_hash = ?",
+        [userId, hashCode(userId, code, secret())],
+      );
+    }
+  });
+  return { status: "sent" };
 }
 
 export type VerifyResult =

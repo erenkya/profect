@@ -12,6 +12,10 @@ function transporter() {
       port: 465,
       secure: true,
       auth: { user, pass },
+      // Takılan bir SMTP bağlantısı kayıt/giriş isteğini dakikalarca bekletmesin: hızlı hata ver, kullanıcı "Kodu tekrar gönder" der.
+      connectionTimeout: 8_000,
+      greetingTimeout: 8_000,
+      socketTimeout: 15_000,
     }),
   };
 }
