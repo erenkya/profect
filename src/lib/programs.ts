@@ -275,3 +275,88 @@ export async function ensureProgramProgress(userId: number, opts: { courseId?: n
   }
   return { issued };
 }
+
+// ── Okuma: kurs sayfaları, program sayfası, Programlarım ─────────────────────
+/** Kursu içeren yayındaki programlar ("Bu kurs X programının parçası" bağlantısı), program sırasıyla. */
+export async function listProgramsForCourse(courseId: number): Promise<{ slug: string; title: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT p.slug, p.title FROM programs p JOIN program_courses pc ON pc.program_id = p.id AND pc.course_id = ?
+      WHERE p.is_published = 1 ORDER BY p.sort_order, p.id`,
+    [courseId],
+  );
+  return rows.map((r) => ({ slug: r.slug, title: r.title }));
+}
+
+/**
+ * Kullanıcının verilen kurslardaki ilerlemesi (lms.ts `getCourseProgress` ile aynı ölçüt: (biten ders + geçilen sınav) / (ders + sınav))
+ * ve kurs sertifikası, tek sorguda. lms.ts bu modülü içe aktardığı için ölçüt burada tekrarlanır (döngüsel içe aktarma olmasın).
+ */
+export async function getCourseStandings(userId: number, courseIds: number[]): Promise<Map<number, { percentage: number; certificate_code: string | null }>> {
+  const out = new Map<number, { percentage: number; certificate_code: string | null }>();
+  if (courseIds.length === 0) return out;
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT c.id,
+            (SELECT COUNT(*) FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = c.id) AS total_lessons,
+            (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
+               JOIN modules m ON m.id = l.module_id WHERE lp.user_id = ? AND m.course_id = c.id) AS done_lessons,
+            (SELECT COUNT(*) FROM quizzes q WHERE q.course_id = c.id
+               AND EXISTS (SELECT 1 FROM questions qu WHERE qu.quiz_id = q.id AND qu.type <> 'scenario')) AS total_quizzes,
+            (SELECT COUNT(DISTINCT qa.quiz_id) FROM quiz_attempts qa JOIN quizzes q ON q.id = qa.quiz_id
+               WHERE qa.user_id = ? AND q.course_id = c.id AND qa.is_passed = 1
+                 AND EXISTS (SELECT 1 FROM questions qu WHERE qu.quiz_id = q.id AND qu.type <> 'scenario')) AS passed_quizzes,
+            cert.certificate_code
+       FROM courses c
+       LEFT JOIN certificates cert ON cert.course_id = c.id AND cert.user_id = ?
+      WHERE c.id IN (?)`,
+    [userId, userId, userId, courseIds],
+  );
+  for (const r of rows) {
+    const total = Number(r.total_lessons) + Number(r.total_quizzes);
+    const done = Number(r.done_lessons) + Number(r.passed_quizzes);
+    out.set(Number(r.id), { percentage: total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0, certificate_code: r.certificate_code ?? null });
+  }
+  return out;
+}
+
+export type MyProgram = {
+  program: ProgramRow;
+  courses: { id: number; slug: string; title: string; percentage: number; certificate_code: string | null }[];
+  /** Kurs sertifikası alınmış kurs sayısı ("tamamlandı" ölçütü). */
+  completed: number;
+  total: number;
+  certificate_code: string | null;
+};
+
+/** Üye olunan programlar (yayından kalkmış olsa da), son katılım önce; kurs bazlı ilerleme ve program sertifikası ile. */
+export async function listMyPrograms(userId: number): Promise<MyProgram[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT ${PROGRAM_COLUMNS}, pcert.certificate_code
+       FROM program_enrollments pe
+       JOIN programs p ON p.id = pe.program_id
+       LEFT JOIN program_certificates pcert ON pcert.program_id = p.id AND pcert.user_id = pe.user_id
+      WHERE pe.user_id = ?
+      ORDER BY pe.enrolled_at DESC, pe.id DESC`,
+    [userId],
+  );
+  const out: MyProgram[] = [];
+  for (const r of rows) {
+    const program = mapProgram(r);
+    const courses = await listProgramCourses(program.id);
+    const standings = await getCourseStandings(userId, courses.map((c) => c.id));
+    const mapped = courses.map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      title: c.title,
+      percentage: standings.get(c.id)?.percentage ?? 0,
+      certificate_code: standings.get(c.id)?.certificate_code ?? null,
+    }));
+    out.push({
+      program,
+      courses: mapped,
+      completed: mapped.filter((c) => c.certificate_code).length,
+      total: mapped.length,
+      certificate_code: r.certificate_code ?? null,
+    });
+  }
+  return out;
+}

@@ -32,6 +32,9 @@ export default async function CoursesPage({ searchParams }: { searchParams: Prom
             <p data-reveal="1" data-delay="200" style={{ fontSize: 18, maxWidth: 560, color: "var(--muted-72)", marginBottom: 36 }}>
               Her kurs modül sınavları ve bir final sınavıyla biter. Geçtiğinde sertifikan otomatik olarak düzenlenir.
             </p>
+            <p data-reveal="1" data-delay="250" style={{ fontSize: 15, marginBottom: 28 }}>
+              Birkaç kursu birden mi istiyorsun? <Link href="/programlar">Uzmanlık programlarına göz at →</Link>
+            </p>
             <nav aria-label="Kategori filtresi" data-reveal="1" data-delay="300" style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
               {CATEGORIES.map((c) => (
                 <Link

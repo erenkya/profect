@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
+import { CourseInPrograms } from "@/components/CourseInPrograms";
 import { Curriculum, type CurriculumModule } from "@/components/Curriculum";
 import { PurchasePanel } from "@/components/PurchasePanel";
 import { Corners } from "@/components/Corners";
@@ -11,6 +12,7 @@ import { formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 import { previewLessonIds } from "@/lib/preview";
 import { PLUS_PRICE, canAccessCourse, getCourseBySlug, getCourseTree } from "@/lib/lms";
+import { listProgramsForCourse } from "@/lib/programs";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -28,6 +30,7 @@ export default async function CoursePage({ params }: Props) {
   const user = await getCurrentUser();
   const hasAccess = user ? await canAccessCourse(user.id, course.id) : false;
   const tree = await getCourseTree(course.id);
+  const programs = await listProgramsForCourse(course.id);
 
   const previewIds = previewLessonIds(tree);
   const modules: CurriculumModule[] = tree.modules.map((m, i) => {
@@ -109,6 +112,7 @@ export default async function CoursePage({ params }: Props) {
               <span className="tag tag-neutral">{course.level}</span>
               <span className="tag tag-outline">Sertifikalı</span>
             </div>
+            {programs.length > 0 && <div data-reveal="1" data-delay="50"><CourseInPrograms programs={programs} /></div>}
             <h1 data-reveal="1" data-delay="100" style={{ fontSize: "clamp(48px,6vw,84px)", lineHeight: 0.94, textTransform: "uppercase", margin: "0 0 22px" }}>{course.title}</h1>
             <p data-reveal="1" data-delay="200" style={{ fontSize: 19, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", textWrap: "pretty", marginBottom: 28 }}>{course.description}</p>
             <div data-reveal="1" data-delay="300" style={{ display: "flex", gap: 28, flexWrap: "wrap", fontSize: 15 }}>

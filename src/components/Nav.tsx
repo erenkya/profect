@@ -13,6 +13,7 @@ import type { SessionUser } from "@/lib/auth";
 export function Nav({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
   const onCourses = pathname.startsWith("/kurslar");
+  const onPrograms = pathname.startsWith("/programlar");
   const onAbout = pathname.startsWith("/hakkimizda");
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLElement>(null);
@@ -55,6 +56,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
       </Link>
       <div id={menuId} className="nav-menu" data-open={open}>
         <Link className="nav-link" href="/kurslar" aria-current={onCourses ? "page" : undefined}>Kurslar</Link>
+        <Link className="nav-link" href="/programlar" aria-current={onPrograms ? "page" : undefined}>Programlar</Link>
         <Link className="nav-link" href="/#sertifika">Sertifikalar</Link>
         <Link className="nav-link" href="/hakkimizda" aria-current={onAbout ? "page" : undefined}>Hakkımızda</Link>
         {!user && (

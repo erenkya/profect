@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { CourseInPrograms } from "@/components/CourseInPrograms";
 import { Corners } from "@/components/Corners";
 import { CertificateButton } from "@/components/learn/CertificateButton";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessCourse, flattenTree, getCourseBySlug, getCourseProgress, getCourseTree } from "@/lib/lms";
 import pool from "@/lib/db";
+import { listProgramsForCourse } from "@/lib/programs";
 import type { RowDataPacket } from "mysql2";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -22,7 +24,7 @@ export default async function CourseOverview({ params }: { params: Promise<{ slu
   // Önizleme modundaki (girişsiz ya da satın almamış) kullanıcı için ilerleme özeti anlamsız; kurs sayfasına yönlendir.
   if (!user || (user.role !== "admin" && !(await canAccessCourse(user.id, course.id)))) redirect(`/kurslar/${slug}`);
 
-  const [tree, progress] = await Promise.all([getCourseTree(course.id, user.id), getCourseProgress(user.id, course.id)]);
+  const [tree, progress, programs] = await Promise.all([getCourseTree(course.id, user.id), getCourseProgress(user.id, course.id), listProgramsForCourse(course.id)]);
   const flow = flattenTree(tree);
   const next = flow.find((f) => !f.done) ?? flow[0];
   const nextHref = next ? `/ogrenim/${slug}/${next.kind === "lesson" ? "ders" : "sinav"}/${next.id}` : null;
@@ -35,6 +37,7 @@ export default async function CourseOverview({ params }: { params: Promise<{ slu
   return (
     <div style={{ maxWidth: 760 }}>
       <div className="eyebrow">{course.category} · {course.code}</div>
+      <CourseInPrograms programs={programs} />
       <h1 style={{ fontSize: "clamp(40px,5vw,64px)", lineHeight: 0.95, textTransform: "uppercase", margin: "0 0 18px" }}>{course.title}</h1>
       <p style={{ fontSize: 18, color: "var(--muted-72)", marginBottom: 28 }}>{course.description}</p>
 

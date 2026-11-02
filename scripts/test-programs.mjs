@@ -28,7 +28,7 @@ async function api(path, { method = "POST", body, cookie = "" } = {}) {
   const auth = (res.headers.getSetCookie?.() ?? []).find((c) => c.startsWith("profect_auth_token="))?.split(";")[0] ?? "";
   return { status: res.status, json, auth };
 }
-const page = async (path, cookie = "") => { const res = await fetch(B + path, { headers: { cookie }, redirect: "manual" }); return { status: res.status, location: res.headers.get("location") ?? "", text: res.status === 200 ? await res.text() : "", headers: res.headers }; };
+const page = async (path, cookie = "") => { const res = await fetch(B + path, { headers: { cookie }, redirect: "manual" }); return { status: res.status, location: res.headers.get("location") ?? "", text: res.status === 200 ? (await res.text()).replaceAll("<!-- -->", "") : "", headers: res.headers }; };
 const addUser = async (email, { role = "user", verified = 1, pw = PW } = {}) => {
   const [r] = await db.query("INSERT INTO users (full_name, email, password_hash, role, email_verified, email_verified_at, kvkk_consent_at) VALUES (?, ?, ?, ?, ?, IF(?=1, NOW(), NULL), NOW())", ["E2E " + email.split("-").pop().split("@")[0], email, await bcrypt.hash(pw, 10), role, verified, verified]);
   return r.insertId;
@@ -582,6 +582,70 @@ try {
   const ctok = await giftToken(gs6, cgr.id);
   const crc = await claim(gr6, ctok);
   check("kurs hediyesi alma: 200 { kind: course, slug }, kurs gift, program üyeliği yok", crc.status === 200 && crc.json?.kind === "course" && crc.json?.slug === `${PREFIX}-c1` && (await enrolled(gr6.id, courseIds[0]))?.source === "gift" && !(await programMember(gr6.id, programId)), JSON.stringify(crc));
+
+  // ── Görev 7: herkese açık sayfalar ve hesap arayüzü ──
+  const listPg = await page("/programlar");
+  check("GET /programlar: 200, program adını içerir", listPg.status === 200 && listPg.text.includes(PROGRAM_TITLE_P), String(listPg.status));
+  check("GET /programlar: liste fiyatı (5.000) ve program fiyatı (4.000) görünür", listPg.text.includes("5.000") && listPg.text.includes("4.000"));
+
+  const gPg = await page(`/programlar/${PROGRAM_SLUG}`);
+  check("GET /programlar/<slug> girişsiz: 200, program fiyatı 4.000 ve ayrı ayrı toplam 5.000", gPg.status === 200 && gPg.text.includes("4.000") && gPg.text.includes("5.000"), String(gPg.status));
+  check("girişsiz: 5 kurs adının hepsi var, hiçbir kurs 'Sende' değil", [1, 2, 3, 4, 5].every((i) => gPg.text.includes(`E2E Program Kursu ${i}`)) && !gPg.text.includes("Sende"));
+
+  const pageU = await mkUser("pg-own3");
+  await own(pageU.id, courseIds.slice(0, 3));
+  const uPg = await page(`/programlar/${PROGRAM_SLUG}`, pageU.cookie);
+  check("3/5 edinilmiş kullanıcı: ödeyeceği tutar 1.600 ve 'Sende' görünür", uPg.status === 200 && uPg.text.includes("1.600") && uPg.text.includes("Sende"), String(uPg.status));
+  const uList = await page("/programlar", pageU.cookie);
+  check("3/5 edinilmiş kullanıcı: liste kartında kişiye özel 1.600", uList.status === 200 && uList.text.includes("1.600"));
+
+  const [d] = await db.query("INSERT INTO programs (slug, code, title, description, price, is_published) VALUES (?, ?, 'E2E Taslak Program', 'e2e', 1000, 0)", [`${PREFIX}-draft`, `PRG-E2ED-${stamp}`.slice(0, 30)]);
+  await db.query("INSERT INTO program_courses (program_id, course_id, sort_order) VALUES (?, ?, 0)", [d.insertId, courseIds[0]]);
+  const draftGuest = await page(`/programlar/${PREFIX}-draft`);
+  const draftUser = await page(`/programlar/${PREFIX}-draft`, pageU.cookie);
+  const draftAdmin = await page(`/programlar/${PREFIX}-draft`, admCookie);
+  check("taslak program: girişsiz 404, kullanıcı 404, admin 200", draftGuest.status === 404 && draftUser.status === 404 && draftAdmin.status === 200, JSON.stringify([draftGuest.status, draftUser.status, draftAdmin.status]));
+  check("taslak program listede görünmez", !listPg.text.includes("E2E Taslak Program"));
+  check("olmayan program 404", (await page("/programlar/e2e-yok-boyle-program")).status === 404);
+
+  // Kurs sayfalarında "programın parçası" bağlantısı (yayındaki programlar)
+  const coursePg = await page(`/kurslar/${PREFIX}-c1`);
+  check("kurs sayfası: yayındaki programa bağlantı var, taslak program yok", coursePg.status === 200 && coursePg.text.includes(`/programlar/${PROGRAM_SLUG}"`) && coursePg.text.includes("parçası") && !coursePg.text.includes(`${PREFIX}-draft`), String(coursePg.status));
+  const learnPg = await page(`/ogrenim/${PREFIX}-c1`, pageU.cookie);
+  check("öğrenim sayfası: programa bağlantı var", learnPg.status === 200 && learnPg.text.includes(`/programlar/${PROGRAM_SLUG}"`) && learnPg.text.includes("parçası"), String(learnPg.status));
+  const coursePg2 = await page(`/kurslar/${PREFIX}-c6`);
+  check("yalnızca ikinci programdaki kurs: o programa bağlantı, birinciye yok", coursePg2.status === 200 && coursePg2.text.includes(`/programlar/${PROGRAM2_SLUG}"`) && !coursePg2.text.includes(`/programlar/${PROGRAM_SLUG}"`), String(coursePg2.status));
+  check("tek programlı kurs: 'Bu kurs … programının parçası' (tekil)", coursePg2.text.includes("programının parçası"));
+
+  // Programlarım
+  const myGuest = await page("/hesabim/programlarim");
+  check("/hesabim/programlarim girişsiz /giris'e yönlenir", myGuest.status >= 300 && myGuest.status < 400 && myGuest.location.includes("/giris"), JSON.stringify([myGuest.status, myGuest.location]));
+  const myEmpty = await page("/hesabim/programlarim", pageU.cookie);
+  check("/hesabim/programlarim girişli: 200, üye olmayan için program listelenmez", myEmpty.status === 200 && !myEmpty.text.includes(PROGRAM_TITLE_P), String(myEmpty.status));
+
+  // Tembel geriye dönük üretim: 5 kursun sertifikası var, üyelik/program sertifikası henüz yok
+  const lazy = await mkUser("pg-lazy");
+  for (const [i, cid] of courseIds.slice(0, 5).entries()) {
+    await db.query("INSERT INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'purchase')", [lazy.id, cid]);
+    await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [lazy.id, cid, `PRF-L${i}-${stamp % 1e6}`]);
+  }
+  check("tembel üretim öncesi: üyelik ve program sertifikası yok", !(await programMember(lazy.id, programId)) && (await db.query("SELECT 1 FROM program_certificates WHERE user_id=?", [lazy.id]))[0].length === 0);
+  const myLazy = await page("/hesabim/programlarim", lazy.cookie);
+  const [lazyCert] = await db.query("SELECT certificate_code FROM program_certificates WHERE user_id=? AND program_id=?", [lazy.id, programId]);
+  check("/hesabim/programlarim açılışı üyelik (auto) + program sertifikası üretir", (await programMember(lazy.id, programId))?.source === "auto" && lazyCert.length === 1, JSON.stringify(lazyCert));
+  check("Programlarım: program adı, 5/5 kurs ve sertifika bağlantısı", myLazy.status === 200 && myLazy.text.includes(PROGRAM_TITLE_P) && myLazy.text.includes("5/5") && !!lazyCert[0] && myLazy.text.includes(`/sertifika/${lazyCert[0].certificate_code}`), String(myLazy.status));
+  const lazyPg = await page(`/programlar/${PROGRAM_SLUG}`, lazy.cookie);
+  check("üye için program sayfası: tüm kurslar 'tamamlandı', ödenecek tutar kutusu yok", lazyPg.status === 200 && lazyPg.text.includes("tamamlandı") && !lazyPg.text.includes("Hemen Satın Al"), String(lazyPg.status));
+
+  // Kısmi ilerleme: 3 kurs sertifikalı üye -> 3/5
+  const part = await mkUser("pg-part");
+  await db.query("INSERT INTO program_enrollments (user_id, program_id, source) VALUES (?, ?, 'purchase')", [part.id, programId]);
+  for (const [i, cid] of courseIds.slice(0, 3).entries()) {
+    await db.query("INSERT INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'purchase')", [part.id, cid]);
+    await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [part.id, cid, `PRF-Q${i}-${stamp % 1e6}`]);
+  }
+  const myPart = await page("/hesabim/programlarim", part.cookie);
+  check("Programlarım kısmi: 3/5 kurs", myPart.status === 200 && myPart.text.includes("3/5") && myPart.text.includes(PROGRAM_TITLE_P), String(myPart.status));
 } catch (e) {
   failN++;
   console.log("✗ FAIL beklenmeyen hata:", e);
