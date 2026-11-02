@@ -4,7 +4,8 @@ import { Corners } from "@/components/Corners";
 import { CourseCard } from "@/components/CourseCard";
 import { CertVerify } from "@/components/CertVerify";
 import { DEMO_CERT, FOUNDERS, MARQUEE, STEPS, BLUE, PURP, courseColor, courseDelay } from "@/data/courses";
-import { listPublishedCourses } from "@/lib/lms";
+import { getCurrentUser } from "@/lib/auth";
+import { listAccessibleCourseIds, listPublishedCourses } from "@/lib/lms";
 import Image from "next/image";
 
 // Sertifika üzerindeki sahte QR deseni — tasarımdaki sabit tohumlu üreteçle aynı.
@@ -21,6 +22,8 @@ function qrCells() {
 
 export default async function HomePage() {
   const courses = (await listPublishedCourses()).slice(0, 6);
+  const user = await getCurrentUser();
+  const owned = user ? await listAccessibleCourseIds(user.id) : new Set<number>();
   const marquee = [...MARQUEE, ...MARQUEE].map((t, i) => ({ t, c: i % 2 ? PURP : BLUE }));
   const qr = qrCells();
 
@@ -209,7 +212,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="course-grid">
-            {courses.map((c, i) => <CourseCard key={c.id} course={c} color={courseColor(i)} delay={courseDelay(i)} />)}
+            {courses.map((c, i) => <CourseCard key={c.id} course={c} color={courseColor(i)} delay={courseDelay(i)} loggedIn={!!user} hasAccess={owned.has(c.id)} />)}
           </div>
         </section>
 

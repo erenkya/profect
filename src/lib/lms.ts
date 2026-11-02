@@ -208,6 +208,16 @@ export async function canAccessCourse(userId: number, courseId: number): Promise
   return true;
 }
 
+/** Kullanıcının erişimi olan kurs id'leri (liste sayfalarında tek sorguyla; Plus ise yayınlanmış her kurs). */
+export async function listAccessibleCourseIds(userId: number): Promise<Set<number>> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT course_id AS id FROM enrollments WHERE user_id = ?
+     ${(await hasPlus(userId)) ? "UNION SELECT id FROM courses WHERE is_published = 1" : ""}`,
+    [userId],
+  );
+  return new Set(rows.map((r) => Number(r.id)));
+}
+
 /** Ders, yayınlanmış bir kursun ücretsiz önizleme derslerinden biri mi? (müfredat sırası: previewLessonIds ile aynı) */
 export async function isPreviewLesson(courseId: number, lessonId: number): Promise<boolean> {
   const [rows] = await pool.query<RowDataPacket[]>(

@@ -1,16 +1,17 @@
 import Link from "next/link";
 import { Corners } from "./Corners";
+import { CourseCardActions } from "./CourseCardActions";
 import type { CourseRow } from "@/lib/lms";
 import { formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 
-export function CourseCard({ course, color, delay }: { course: CourseRow; color: string; delay: number }) {
+export function CourseCard({ course, color, delay, loggedIn, hasAccess }: { course: CourseRow; color: string; delay: number; loggedIn: boolean; hasAccess: boolean }) {
   const cover = coverUrl(course.thumbnail_url);
   return (
     <div data-reveal="1" data-delay={delay}>
-      <Link href={`/kurslar/${course.slug}`} className="course-link">
-        <div className="card blueprint course-card">
-          <Corners />
+      <div className="card blueprint course-card">
+        <Corners />
+        <Link href={`/kurslar/${course.slug}`} className="course-link">
           <div className="course-art">
             {cover ? (
               <>
@@ -43,8 +44,9 @@ export function CourseCard({ course, color, delay }: { course: CourseRow; color:
               </span>
             </div>
           </div>
-        </div>
-      </Link>
+        </Link>
+        <CourseCardActions slug={course.slug} loggedIn={loggedIn} hasAccess={hasAccess} />
+      </div>
     </div>
   );
 }
