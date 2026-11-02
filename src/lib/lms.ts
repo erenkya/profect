@@ -6,6 +6,7 @@ import pool from "@/lib/db";
 import { activateGiftForOrder, sendGiftEmails } from "@/lib/gifts";
 import { giftOrderLabel } from "@/lib/gift-rules";
 import { sendOrderReceipt } from "@/lib/order-receipt";
+import { enrollInProgram, ensureProgramProgress } from "@/lib/programs";
 import { FREE_PREVIEW_LESSONS } from "@/lib/preview";
 
 export type CourseRow = {
@@ -346,22 +347,28 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
     await conn.execute("UPDATE orders SET status = 'paid', paid_at = NOW() WHERE id = ?", [orderId]);
     // Hediye siparişinde kurs siparişi verene DEĞİL, alıcıya gider: burada yalnızca hediye aktive edilir (token + mailler).
     const gift = await activateGiftForOrder(conn, orderId);
-    const [items] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id FROM order_items WHERE order_id = ?", [orderId]);
+    const [items] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id, program_id FROM order_items WHERE order_id = ?", [orderId]);
+    type Line = { item_type: "course" | "plus" | "program"; course_id: number | null; program_id: number | null };
     // Eski (tek kalemli) siparişlerde kalem satırı yoktur: plan/course_id alanlarından türetilir.
-    const lines: { item_type: "course" | "plus"; course_id: number | null }[] = items.length
-      ? (items as { item_type: "course" | "plus"; course_id: number | null }[])
+    const lines: Line[] = items.length
+      ? (items as Line[])
       : o.plan === "plus"
-        ? [{ item_type: "plus", course_id: null }]
+        ? [{ item_type: "plus", course_id: null, program_id: null }]
         : o.course_id
-          ? [{ item_type: "course", course_id: o.course_id }]
+          ? [{ item_type: "course", course_id: o.course_id, program_id: null }]
           : [];
     if (o.coupon_id) {
       // UNIQUE(order_id) → sipariş yeniden onaylansa da kupon bir kez sayılır.
       await conn.execute("INSERT IGNORE INTO coupon_redemptions (coupon_id, user_id, order_id, discount_amount) VALUES (?, ?, ?, ?)", [o.coupon_id, o.user_id, orderId, o.discount_amount ?? 0]);
     }
+    const programIds: number[] = [];
     for (const line of gift ? [] : lines) {
       if (line.item_type === "course" && line.course_id) {
         await conn.execute("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'purchase')", [o.user_id, line.course_id]);
+      } else if (line.item_type === "program" && line.program_id) {
+        // Ödeme anındaki tüm program kursları (current program_courses) kalıcı erişimle yazılır; Plus kayıtları yükseltilir.
+        await enrollInProgram(conn, o.user_id, line.program_id, "purchase");
+        programIds.push(line.program_id);
       } else if (line.item_type === "plus") {
         await conn.execute(
           "UPDATE users SET plus_until = DATE_ADD(GREATEST(NOW(), COALESCE(plus_until, NOW())), INTERVAL ? DAY) WHERE id = ?",
@@ -370,6 +377,8 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
       }
     }
     await conn.commit();
+    // Kullanıcı program kurslarını daha önce bitirmiş olabilir: commit sonrası sertifika kontrolü (hatası siparişi bozmaz).
+    for (const programId of programIds) after(() => ensureProgramProgress(o.user_id, { programId }).catch(console.error));
     after(() => sendOrderReceipt(orderId)); // yalnızca ilk ödeme geçişinde; yanıtı geciktirmez, hatası siparişi bozmaz
     if (gift) after(() => sendGiftEmails(gift.giftId, gift.token)); // ham token yalnızca bu kapanışta ve mailde yaşar
     return { ok: true };

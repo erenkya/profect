@@ -5,6 +5,7 @@ import "@/components/checkout/checkout.css";
 import { Trash2 } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import { removeFromCart } from "@/lib/cart";
+import { JoinProgramButton } from "@/components/JoinProgramButton";
 import type { QuoteLine } from "@/lib/cart-quote";
 
 const NOTE = {
@@ -27,7 +28,17 @@ export function CartLines({ lines, editable }: { lines: QuoteLine[]; editable?: 
               {l.item.type !== "plus" && l.status !== "unavailable" ? <Link href={`/${l.item.type === "program" ? "programlar" : "kurslar"}/${l.item.slug}`}>{l.title}</Link> : l.title}
             </div>
             <div className="cart-sub">{l.subtitle}</div>
-            {NOTE[l.item.type][l.status] && <div className="cart-note">{NOTE[l.item.type][l.status]}</div>}
+            {l.item.type === "program" && l.status === "join" && !l.joinable ? (
+              // Tutar 0 ama kurslar sepetteki başka bir programdan "edinilmiş" sayılıyor: gerçek sahiplik yok, katılım butonu gösterilmez.
+              <div className="cart-note">Kursların bir kısmı sepetindeki başka bir programla geliyor; o programı satın aldıktan sonra buradan ücretsiz katılabilirsin.</div>
+            ) : (
+              NOTE[l.item.type][l.status] && <div className="cart-note">{NOTE[l.item.type][l.status]}</div>
+            )}
+            {editable && l.item.type === "program" && l.status === "join" && l.joinable && (
+              <div style={{ marginTop: 8 }}>
+                <JoinProgramButton slug={l.item.slug} onJoined={() => removeFromCart(l.item)} />
+              </div>
+            )}
           </div>
           <div style={{ textAlign: "right" }}>
             {l.status === "ok" && (

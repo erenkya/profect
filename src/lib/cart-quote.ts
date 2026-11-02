@@ -25,6 +25,11 @@ export type QuoteLine = {
   programId: number | null;
   /** Yalnızca program satırı: kurs kurs döküm (indirimli fiyat, liste fiyatı, kullanıcıda var mı). */
   children?: { title: string; listPrice: number; price: number; owned: boolean }[];
+  /**
+   * Yalnızca status 'join' program satırı: kullanıcı TÜM kurslara gerçekten sahip (Plus hariç). `false` ise tutar 0 çünkü kurslar
+   * sepetteki daha önceki bir programdan "edinilmiş" sayılıyor; o program alınmadan katılım butonu gösterilmez (endpoint de reddeder).
+   */
+  joinable?: boolean;
 };
 
 export type Quote = { lines: QuoteLine[]; total: number; payable: QuoteLine[] };
@@ -168,6 +173,7 @@ async function quotePrograms(items: CartItem[], userId?: number | null): Promise
         courseId: null,
         programId: offer.program.id,
         status,
+        ...(status === "join" ? { joinable: offer.courses.every((c) => owned.has(c.id)) } : {}),
         children: offer.courses.map((c, i) => ({
           title: c.title,
           listPrice: shown.lines[i].listPrice,

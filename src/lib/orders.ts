@@ -5,9 +5,10 @@ import type { Billing } from "@/lib/checkout-schema";
 import { normalizePhone } from "@/lib/checkout-schema";
 import type { QuoteLine } from "@/lib/cart-quote";
 
-const itemKey = (l: { item_type: string; course_id: number | null }) => (l.item_type === "plus" ? "plus" : `course:${l.course_id}`);
-// Task 5: program kalemi için order_items.program_id anahtarı eklenecek (şimdilik yalnızca tip uyumu).
-const lineKey = (l: QuoteLine) => (l.item.type === "plus" ? "plus" : l.item.type === "program" ? `program:${l.item.slug}` : `course:${l.courseId}`);
+type ItemRow = { item_type: string; course_id: number | null; program_id: number | null };
+// Bekleyen sipariş eşleştirme anahtarı: DB satırı (itemKey) ve sepet satırı (lineKey) aynı biçimi üretmeli; program kalemi `program:<id>`.
+const itemKey = (l: ItemRow) => (l.item_type === "plus" ? "plus" : l.item_type === "program" ? `program:${l.program_id}` : `course:${l.course_id}`);
+const lineKey = (l: QuoteLine) => (l.item.type === "plus" ? "plus" : l.item.type === "program" ? `program:${l.programId}` : `course:${l.courseId}`);
 
 type OrderInput = {
   userId: number;
@@ -45,8 +46,8 @@ export async function createCartOrder(input: OrderInput): Promise<number> {
     const [pending] = await conn.query<RowDataPacket[]>("SELECT id FROM orders WHERE user_id = ? AND plan = 'cart' AND status = 'pending' ORDER BY id DESC LIMIT 20 FOR UPDATE", [input.userId]);
     let orderId: number | undefined;
     for (const p of pending) {
-      const [items] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id FROM order_items WHERE order_id = ?", [p.id]);
-      if ((items as { item_type: string; course_id: number | null }[]).map(itemKey).sort().join("|") === wanted) {
+      const [items] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id, program_id FROM order_items WHERE order_id = ?", [p.id]);
+      if ((items as ItemRow[]).map(itemKey).sort().join("|") === wanted) {
         orderId = p.id;
         break;
       }
@@ -76,8 +77,8 @@ export async function createCartOrder(input: OrderInput): Promise<number> {
 
 async function insertItems(conn: PoolConnection, orderId: number, lines: QuoteLine[]) {
   for (const l of lines) {
-    await conn.execute("INSERT INTO order_items (order_id, item_type, course_id, title, unit_price) VALUES (?, ?, ?, ?, ?)", [
-      orderId, l.item.type, l.courseId, l.title, l.price,
+    await conn.execute("INSERT INTO order_items (order_id, item_type, course_id, program_id, title, unit_price) VALUES (?, ?, ?, ?, ?, ?)", [
+      orderId, l.item.type, l.courseId, l.item.type === "program" ? l.programId : null, l.title, l.price,
     ]);
   }
 }

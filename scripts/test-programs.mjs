@@ -3,7 +3,8 @@ import mysql from "mysql2/promise";
 // Uzmanlık Programı için uçtan uca test (çalışan sunucu + gerçek DB). Kendi kullanıcılarını/kurslarını/programını oluşturur,
 // sonunda hepsini siler (e-postalar @example.invalid, kurs/program slug'ları e2e-prog-*).
 // Kullanım:  npm run dev   →   BASE_URL=http://localhost:3000 npm run test:programs
-// Senaryolar görev görev eklenir: (Görev 3) sepet teklifi /api/cart/quote.
+// Senaryolar görev görev eklenir: (Görev 3) sepet teklifi /api/cart/quote, (Görev 4) sertifika, (Görev 5) satın alma/teslim/ücretsiz katılım.
+// Ödeme sağlayıcısı manual ise sipariş admin onayıyla, mock ise anında tamamlanır (ikisi de desteklenir).
 const B = process.env.BASE_URL ?? "http://localhost:3000";
 const T = "XXXX.DUMMY.TOKEN.XXXX";
 const PW = "Gecici-Sifre-4821!";
@@ -15,6 +16,7 @@ const stamp = Date.now();
 const PREFIX = `e2e-prog-${stamp}`;
 const mail = (n) => `${PREFIX}-${n}@example.invalid`;
 const PROGRAM_SLUG = PREFIX;
+const PROGRAM_TITLE_P = "E2E Uzmanlık Programı";
 const PROGRAM2_SLUG = `${PREFIX}-p2`;
 const COURSE_PRICE = 1000;
 const PROGRAM_PRICE = 4000;
@@ -176,10 +178,6 @@ try {
   const bad = await api("/api/cart/quote", { body: { items: [{ type: "program" }] } });
   check("slug'sız program kalemi 400", bad.status === 400, String(bad.status));
 
-  // checkout henüz program satırını işlemez (Görev 5) ama çökmez
-  const co = await api("/api/checkout", { cookie: a.cookie, body: { items: [P], billing: { invoice_type: "bireysel", full_name: "E2E Alıcı", email: mail("own3") }, consents: { distance_sales: true, privacy: true, delivery_return: true, kvkk: true } } });
-  check("checkout program satırında 409 (Görev 5'e kadar), sipariş yazılmaz", co.status === 409 && !(await db.query("SELECT 1 FROM orders WHERE user_id = ?", [a.id]))[0].length, `${co.status} ${JSON.stringify(co.json)}`);
-
   // ── Görev 4: üyelik (auto) ve program sertifikası ──
   const PROGRAM_TITLE = "E2E Uzmanlık Programı";
   const passQuiz = async (userId, cid) => {
@@ -280,18 +278,142 @@ try {
   check("kurs yayından kalktı: üyelik duruyor, ikinci sertifika üretilmedi", (await progMembers(g4.id)).length === 1 && (await progCerts(g4.id)).length === 1 && genUnpub.json?.program_certificate_codes?.length === 0, JSON.stringify(genUnpub.json));
   await db.query("UPDATE courses SET is_published = 1 WHERE id = ?", [first5[2]]);
   check("kurs geri yayına alındı", (await db.query("SELECT is_published FROM courses WHERE id = ?", [first5[2]]))[0][0].is_published === 1);
+
+  // ── Görev 5: satın alma, teslim ve ücretsiz katılım ──
+  const BILLING = (email) => ({ invoice_type: "bireysel", full_name: "E2E Alıcı", email });
+  const CONSENTS = { distance_sales: true, privacy: true, delivery_return: true, kvkk: true };
+  const admCookie = await cookieFor(ADM);
+  const checkout = (user, extra = {}, items = [P]) => api("/api/checkout", { cookie: user.cookie, body: { items, billing: BILLING(user.email), consents: CONSENTS, ...extra } });
+  /** Sağlayıcı manual ise (pending) admin onaylar; mock ise zaten paid. */
+  const settle = async (r) => {
+    if (r.json?.status === "pending") return api(`/api/admin/orders/${r.json.orderId}`, { method: "PATCH", cookie: admCookie, body: { action: "approve" } });
+    return null;
+  };
+  const orderOf = async (orderId) => (await db.query("SELECT amount, status, provider FROM orders WHERE id = ?", [orderId]))[0][0];
+  const itemsOf = async (orderId) => (await db.query("SELECT item_type, course_id, program_id, title, unit_price FROM order_items WHERE order_id = ?", [orderId]))[0];
+  const enrollCount = async (userId) => Number((await db.query("SELECT COUNT(*) n FROM enrollments WHERE user_id = ?", [userId]))[0][0].n);
+  const sources = async (userId, ids) => Promise.all(ids.map(async (id) => (await enrolled(userId, id))?.source ?? null));
+  const waitFor = async (fn, ms = 8000) => { const until = Date.now() + ms; while (Date.now() < until) { const v = await fn(); if (v) return v; await new Promise((r) => setTimeout(r, 250)); } return await fn(); };
+  const mkBuyer = async (n) => { const e = mail(n); const id = await addUser(e); return { id, email: e, cookie: await cookieFor(e) }; };
+
+  // 3/5 edinilmiş → 1600; sipariş kalemi program; ödeme sonrası 5 kurs + üyelik
+  const b1 = await mkBuyer("buy3");
+  await own(b1.id, courseIds.slice(0, 3));
+  const r1 = await checkout(b1);
+  check("3/5 edinilmiş: checkout 201", r1.status === 201 && !!r1.json?.orderId, JSON.stringify(r1));
+  const o1 = r1.json?.orderId;
+  const it1 = await itemsOf(o1);
+  check("sipariş tutarı 1600, tek kalem: item_type program, program_id dolu, title, unit_price 1600",
+    Number((await orderOf(o1)).amount) === 1600 && it1.length === 1 && it1[0].item_type === "program" && it1[0].program_id === programId && it1[0].course_id === null && it1[0].title === PROGRAM_TITLE_P && Number(it1[0].unit_price) === 1600,
+    JSON.stringify({ o: await orderOf(o1), it1 }));
+  if (r1.json?.status === "pending") check("manual: onaydan önce yeni kurs/üyelik yok", (await enrollCount(b1.id)) === 3 && !(await programMember(b1.id, programId)));
+  const a1 = await settle(r1);
+  check("sipariş ödendi", (await orderOf(o1)).status === "paid" && (a1 === null || a1.status === 200), JSON.stringify(a1));
+  const src1 = await sources(b1.id, courseIds.slice(0, 5));
+  check("ödeme sonrası 5 kursun tamamında enrollments; hepsi purchase (yeni 2 dahil)", (await enrollCount(b1.id)) === 5 && src1.every((x) => x === "purchase"), JSON.stringify(src1));
+  check("program_enrollments.source purchase", (await programMember(b1.id, programId))?.source === "purchase");
+  const a1b = await api(`/api/admin/orders/${o1}`, { method: "PATCH", cookie: admCookie, body: { action: "approve" } });
+  check("aynı siparişi tekrar onayla: 200, kayıt/üyelik sayısı değişmez (idempotent)",
+    a1b.status === 200 && (await enrollCount(b1.id)) === 5 && (await progMembers(b1.id)).length === 1 && (await orderOf(o1)).status === "paid", JSON.stringify(a1b));
+  check("satın alma sonrası sepet satırı: owned (üye)", line(await quote([P], b1.cookie), PK)?.status === "owned");
+
+  // sahte istemci fiyatı yok sayılır; bekleyen sipariş yeniden kullanılır (anahtar program:<id>)
+  const bf = await mkBuyer("forged");
+  await own(bf.id, courseIds.slice(0, 3));
+  const rf = await checkout(bf, { price: 1, amount: 1, total: 1 }, [{ type: "program", slug: PROGRAM_SLUG, price: 1 }]);
+  check("sahte price/amount alanları: sipariş tutarı sunucu hesabı (1600)", rf.status === 201 && Number((await orderOf(rf.json?.orderId)).amount) === 1600, JSON.stringify(rf));
+  const rf2 = await checkout(bf);
+  const pendCount = Number((await db.query("SELECT COUNT(*) n FROM orders WHERE user_id = ? AND plan = 'cart' AND status = 'pending'", [bf.id]))[0][0].n);
+  if (rf.json?.status === "pending") check("aynı program sepeti tekrar: bekleyen sipariş yeniden kullanıldı (tek sipariş, tek kalem)", rf2.json?.orderId === rf.json.orderId && pendCount === 1 && (await itemsOf(rf.json.orderId)).length === 1, JSON.stringify({ rf2: rf2.json, pendCount }));
+
+  // Plus yükseltme: 3 kurs source=plus + aktif Plus → 4000; ödeme sonrası kalıcı kaynak
+  const bp = await mkBuyer("buyplus");
+  await own(bp.id, courseIds.slice(0, 3), "plus");
+  await db.query("UPDATE users SET plus_until = DATE_ADD(NOW(), INTERVAL 20 DAY) WHERE id = ?", [bp.id]);
+  const rp = await checkout(bp);
+  check("Plus kaynaklı 3 kurs: sipariş 4000", rp.status === 201 && Number((await orderOf(rp.json?.orderId)).amount) === 4000, JSON.stringify(rp));
+  await settle(rp);
+  const srcp = await sources(bp.id, courseIds.slice(0, 5));
+  check("Plus yükseltme: 5 kaydın hepsi purchase (ilk 3 plus -> purchase)", srcp.every((x) => x === "purchase") && (await enrollCount(bp.id)) === 5, JSON.stringify(srcp));
+  check("Plus'lı kullanıcıda program üyeliği purchase", (await programMember(bp.id, programId))?.source === "purchase");
+
+  // 5 kursun sertifikası var, program sonradan alınıyor → ödeme sonrası program sertifikası
+  const bc = await mkBuyer("certfirst");
+  await own(bc.id, courseIds.slice(0, 3));
+  for (const [i, cid] of courseIds.slice(0, 5).entries()) await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [bc.id, cid, `PRF-9${i}-${stamp % 1e6}`]);
+  const rc = await checkout(bc);
+  check("sertifikalı kullanıcı: checkout 201, tutar 1600", rc.status === 201 && Number((await orderOf(rc.json?.orderId)).amount) === 1600, JSON.stringify(rc));
+  await settle(rc);
+  const pcert = await waitFor(async () => (await progCerts(bc.id)).length === 1);
+  check("5 kurs sertifikalı + program sonradan alındı: program sertifikası verildi, üyelik purchase kaldı", pcert && (await progCerts(bc.id)).length === 1 && (await progMembers(bc.id)).length === 1 && (await progMembers(bc.id))[0].source === "purchase", JSON.stringify({ c: await progCerts(bc.id), m: await progMembers(bc.id) }));
+
+  // %100 kupon: anında paid, kupon bir kez sayılır
+  const COUPON = `E2EPROG${stamp}`;
+  const [cp] = await db.query("INSERT INTO coupons (code, discount_type, discount_value, max_uses_per_user) VALUES (?, 'percentage', 100, 1)", [COUPON]);
+  const bk = await mkBuyer("coupon");
+  await own(bk.id, courseIds.slice(0, 3));
+  const rk = await checkout(bk, { coupon_code: COUPON });
+  const ko = rk.json?.orderId ? await orderOf(rk.json.orderId) : null;
+  check("%100 kupon: checkout 201 status paid, sipariş paid ve tutar 0", rk.status === 201 && rk.json?.status === "paid" && ko?.status === "paid" && Number(ko.amount) === 0, JSON.stringify({ rk, ko }));
+  check("%100 kupon: 5 kurs + purchase üyelik, kupon 1 kez sayıldı", (await enrollCount(bk.id)) === 5 && (await programMember(bk.id, programId))?.source === "purchase" && Number((await db.query("SELECT COUNT(*) n FROM coupon_redemptions WHERE coupon_id = ? AND user_id = ?", [cp.insertId, bk.id]))[0][0].n) === 1);
+
+  // Ücretsiz katılım: POST /api/programs/join
+  const join = (cookie, slug = PROGRAM_SLUG) => api("/api/programs/join", { cookie, body: { slug } });
+  const orderCount = async (userId) => Number((await db.query("SELECT COUNT(*) n FROM orders WHERE user_id = ?", [userId]))[0][0].n);
+  const jg = await join("");
+  check("join: girişsiz 401", jg.status === 401, String(jg.status));
+  const jn = await mkBuyer("join3");
+  await own(jn.id, courseIds.slice(0, 3));
+  const j3 = await join(jn.cookie);
+  check("join: 3/5 edinilmiş -> 4xx, üyelik yok", j3.status >= 400 && j3.status < 500 && j3.json?.success === false && typeof j3.json?.message === "string" && !(await programMember(jn.id, programId)), JSON.stringify(j3));
+  const jp = await mkBuyer("joinplus");
+  await own(jp.id, courseIds.slice(0, 5), "plus");
+  const jpr = await join(jp.cookie);
+  check("join: 5 kurs yalnızca Plus kaynaklı -> 4xx, üyelik yok", jpr.status >= 400 && jpr.status < 500 && !(await programMember(jp.id, programId)), JSON.stringify(jpr));
+  const j5 = await mkBuyer("join5");
+  await own(j5.id, courseIds.slice(0, 5));
+  const jb = await join(j5.cookie, "bu-slug-yok");
+  check("join: olmayan program 404", jb.status === 404, String(jb.status));
+  const jbad = await api("/api/programs/join", { cookie: j5.cookie, body: {} });
+  check("join: slug'sız gövde 400", jbad.status === 400, String(jbad.status));
+  const jline = line(await quote([P], j5.cookie), PK);
+  check("join öncesi sepet satırı: join ve joinable (gerçek sahiplik)", jline?.status === "join" && jline.joinable === true, JSON.stringify(jline));
+  // Başka bir programın kursları sepette "edinilmiş" sayılıyor: tutar 0 ama joinable false (buton gösterilmez)
+  const [p3] = await db.query("INSERT INTO programs (slug, code, title, description, price, is_published) VALUES (?, ?, 'E2E Alt Program', 'e2e', 1500, 1)", [`${PREFIX}-p3`, `PRG-E2E3-${stamp}`.slice(0, 30)]);
+  await db.query("INSERT INTO program_courses (program_id, course_id, sort_order) VALUES (?, ?, 0), (?, ?, 1)", [p3.insertId, courseIds[0], p3.insertId, courseIds[1]]);
+  const subq = await quote([P, { type: "program", slug: `${PREFIX}-p3` }]);
+  const subl = line(subq, `program:${PREFIX}-p3`);
+  check("sepette önceki programın kurslarıyla kapanan program: join ama joinable false, toplam 4000", subl?.status === "join" && subl.joinable === false && subq.total === 4000, JSON.stringify({ subl, total: subq?.total }));
+  const j5r = await join(j5.cookie);
+  check("join: 5/5 edinilmiş -> 200 { slug }, program_enrollments auto, sipariş satırı yok",
+    j5r.status === 200 && j5r.json?.slug === PROGRAM_SLUG && (await programMember(j5.id, programId))?.source === "auto" && (await orderCount(j5.id)) === 0, JSON.stringify(j5r));
+  const j5again = await join(j5.cookie);
+  check("join: zaten üye -> 4xx, tek üyelik satırı", j5again.status >= 400 && j5again.status < 500 && (await progMembers(j5.id)).length === 1, JSON.stringify(j5again));
+  const jUn = await mkBuyer("joinunpub");
+  await own(jUn.id, courseIds.slice(0, 5));
+  await db.query("UPDATE programs SET is_published = 0 WHERE id = ?", [programId]);
+  const jUnr = await join(jUn.cookie);
+  await db.query("UPDATE programs SET is_published = 1 WHERE id = ?", [programId]);
+  check("join: yayında olmayan program -> 404, üyelik yok", jUnr.status === 404 && !(await programMember(jUn.id, programId)), JSON.stringify(jUnr));
+  const jcert = await mkBuyer("joincert");
+  await own(jcert.id, courseIds.slice(0, 5));
+  for (const [i, cid] of courseIds.slice(0, 5).entries()) await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [jcert.id, cid, `PRF-8${i}-${stamp % 1e6}`]);
+  const jcr = await join(jcert.cookie);
+  check("join: 5 kursu da sertifikalı kullanıcıya program sertifikası da verilir", jcr.status === 200 && (await waitFor(async () => (await progCerts(jcert.id)).length === 1)), JSON.stringify(jcr));
 } catch (e) {
   failN++;
   console.log("✗ FAIL beklenmeyen hata:", e);
 } finally {
   await db.query("DELETE FROM users WHERE email LIKE ?", [`${PREFIX}-%@example.invalid`]); // siparişler/üyelikler/sertifikalar/kayıtlar cascade
+  await db.query("DELETE FROM coupon_redemptions WHERE coupon_id IN (SELECT id FROM coupons WHERE code LIKE ?)", [`E2EPROG${stamp}%`]);
+  await db.query("DELETE FROM coupons WHERE code LIKE ?", [`E2EPROG${stamp}%`]);
   await db.query("DELETE FROM programs WHERE slug LIKE ?", [`${PREFIX}%`]); // program_courses cascade (kurs silinmeden önce)
   await db.query("DELETE FROM courses WHERE slug LIKE ?", [`${PREFIX}-c%`]); // quizzes/questions/options cascade
   const [[left]] = await db.query(
-    "SELECT (SELECT COUNT(*) FROM users WHERE email LIKE ?) u, (SELECT COUNT(*) FROM courses WHERE slug LIKE ?) c, (SELECT COUNT(*) FROM programs WHERE slug LIKE ?) p",
-    [`${PREFIX}-%`, `${PREFIX}-c%`, `${PREFIX}%`]);
-  console.log(`temizlik: kalan test kullanıcısı=${left.u}, kalan test kursu=${left.c}, kalan test programı=${left.p}`);
-  if (left.u || left.c || left.p) failN++;
+    "SELECT (SELECT COUNT(*) FROM users WHERE email LIKE ?) u, (SELECT COUNT(*) FROM courses WHERE slug LIKE ?) c, (SELECT COUNT(*) FROM programs WHERE slug LIKE ?) p, (SELECT COUNT(*) FROM coupons WHERE code LIKE ?) k, (SELECT COUNT(*) FROM orders WHERE email LIKE ?) o",
+    [`${PREFIX}-%`, `${PREFIX}-c%`, `${PREFIX}%`, `E2EPROG${stamp}%`, `${PREFIX}-%`]);
+  console.log(`temizlik: kalan test kullanıcısı=${left.u}, kalan test kursu=${left.c}, kalan test programı=${left.p}, kalan kupon=${left.k}, kalan sipariş=${left.o}`);
+  if (left.u || left.c || left.p || left.k || left.o) failN++;
   await db.end();
 }
 console.log(`\n${pass} geçti, ${failN} başarısız`);
