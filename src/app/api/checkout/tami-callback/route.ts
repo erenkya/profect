@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
+import { cancelGiftsForOrder } from "@/lib/gifts";
 import { fulfillOrder } from "@/lib/lms";
 import { complete3DS, verifyCallbackSignature, type TamiCallbackPayload } from "@/lib/payment/tami";
 
@@ -15,6 +16,8 @@ const done = (req: NextRequest, orderId: number | null) => {
 
 async function reject(ref: string, message: string) {
   await pool.execute("UPDATE orders SET status = 'rejected', error_message = ? WHERE provider_ref = ? AND status = 'pending'", [message.slice(0, 255), ref]);
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT id FROM orders WHERE provider_ref = ? AND status = 'rejected' LIMIT 1", [ref]);
+  if (rows[0]) await cancelGiftsForOrder(rows[0].id);
 }
 
 export async function POST(req: NextRequest) {
