@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CookieSettingsButton } from "@/components/legal/CookieSettingsButton";
 
 export function Footer() {
   const pathname = usePathname();
@@ -43,6 +44,8 @@ export function Footer() {
         <a href="#">Eğitmen ol</a>
         <a href="#">İletişim</a>
         <Link href="/kvkk">KVKK Aydınlatma Metni</Link>
+        <Link href="/cerez-politikasi">Çerez Politikası</Link>
+        <CookieSettingsButton className="footer-link-btn">Çerez Tercihleri</CookieSettingsButton>
       </div>
     </footer>
   );

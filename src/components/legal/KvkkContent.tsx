@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 // TODO: Yayına çıkmadan önce gerçek şirket bilgileriyle doldurun ve metni bir hukukçuya onaylatın.
 const CONTROLLER = {
   name: "[Şirket ünvanı]",
@@ -55,6 +57,15 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
         Kişisel verileriniz; hizmetin sunulması için gerekli olduğu ölçüde barındırma, e-posta gönderimi, güvenlik doğrulaması (bot koruması) ve ödeme hizmeti sağlayıcıları gibi
         hizmet sağlayıcılarımıza ve yasal olarak yetkili kamu kurum ve kuruluşlarına aktarılabilir. Verileriniz üçüncü kişilere pazarlama amacıyla satılmaz. Yurt dışına
         aktarım söz konusu olduğunda KVKK m.9 hükümlerine uyulur.
+      </p>
+    ),
+  },
+  {
+    title: "5/A. Çerezler",
+    body: (
+      <p>
+        Sitemizde oturum, sepet ve güvenlik için zorunlu çerezler kullanılır; zorunlu olmayan çerezler yalnızca açık rızanızla çalışır. Ayrıntılar için{" "}
+        <Link href="/cerez-politikasi">Çerez Politikası</Link>’na bakınız.
       </p>
     ),
   },

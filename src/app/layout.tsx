@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { Motion } from "@/components/Motion";
 import { getCurrentUser } from "@/lib/auth";
 import { SmoothScroll } from "@/components/SmoothScroll";
+import { CookieConsent } from "@/components/CookieConsent";
 
 const barlow = Barlow({
   subsets: ["latin", "latin-ext"],
@@ -40,6 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Nav user={user} />
         {children}
         <Footer />
+        <CookieConsent />
       </body>
     </html>
   );

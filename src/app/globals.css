@@ -217,7 +217,7 @@ button { font: inherit; }
 @media (max-width: 420px) { .footer-brand { grid-column: auto; } }
 .footer-col { display: flex; flex-direction: column; gap: 8px; }
 .footer-col a { color: inherit !important; text-decoration: none; }
-.footer-col a:hover { color: var(--color-accent) !important; }
+.footer-col a:hover, .footer-link-btn:hover { color: var(--color-accent) !important; }
 .footer-title {
   font-family: var(--font-heading);
   font-size: 13px;
