@@ -43,6 +43,7 @@ export function Footer() {
         <Link href="/hakkimizda">Hakkımızda</Link>
         <a href="#">Eğitmen ol</a>
         <a href="#">İletişim</a>
+        <a href="https://www.linkedin.com/company/profect-academy/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
         <Link href="/kvkk">KVKK Aydınlatma Metni</Link>
         <Link href="/cerez-politikasi">Çerez Politikası</Link>
         <CookieSettingsButton className="footer-link-btn">Çerez Tercihleri</CookieSettingsButton>
