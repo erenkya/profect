@@ -164,11 +164,19 @@ export async function claimGift(token: string, userId: number): Promise<{ ok: tr
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [rows] = await conn.query<RowDataPacket[]>(
-      "SELECT id, status, recipient_email, course_id, TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS secondsLeft FROM gifts WHERE token_hash = ? LIMIT 1 FOR UPDATE",
-      [hashToken(token)],
-    );
-    const g = rows[0];
+    // Kilit token_hash (ikincil indeks) üzerinde değil birincil anahtarda alınır: aynı linke eş zamanlı iki istek
+    // ikincil indeks kilitlerinde kilitlenip (deadlock) 500 dönüyordu. Kilit altında token yeniden doğrulanır;
+    // kaybeden istek hediyeyi 'claimed' (ya da token'ı NULL) görür ve tek tip "geçersiz" alır.
+    const hash = hashToken(token);
+    const [found] = await conn.query<RowDataPacket[]>("SELECT id FROM gifts WHERE token_hash = ? LIMIT 1", [hash]);
+    let g: RowDataPacket | undefined;
+    if (found[0]) {
+      const [rows] = await conn.query<RowDataPacket[]>(
+        "SELECT id, status, recipient_email, course_id, token_hash, TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS secondsLeft FROM gifts WHERE id = ? FOR UPDATE",
+        [found[0].id],
+      );
+      if (rows[0]?.token_hash === hash) g = rows[0];
+    }
     const [users] = await conn.query<RowDataPacket[]>("SELECT email, email_verified FROM users WHERE id = ? AND is_active = 1", [userId]);
     const u = users[0];
     if (!g || !u) {

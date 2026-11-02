@@ -13,6 +13,7 @@
     "db:seed": "node --env-file=.env scripts/seed.mjs",
     "db:create-admin": "node --env-file=.env scripts/create-admin.mjs",
     "test:api": "node --env-file=.env scripts/test-api.mjs",
+    "test:gifts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-gifts.mjs",
     "test:verify": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-email-verification.mjs"
   },
   "dependencies": {
