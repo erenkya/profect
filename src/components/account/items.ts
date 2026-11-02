@@ -1,4 +1,4 @@
-import { Award, BookOpen, Crown, KeyRound, LayoutDashboard, Receipt, UserRound } from "lucide-react";
+import { Award, BookOpen, Crown, Gift, KeyRound, LayoutDashboard, Receipt, UserRound } from "lucide-react";
 
 // Profil menüsü (Nav) ve hesap yan menüsü aynı listeden beslenir.
 export const ACCOUNT_ITEMS = [
@@ -6,6 +6,7 @@ export const ACCOUNT_ITEMS = [
   { href: "/hesabim/kurslarim", label: "Kurslarım", icon: BookOpen },
   { href: "/hesabim/sertifikalarim", label: "Sertifikalarım", icon: Award },
   { href: "/hesabim/siparislerim", label: "Siparişlerim", icon: Receipt },
+  { href: "/hesabim/hediyeler", label: "Hediyelerim", icon: Gift },
   { href: "/hesabim/abonelik", label: "Profect Plus", icon: Crown },
   { href: "/hesabim/profil", label: "Profil bilgileri", icon: UserRound },
   { href: "/hesabim/sifre", label: "Şifre ve güvenlik", icon: KeyRound },
