@@ -22,7 +22,11 @@ export async function POST(request: Request) {
 
     const newHash = await bcrypt.hash(body.data.newPassword, 10);
     const [res] = await pool.execute<ResultSetHeader>(
+      // Sıfırlama bağlantısı yalnızca e-posta sahibine gider: tüketilmesi posta kutusuna erişimi kanıtlar, bu yüzden
+      // henüz doğrulanmamış bir hesap da burada doğrulanır (şifre kayıtta değil, burada ya da doğrulamada belirlenir).
       `UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expiry = NULL,
+              email_verified = 1, email_verified_at = COALESCE(email_verified_at, NOW()),
+              verification_token_hash = NULL, verification_token_expiry = NULL, verification_attempts = 0,
               pending_password_hash = NULL, pending_password_token_hash = NULL,
               pending_password_expiry = NULL, pending_password_sent_at = NULL
         WHERE id = ? AND reset_token_hash = ?`,
