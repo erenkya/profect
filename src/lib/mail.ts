@@ -182,3 +182,27 @@ export async function sendLessonQuestionEmail(to: string, q: LessonQuestionMail)
     text: `${intro}\n\n${q.url}\n\n${notice}`,
   });
 }
+
+/** Kurs hediyesi: alıcıya giden, alma linkini taşıyan e-posta. Ad ve not `layout()` içinde kaçışlanır. */
+export async function sendGiftRecipientEmail(g: { to: string; senderName: string; courseTitle: string; message: string | null; url: string; expiresAt: string }) {
+  const intro = `${g.senderName} sana “${g.courseTitle}” kursunu hediye etti.${g.message ? ` Notu: “${g.message}”` : ""} Hediyeni almak için aşağıdaki butonu kullan.`;
+  const notice = `Bu hediye ${g.expiresAt} tarihine kadar geçerlidir ve yalnızca bu e-posta adresiyle alınabilir. Hesabın yoksa bu adresle kayıt olman istenir.`;
+  await deliver({
+    to: g.to,
+    subject: `${g.senderName} sana bir kurs hediye etti — Profect`,
+    html: layout("Kurs Hediyesi", intro, "Hediyemi Al", g.url, notice),
+    text: `${intro}\n\n${g.url}\n\n${notice}`,
+  });
+}
+
+/** Kurs hediyesi: gönderene giden onay; mail alıcıya ulaşmazsa linki başka yolla iletebilsin diye linki de içerir. */
+export async function sendGiftSenderEmail(g: { to: string; recipientEmail: string; courseTitle: string; url: string; expiresAt: string }) {
+  const intro = `“${g.courseTitle}” kursu için hediyeniz hazır. Alıcıya (${g.recipientEmail}) e-posta gönderdik.`;
+  const notice = `Mail alıcıya ulaşmazsa bu linki ona başka bir yolla iletebilirsiniz. Link ${g.expiresAt} tarihine kadar geçerlidir ve yalnızca ${g.recipientEmail} adresiyle alınabilir.`;
+  await deliver({
+    to: g.to,
+    subject: "Hediyeniz hazır — Profect",
+    html: layout("Hediyeniz Hazır", intro, "Hediye linki", g.url, notice),
+    text: `${intro}\n\n${g.url}\n\n${notice}`,
+  });
+}
