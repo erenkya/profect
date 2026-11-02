@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Corners } from "@/components/Corners";
 import { evaluatePassword } from "@/lib/password-strength";
+import { clearPendingPassword, readPendingPassword } from "@/lib/pending-password";
 import { FormMessage } from "./AuthShell";
 import { PasswordStrength } from "./PasswordStrength";
 
@@ -153,6 +154,21 @@ export function VerifyEmail({ email, next }: { email: string; next: string }) {
   const [info, setInfo] = useState("");
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
   const [resending, setResending] = useState(false);
+  // Şifre kayıtta saklanmaz; kayıt formundan buraya taşınır ya da (giriş/başka cihaz) burada belirlenir.
+  const [stashed, setStashed] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const needPassword = loaded && stashed === null;
+  const password = stashed ?? pw;
+  const pwOk = evaluatePassword(pw, [email]).acceptable;
+  const pwMismatch = pw2.length > 0 && pw2 !== pw;
+  const canSubmit = code.length === CODE_LENGTH && (!needPassword || (pwOk && pw2.length > 0 && !pwMismatch)) && loaded;
+
+  useEffect(() => {
+    setStashed(readPendingPassword(email));
+    setLoaded(true);
+  }, [email]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -161,19 +177,21 @@ export function VerifyEmail({ email, next }: { email: string; next: string }) {
   }, [cooldown]);
 
   async function submit(value: string) {
-    if (busy) return;
+    if (busy || !password) return;
     setBusy(true);
     setError("");
     setInfo("");
     try {
-      const res = await fetch("/api/auth/verify-email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, code: value }) });
+      const res = await fetch("/api/auth/verify-email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, code: value, password }) });
       const json = await res.json();
       if (res.ok) {
+        clearPendingPassword();
         router.push(next);
         router.refresh();
         return;
       }
       setError(json.message ?? "Doğrulama başarısız.");
+      if (json.field === "password") setStashed(null); // taşınan şifre kabul edilmedi: yeniden sor
       setCode("");
     } catch {
       setError("Bağlantı hatası. Lütfen tekrar deneyin.");
@@ -207,7 +225,8 @@ export function VerifyEmail({ email, next }: { email: string; next: string }) {
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     const digits = e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH);
     setCode(digits);
-    if (digits.length === CODE_LENGTH) void submit(digits);
+    // Şifre kayıttan taşındıysa kod tamamlanınca otomatik gönderilir; şifre burada girilecekse düğmeyle.
+    if (digits.length === CODE_LENGTH && stashed) void submit(digits);
   }
 
   if (!email) {
@@ -220,7 +239,7 @@ export function VerifyEmail({ email, next }: { email: string; next: string }) {
   }
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); if (code.length === CODE_LENGTH) void submit(code); }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <form onSubmit={(e) => { e.preventDefault(); if (canSubmit) void submit(code); }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6 }}>
         <strong style={{ wordBreak: "break-all" }}>{email}</strong> adresine {CODE_LENGTH} haneli bir doğrulama kodu gönderdik. Kod {CODE_TTL_MINUTES} dakika geçerlidir.
       </p>
@@ -242,10 +261,24 @@ export function VerifyEmail({ email, next }: { email: string; next: string }) {
           style={{ background: "#fff", minHeight: 56, fontSize: 28, letterSpacing: "0.5em", textAlign: "center", fontFamily: "var(--font-mono, monospace)" }}
         />
       </div>
-      <div id="code-help" style={{ fontSize: 13, color: "var(--muted-72)" }}>Kodu girdiğinizde otomatik doğrulanır. Gelmediyse spam klasörünü de kontrol edin.</div>
+      <div id="code-help" style={{ fontSize: 13, color: "var(--muted-72)" }}>{needPassword ? "Gelmediyse spam klasörünü de kontrol edin." : "Kodu girdiğinizde otomatik doğrulanır. Gelmediyse spam klasörünü de kontrol edin."}</div>
+      {needPassword && (
+        <>
+          <div className="field">
+            <label htmlFor="new-password">Şifre belirleyin</label>
+            <input id="new-password" className="input" type="password" autoComplete="new-password" aria-describedby="new-pw-strength" value={pw} onChange={(e) => setPw(e.target.value)} style={{ background: "#fff", minHeight: 44, fontSize: 16 }} />
+          </div>
+          <div id="new-pw-strength"><PasswordStrength password={pw} userInputs={[email]} /></div>
+          <div className="field">
+            <label htmlFor="new-password2">Şifre (tekrar)</label>
+            <input id="new-password2" className="input" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} aria-invalid={pwMismatch} style={{ background: "#fff", minHeight: 44, fontSize: 16 }} />
+          </div>
+          {pwMismatch && <FormMessage kind="error">Şifreler eşleşmiyor.</FormMessage>}
+        </>
+      )}
       {error && <FormMessage kind="error">{error}</FormMessage>}
       {info && <FormMessage kind="ok">{info}</FormMessage>}
-      <button type="submit" disabled={busy || code.length !== CODE_LENGTH} className="btn btn-primary blueprint" style={{ fontSize: 17, padding: 13 }}>
+      <button type="submit" disabled={busy || !canSubmit} className="btn btn-primary blueprint" style={{ fontSize: 17, padding: 13 }}>
         <Corners />
         {busy ? "Doğrulanıyor…" : "Doğrula"}
       </button>

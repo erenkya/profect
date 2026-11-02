@@ -6,6 +6,7 @@ import pool from "@/lib/db";
 import { generateJwt, setAuthCookies } from "@/lib/auth";
 import { fail, ok, parseBody, serverError } from "@/lib/http";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { loginOutcome } from "@/lib/login-rules";
 import { issueVerificationCode } from "@/lib/verification";
 
 const schema = z.object({
@@ -32,12 +33,13 @@ export async function POST(request: Request) {
     );
     const user = rows[0];
     const match = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
-    if (!user || !match) return fail("E-posta veya şifre hatalı.", 401);
+    const outcome = loginOutcome({ exists: !!user, active: !!user?.is_active, verified: !!user?.email_verified, passwordMatches: match });
+    if (outcome === "invalid") return fail("E-posta veya şifre hatalı.", 401);
+    if (outcome === "inactive") return fail("Hesabınız devre dışı. Lütfen destek ile iletişime geçin.", 403);
 
-    if (!user.is_active) return fail("Hesabınız devre dışı. Lütfen destek ile iletişime geçin.", 403);
-
-    if (!user.email_verified) {
-      // Şifre doğru ama e-posta onaylı değil: bekleme süresi dolmuşsa yeni kod gider, istemci kod ekranına yönlenir.
+    if (outcome === "needs_verification") {
+      // Doğrulanmamış hesapta şifre kanıt değildir (kayıtta saklanmaz): bekleme süresi dolmuşsa yeni kod gider,
+      // istemci kod ekranına yönlenir ve hesap şifresini orada, kodu girerken belirler.
       await issueVerificationCode(user.id, user.email);
       return NextResponse.json(
         {

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { Corners } from "@/components/Corners";
 import { evaluatePassword } from "@/lib/password-strength";
+import { stashPendingPassword } from "@/lib/pending-password";
 import { KvkkDialog } from "@/components/legal/KvkkDialog";
 import { FormMessage } from "./AuthShell";
 import { PasswordStrength } from "./PasswordStrength";
@@ -34,10 +35,12 @@ export function RegisterForm({ siteKey, next, lockedEmail, giftToken }: { siteKe
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...form, kvkk, turnstileToken: token, ...(giftToken && { giftToken }) }),
+        // Şifre sunucuya gönderilmez: doğrulama adımında e-posta koduyla birlikte gider.
+        body: JSON.stringify({ full_name: form.full_name, email: form.email, phone: form.phone, kvkk, turnstileToken: token, ...(giftToken && { giftToken }) }),
       });
       const json = await res.json();
       if (res.ok) {
+        stashPendingPassword(json.email ?? form.email, form.password);
         const q = new URLSearchParams({ email: json.email ?? form.email.trim().toLowerCase() });
         if (next !== "/hesabim") q.set("next", next);
         router.push(`/e-posta-dogrula?${q}`);
