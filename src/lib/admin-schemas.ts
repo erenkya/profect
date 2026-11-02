@@ -40,6 +40,39 @@ export const createCourseSchema = z.object({
 
 export const updateCourseSchema = z.object(courseFields).partial();
 
+// — Uzmanlık programı (kurs paketi) —
+const programFields = {
+  title: courseFields.title,
+  slug: courseFields.slug,
+  code: courseFields.code,
+  description: courseFields.description,
+  category: courseFields.category,
+  price: money, // B: programın kendi sabit fiyatı
+  course_ids: z.array(z.coerce.number().int().positive()).min(1, "Programda en az bir kurs olmalı.").max(50, "Bir programda en çok 50 kurs olabilir."), // dizi sırası = roadmap sırası
+  thumbnail_url: courseFields.thumbnail_url,
+  is_published: courseFields.is_published,
+  sort_order: courseFields.sort_order,
+};
+
+/** Aynı kurs iki kez eklenemez (program_courses PK'si). */
+const uniqueCourseIds = (d: { course_ids?: number[] }, ctx: z.RefinementCtx) => {
+  if (d.course_ids && new Set(d.course_ids).size !== d.course_ids.length) ctx.addIssue({ code: "custom", path: ["course_ids"], message: "Aynı kurs bir programa iki kez eklenemez." });
+};
+
+export const createProgramSchema = z
+  .object({
+    title: programFields.title,
+    slug: programFields.slug.optional(),
+    code: programFields.code.optional(),
+    description: programFields.description,
+    category: programFields.category.optional(),
+    price: programFields.price,
+    course_ids: programFields.course_ids,
+  })
+  .superRefine(uniqueCourseIds);
+
+export const updateProgramSchema = z.object(programFields).partial().superRefine(uniqueCourseIds);
+
 export const lessonSchema = z
   .object({
     title: z.string().trim().min(1).max(255),

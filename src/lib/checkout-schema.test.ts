@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { billingSchema, cardSchema, checkoutSchema, isValidTckn, luhn, normalizePhone } from "./checkout-schema.ts";
+import { billingSchema, cardSchema, cartItemsSchema, checkoutSchema, isValidTckn, luhn, normalizePhone } from "./checkout-schema.ts";
 
 const base = { full_name: "Ayşe Yılmaz", email: "Ayse@Example.com", phone: "0532 123 45 67", address: "Atatürk Cd. No:1 D:2", city: "İstanbul", district: "Kadıköy", zip_code: "34700" };
 const consents = { distance_sales: true, privacy: true, delivery_return: true, kvkk: true };
@@ -138,4 +138,10 @@ test("fiyat biçimi: tam sayıda kuruş yok, küsuratta iki hane", () => {
   assert.equal(formatPrice(387.8), "₺387,80");
   assert.equal(formatPrice("1551.2"), "₺1.551,20");
   assert.equal(formatPrice(0), "₺0");
+});
+
+test("sepet kalemi: program slug ile kabul edilir; slug yok/boşsa reddedilir", () => {
+  assert.equal(cartItemsSchema.safeParse([{ type: "program", slug: "x" }]).success, true);
+  assert.equal(cartItemsSchema.safeParse([{ type: "program" }]).success, false);
+  assert.equal(cartItemsSchema.safeParse([{ type: "program", slug: "" }]).success, false);
 });

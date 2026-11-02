@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const r = await startTamiCheckout({
       orderId, total, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
       // Sepet toplamı tahsil edilen tutara eşit olmalı: kupon indirimi kalemlere orantılı dağıtılır.
-      basket: quote.payable.map((l, i) => ({ key: l.key, title: l.title, subCategory: l.item.type === "plus" ? "Abonelik" : "Kurs", price: netPrices[i] })),
+      basket: quote.payable.map((l, i) => ({ key: l.key, title: l.title, subCategory: l.item.type === "plus" ? "Abonelik" : l.item.type === "program" ? "Program" : "Kurs", price: netPrices[i] })),
     });
     if (!r.ok) return fail(r.message, 400);
     return ok({ orderId, status: "redirect", threeDSHtmlContent: r.threeDSHtmlContent }, 201);

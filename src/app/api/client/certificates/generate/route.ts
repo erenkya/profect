@@ -4,8 +4,19 @@ import pool from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { fail, ok, parseBody, serverError } from "@/lib/http";
 import { canAccessCourse, generateCertificateCode } from "@/lib/lms";
+import { ensureProgramProgress } from "@/lib/programs";
 
 const schema = z.object({ course_id: z.coerce.number().int().positive() });
+
+/** Kurs sertifikası var olduktan sonra programlar için üyelik/sertifika kontrolü. Hata kurs yanıtını bozmaz. */
+async function programCodes(userId: number, courseId: number): Promise<string[]> {
+  try {
+    return (await ensureProgramProgress(userId, { courseId })).issued;
+  } catch (err) {
+    console.error("[POST /api/client/certificates/generate] program ilerlemesi", err);
+    return [];
+  }
+}
 
 export async function POST(request: Request) {
   const guard = await requireUser();
@@ -22,7 +33,9 @@ export async function POST(request: Request) {
       "SELECT certificate_code FROM certificates WHERE user_id = ? AND course_id = ?",
       [userId, courseId],
     );
-    if (existing[0]) return ok({ certificate_code: existing[0].certificate_code, message: "Sertifika zaten mevcut." });
+    if (existing[0]) {
+      return ok({ certificate_code: existing[0].certificate_code, message: "Sertifika zaten mevcut.", program_certificate_codes: await programCodes(userId, courseId) });
+    }
 
     const [quiz] = await pool.query<RowDataPacket[]>("SELECT id FROM quizzes WHERE course_id = ? AND module_id IS NULL LIMIT 1", [courseId]);
     if (quiz.length === 0) return fail("Bu kursun final sınavı yok.", 400);
@@ -43,7 +56,7 @@ export async function POST(request: Request) {
           code,
           best[0].score,
         ]);
-        return ok({ certificate_code: code });
+        return ok({ certificate_code: code, program_certificate_codes: await programCodes(userId, courseId) });
       } catch (err) {
         const dup = err as { code?: string; sqlMessage?: string };
         if (dup.code !== "ER_DUP_ENTRY") throw err;
@@ -53,7 +66,7 @@ export async function POST(request: Request) {
             "SELECT certificate_code FROM certificates WHERE user_id = ? AND course_id = ?",
             [userId, courseId],
           );
-          return ok({ certificate_code: again[0].certificate_code });
+          return ok({ certificate_code: again[0].certificate_code, program_certificate_codes: await programCodes(userId, courseId) });
         }
       }
     }

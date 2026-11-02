@@ -42,9 +42,9 @@ export default async function GiftClaimPage({ params }: { params: Promise<{ toke
   }
 
   return (
-    <AuthShell title="Hediyen hazır" subtitle={`${gift.senderName} sana bir kurs hediye etti.`}>
+    <AuthShell title="Hediyen hazır" subtitle={`${gift.senderName} sana bir ${gift.kind === "program" ? "program" : "kurs"} hediye etti.`}>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 15 }}>
-        <strong style={{ fontWeight: 600 }}>{gift.courseTitle}</strong>
+        <strong style={{ fontWeight: 600 }}>{gift.itemTitle}</strong>
         {gift.message && <p style={{ margin: 0, color: "var(--muted-72)", whiteSpace: "pre-wrap" }}>“{gift.message}”</p>}
       </div>
       <ClaimGiftButton token={token} />

@@ -82,7 +82,7 @@ export async function buildCertificatePdf(cert: CertificateRow, verifyUrl: strin
   drawSpaced(page, no.toUpperCase(), right - noW, H - 98, regular, 10, 1.4, MUTED);
 
   // Başlık + isim
-  drawSpaced(page, "BAŞARI SERTİFİKASI", px, H - 168, semi, 12, 3, PURPLE);
+  drawSpaced(page, cert.kind === "program" ? "UZMANLIK PROGRAMI SERTİFİKASI" : "BAŞARI SERTİFİKASI", px, H - 168, semi, 12, 3, PURPLE);
   let nameSize = 64;
   while (nameSize > 28 && cond.widthOfTextAtSize(cert.student_name, nameSize) > right - px) nameSize -= 2;
   page.drawText(cert.student_name, { x: px, y: H - 168 - 18 - nameSize * 0.8, size: nameSize, font: cond, color: TEXT });
@@ -114,6 +114,29 @@ export async function buildCertificatePdf(cert: CertificateRow, verifyUrl: strin
     line.push(w);
   }
   if (line.length) flush();
+
+  // Program sertifikası: dahil edilen kurslar (QR'ın soluna sığacak kadar; kalanı "+N kurs daha").
+  if (cert.kind === "program" && cert.included_courses.length > 0) {
+    y -= 6;
+    drawSpaced(page, "PROGRAMA DAHİL KURSLAR", px, y, regular, 8.5, 1.6, MUTED);
+    y -= 17;
+    const itemSize = 11.5;
+    const minY = 142; // alt bilgi şeridinin üstünde kal
+    const rows = Math.max(1, Math.floor((y - minY) / 15) + 1);
+    const shown = cert.included_courses.length > rows ? cert.included_courses.slice(0, rows - 1) : cert.included_courses;
+    const fit = (t: string) => {
+      let out = t;
+      while (out.length > 1 && regular.widthOfTextAtSize(`•  ${out}`, itemSize) > maxW) out = out.slice(0, -1);
+      return out === t ? t : `${out.trimEnd()}…`;
+    };
+    for (const t of shown) {
+      page.drawText(`•  ${fit(t)}`, { x: px, y, size: itemSize, font: regular, color: TEXT });
+      y -= 15;
+    }
+    if (shown.length < cert.included_courses.length) {
+      page.drawText(`+${cert.included_courses.length - shown.length} kurs daha`, { x: px, y, size: itemSize, font: regular, color: MUTED });
+    }
+  }
 
   // Alt bilgiler
   const infoY = 92;

@@ -189,21 +189,29 @@ export async function sendLessonQuestionEmail(to: string, q: LessonQuestionMail,
   });
 }
 
-/** Kurs hediyesi: alıcıya giden, alma linkini taşıyan e-posta. Ad ve not `layout()` içinde kaçışlanır. */
-export async function sendGiftRecipientEmail(g: { to: string; senderName: string; courseTitle: string; message: string | null; url: string; expiresAt: string }) {
-  const intro = `${g.senderName} sana “${g.courseTitle}” kursunu hediye etti.${g.message ? ` Notu: “${g.message}”` : ""} Hediyeni almak için aşağıdaki butonu kullan.`;
+/** Hediye mailleri kursa ve programa göre değişen sözcükler (kurs: "kursunu", program: "programını"). */
+const GIFT_WORDS = {
+  course: { noun: "kurs", accusative: "kursunu", genitive: "kursu", heading: "Kurs Hediyesi" },
+  program: { noun: "program", accusative: "programını", genitive: "programı", heading: "Program Hediyesi" },
+} as const;
+
+/** Kurs/program hediyesi: alıcıya giden, alma linkini taşıyan e-posta. Ad ve not `layout()` içinde kaçışlanır. */
+export async function sendGiftRecipientEmail(g: { kind: "course" | "program"; to: string; senderName: string; itemTitle: string; message: string | null; url: string; expiresAt: string }) {
+  const w = GIFT_WORDS[g.kind];
+  const intro = `${g.senderName} sana “${g.itemTitle}” ${w.accusative} hediye etti.${g.message ? ` Notu: “${g.message}”` : ""} Hediyeni almak için aşağıdaki butonu kullan.`;
   const notice = `Bu hediye ${g.expiresAt} tarihine kadar geçerlidir ve yalnızca bu e-posta adresiyle alınabilir. Hesabın yoksa bu adresle kayıt olman istenir.`;
   await deliver({
     to: g.to,
-    subject: `${g.senderName} sana bir kurs hediye etti — Profect`,
-    html: layout("Kurs Hediyesi", intro, "Hediyemi Al", g.url, notice),
+    subject: `${g.senderName} sana bir ${w.noun} hediye etti — Profect`,
+    html: layout(w.heading, intro, "Hediyemi Al", g.url, notice),
     text: `${intro}\n\n${g.url}\n\n${notice}`,
   });
 }
 
-/** Kurs hediyesi: gönderene giden onay; mail alıcıya ulaşmazsa linki başka yolla iletebilsin diye linki de içerir. */
-export async function sendGiftSenderEmail(g: { to: string; recipientEmail: string; courseTitle: string; url: string; expiresAt: string }) {
-  const intro = `“${g.courseTitle}” kursu için hediyeniz hazır. Alıcıya (${g.recipientEmail}) e-posta gönderdik.`;
+/** Kurs/program hediyesi: gönderene giden onay; mail alıcıya ulaşmazsa linki başka yolla iletebilsin diye linki de içerir. */
+export async function sendGiftSenderEmail(g: { kind: "course" | "program"; to: string; recipientEmail: string; itemTitle: string; url: string; expiresAt: string }) {
+  const w = GIFT_WORDS[g.kind];
+  const intro = `“${g.itemTitle}” ${w.genitive} için hediyeniz hazır. Alıcıya (${g.recipientEmail}) e-posta gönderdik.`;
   const notice = `Mail alıcıya ulaşmazsa bu linki ona başka bir yolla iletebilirsiniz. Link ${g.expiresAt} tarihine kadar geçerlidir ve yalnızca ${g.recipientEmail} adresiyle alınabilir.`;
   await deliver({
     to: g.to,

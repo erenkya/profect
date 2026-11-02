@@ -48,12 +48,20 @@ export default async function CertificatePage({ params }: Props) {
               <Image src="/profect-logo.jpeg" alt="Profect" width={173} height={47} style={{ height: 34, width: "auto", mixBlendMode: "multiply" }} />
               <div style={{ fontSize: 12, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted-55)" }}>No. {cert.certificate_code}</div>
             </div>
-            <div style={{ fontSize: 13, letterSpacing: ".2em", textTransform: "uppercase", color: "var(--color-accent-2)", fontWeight: 600, marginBottom: 10 }}>Başarı Sertifikası</div>
+            <div style={{ fontSize: 13, letterSpacing: ".2em", textTransform: "uppercase", color: "var(--color-accent-2)", fontWeight: 600, marginBottom: 10 }}>{cert.kind === "program" ? "Uzmanlık Programı Sertifikası" : "Başarı Sertifikası"}</div>
             <div style={{ fontFamily: "var(--font-heading)", fontSize: "clamp(40px,7vw,64px)", lineHeight: 1, fontWeight: 600, marginBottom: 16 }}>{cert.student_name}</div>
-            <p style={{ fontSize: 16, color: "var(--muted-72)", marginBottom: 28 }}>
+            <p style={{ fontSize: 16, color: "var(--muted-72)", marginBottom: cert.kind === "program" ? 16 : 28 }}>
               <strong style={{ fontWeight: 600 }}>{cert.course_title}</strong> programını tamamlamış
               {cert.score !== null && <> ve final sınavını %{cert.score} başarıyla geçmiştir</>}.
             </p>
+            {cert.kind === "program" && cert.included_courses.length > 0 && (
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ color: "var(--muted-55)", fontSize: 12, marginBottom: 6 }}>Programa dahil kurslar</div>
+                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 15, color: "var(--muted-72)", display: "grid", gap: 2 }}>
+                  {cert.included_courses.map((t, i) => <li key={`${i}-${t}`}>{t}</li>)}
+                </ul>
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 40, flexWrap: "wrap", fontSize: 14 }}>
                 <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Tarih</div><strong style={{ fontWeight: 600 }}>{formatDate(cert.issued_at)}</strong></div>

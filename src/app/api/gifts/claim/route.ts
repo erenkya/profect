@@ -15,14 +15,14 @@ export async function POST(request: Request) {
 
   try {
     const r = await claimGift(body.data.token, guard.payload.userId);
-    if (r.ok) return ok({ courseSlug: r.courseSlug });
+    if (r.ok) return ok({ kind: r.kind, slug: r.slug });
     switch (r.reason) {
       case "wrong_account":
         return fail("Bu hediye başka bir hesaba ait. Hediyenin gönderildiği e-posta adresiyle giriş yapın.", 403);
       case "unverified":
         return fail("Hediyeyi alabilmek için e-posta adresinizi doğrulamalısınız.", 403);
       case "already_owned":
-        return fail("Bu kursa zaten sahipsin. Hediye hesabına eklenmedi.", 409);
+        return fail(r.kind === "program" ? "Bu programa zaten üyesin. Hediye hesabına eklenmedi." : "Bu kursa zaten sahipsin. Hediye hesabına eklenmedi.", 409);
       default:
         return fail(GIFT_INVALID_MESSAGE, 404);
     }

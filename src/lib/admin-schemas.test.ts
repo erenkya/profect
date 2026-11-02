@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createPostSchema, lessonSchema, postImageUploadSchema, quizSchema, updatePostSchema, videoUploadSchema } from "./admin-schemas.ts";
+import { createPostSchema, createProgramSchema, lessonSchema, postImageUploadSchema, quizSchema, updatePostSchema, updateProgramSchema, videoUploadSchema } from "./admin-schemas.ts";
 
 const KEY = "kurslar/web-tasarim/34-giris/a1b2c3d4-html-temelleri.mp4";
 const lesson = (over: Record<string, unknown>) => lessonSchema.safeParse({ title: "Ders", lesson_type: "video", content: KEY, duration_minutes: 10, ...over });
@@ -129,6 +129,36 @@ test("quizSchema: havuz modunda havuzdan büyük sayı anlaşılır bir hatayla 
   const r = qz({ mode: "pool", draw_count: 250, draw_by_type: { single: 250 } });
   assert.equal(r.success, false);
   if (!r.success) assert.ok(r.error.issues.some((i) => i.message.includes("havuzda 3 soru var")), r.error.issues.map((i) => i.message).join("|"));
+});
+
+// — Uzmanlık programı —
+const program = (over: Record<string, unknown> = {}) => createProgramSchema.safeParse({ title: "Web Uzmanlığı", description: "Açıklama", price: 4000, course_ids: [3, 1, 2], ...over });
+
+test("createProgramSchema: geçerli gövde kabul edilir; slug/code/category isteğe bağlıdır", () => {
+  assert.equal(program().success, true);
+  assert.equal(program({ slug: "web-uzmanligi", code: "PRG-101", category: "Yazılım" }).success, true);
+});
+
+test("createProgramSchema: kurs listesi boş, 50'den uzun veya tekrarlı olamaz", () => {
+  assert.equal(program({ course_ids: [] }).success, false);
+  assert.equal(program({ course_ids: Array.from({ length: 51 }, (_, i) => i + 1) }).success, false);
+  assert.equal(program({ course_ids: Array.from({ length: 50 }, (_, i) => i + 1) }).success, true);
+  assert.equal(program({ course_ids: [1, 2, 1] }).success, false);
+  assert.equal(program({ course_ids: [0] }).success, false);
+});
+
+test("createProgramSchema: negatif veya aşırı fiyat reddedilir, 0 kabul edilir", () => {
+  assert.equal(program({ price: -1 }).success, false);
+  assert.equal(program({ price: 1_000_001 }).success, false);
+  assert.equal(program({ price: 0 }).success, true);
+});
+
+test("updateProgramSchema: kısmi gövde kabul edilir; yayın, sıra, kapak ve kurs listesi de güncellenebilir", () => {
+  assert.equal(updateProgramSchema.safeParse({}).success, true);
+  assert.equal(updateProgramSchema.safeParse({ price: 3500 }).success, true);
+  assert.equal(updateProgramSchema.safeParse({ is_published: true, sort_order: 2, thumbnail_url: null, course_ids: [2, 1] }).success, true);
+  assert.equal(updateProgramSchema.safeParse({ course_ids: [] }).success, false);
+  assert.equal(updateProgramSchema.safeParse({ price: -5 }).success, false);
 });
 
 const POST_KEY = "gorseller/a1b2c3d4e5f60718.png";
