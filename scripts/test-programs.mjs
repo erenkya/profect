@@ -47,8 +47,8 @@ try {
   }
 
   // — Hazırlık: 5 kurs (her birinde module_id NULL final sınavı + 1 soru), 1 program (B=4000), kullanıcılar
-  const mkCourse = async (i) => {
-    const [c] = await db.query("INSERT INTO courses (slug, code, title, description, price, is_published) VALUES (?, ?, ?, 'e2e', ?, 1)", [`${PREFIX}-c${i}`, `E2EP-${stamp}-${i}`.slice(0, 30), `E2E Program Kursu ${i}`, COURSE_PRICE]);
+  const mkCourse = async (i, price = COURSE_PRICE) => {
+    const [c] = await db.query("INSERT INTO courses (slug, code, title, description, price, is_published) VALUES (?, ?, ?, 'e2e', ?, 1)", [`${PREFIX}-c${i}`, `E2EP-${stamp}-${i}`.slice(0, 30), `E2E Program Kursu ${i}`, price]);
     const [q] = await db.query("INSERT INTO quizzes (course_id, module_id, title, passing_score_percentage, mode) VALUES (?, NULL, ?, 70, 'fixed')", [c.insertId, `E2E Final ${i}`]);
     const [qu] = await db.query("INSERT INTO questions (quiz_id, type, question_text, position) VALUES (?, 'single', 'E2E soru', 1)", [q.insertId]);
     await db.query("INSERT INTO options (question_id, option_text, is_correct) VALUES (?, 'Doğru', 1), (?, 'Yanlış', 0)", [qu.insertId, qu.insertId]);
@@ -395,6 +395,23 @@ try {
   const jUnr = await join(jUn.cookie);
   await db.query("UPDATE programs SET is_published = 1 WHERE id = ?", [programId]);
   check("join: yayında olmayan program -> 404, üyelik yok", jUnr.status === 404 && !(await programMember(jUn.id, programId)), JSON.stringify(jUnr));
+  // Tutar 0 ama sahiplik eksik: 0 TL program ve 0 TL eksik kurs ücretsiz katılımı açmamalı
+  const zeroCourse = await mkCourse("z0", 0);
+  const [pf] = await db.query("INSERT INTO programs (slug, code, title, description, price, is_published) VALUES (?, ?, 'E2E Bedava Program', 'e2e', 0, 1)", [`${PREFIX}-pfree`, `PRG-E2EF-${stamp}`.slice(0, 30)]);
+  await db.query("INSERT INTO program_courses (program_id, course_id, sort_order) VALUES (?, ?, 0), (?, ?, 1)", [pf.insertId, courseIds[0], pf.insertId, courseIds[1]]);
+  const [pz] = await db.query("INSERT INTO programs (slug, code, title, description, price, is_published) VALUES (?, ?, 'E2E Sıfır Kurslu Program', 'e2e', 500, 1)", [`${PREFIX}-pzero`, `PRG-E2EZ-${stamp}`.slice(0, 30)]);
+  await db.query("INSERT INTO program_courses (program_id, course_id, sort_order) VALUES (?, ?, 0), (?, ?, 1)", [pz.insertId, courseIds[0], pz.insertId, zeroCourse]);
+  const jz = await mkBuyer("joinzero");
+  await own(jz.id, [courseIds[0]]);
+  const jfr = await join(jz.cookie, `${PREFIX}-pfree`);
+  check("join: 0 TL program, kursların biri sahipsiz -> 4xx, üyelik yok", jfr.status >= 400 && jfr.status < 500 && !(await progMembers(jz.id, pf.insertId)).length, JSON.stringify(jfr));
+  const jzr = await join(jz.cookie, `${PREFIX}-pzero`);
+  check("join: eksik kurs 0 TL (sahipsiz) -> 4xx, üyelik yok", jzr.status >= 400 && jzr.status < 500 && !(await progMembers(jz.id, pz.insertId)).length, JSON.stringify(jzr));
+  await own(jz.id, [courseIds[1], zeroCourse]);
+  const jzok = await join(jz.cookie, `${PREFIX}-pzero`);
+  check("join: 0 TL kursa da sahip olunca başarılı (auto üyelik)", jzok.status === 200 && (await progMembers(jz.id, pz.insertId))[0]?.source === "auto", JSON.stringify(jzok));
+  const jfok = await join(jz.cookie, `${PREFIX}-pfree`);
+  check("join: 0 TL program, tüm kurslar sahipken başarılı", jfok.status === 200 && (await progMembers(jz.id, pf.insertId))[0]?.source === "auto", JSON.stringify(jfok));
   const jcert = await mkBuyer("joincert");
   await own(jcert.id, courseIds.slice(0, 5));
   for (const [i, cid] of courseIds.slice(0, 5).entries()) await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [jcert.id, cid, `PRF-8${i}-${stamp % 1e6}`]);

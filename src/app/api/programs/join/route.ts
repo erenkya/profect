@@ -20,10 +20,17 @@ export async function POST(request: Request) {
     if (!offer || !offer.program.is_published) return fail("Program bulunamadı.", 404);
     if (!offer.sellable) return fail("Bu program şu an katılıma açık değil.", 409);
     if (offer.member) return fail("Bu programa zaten üyesin.", 409);
-    if (offer.calc.payable !== 0) return fail("Ücretsiz katılım için programdaki tüm kurslara sahip olmalısın.", 409);
+    // Tutarın 0 olması yetmez (program ya da eksik kurs 0 TL olabilir): her üye kursa gerçekten sahip olunmalı (Plus kaynaklı kayıtlar sayılmaz).
+    if (offer.courses.length === 0 || offer.calc.ownedCount !== offer.courses.length || offer.calc.payable !== 0) {
+      return fail("Ücretsiz katılım için programdaki tüm kurslara sahip olmalısın.", 409);
+    }
 
     await enrollInProgram(pool, userId, offer.program.id, "auto");
-    await ensureProgramProgress(userId, { programId: offer.program.id }); // kurslar zaten bitmişse program sertifikası da verilir
+    try {
+      await ensureProgramProgress(userId, { programId: offer.program.id }); // kurslar zaten bitmişse program sertifikası da verilir
+    } catch (err) {
+      console.error("[POST /api/programs/join] ensureProgramProgress", err); // üyelik yazıldı; sertifika sonraki okumada tembel üretilir
+    }
     return ok({ slug: offer.program.slug });
   } catch (err) {
     return serverError("[POST /api/programs/join]", err);
