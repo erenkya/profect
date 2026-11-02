@@ -2,16 +2,15 @@ import "server-only";
 import nodemailer from "nodemailer";
 
 function transporter() {
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
-  if (!user || !pass) throw new Error("SMTP bilgileri tanımlı değil.");
-  const port = parseInt(process.env.SMTP_PORT || "465", 10);
+  const user = process.env.GOOGLE_MAIL_USER;
+  const pass = process.env.GOOGLE_APP_PASSWORD?.replace(/\s+/g, "");
+  if (!user || !pass) throw new Error("E-posta bilgileri tanımlı değil.");
   return {
     from: user,
     t: nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port,
-      secure: port === 465,
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: { user, pass },
     }),
   };
