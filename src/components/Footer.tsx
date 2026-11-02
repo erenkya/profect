@@ -21,7 +21,7 @@ export function Footer() {
         fontSize: 14,
       }}
     >
-      <div style={{ gridColumn: "span 2", minWidth: 0 }}>
+      <div className="footer-brand">
         <Image
           src="/profect-logo.jpeg"
           alt="profect"

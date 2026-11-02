@@ -231,7 +231,7 @@ export default async function HomePage() {
               <div data-fx="1" data-py="-0.1" data-rot="-0.015" data-br="-3" style={{ position: "relative", width: "min(100%,520px)", transform: "rotate(-3deg)" }}>
                 <div className="blueprint elev-lg" style={{ background: "#ffffff", padding: 14 }}>
                   <Corners />
-                  <div style={{ border: "1px solid var(--color-accent-300)", padding: "34px 34px 28px", position: "relative" }}>
+                  <div style={{ border: "1px solid var(--color-accent-300)", padding: "clamp(20px,5vw,34px) clamp(20px,5vw,34px) clamp(20px,4vw,28px)", position: "relative" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
                       <Image src="/profect-logo.jpeg" alt="" width={173} height={47} style={{ height: 30, width: "auto", mixBlendMode: "multiply" }} />
                       <div style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted-55)", textAlign: "right" }}>No. {DEMO_CERT.number}</div>

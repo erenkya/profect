@@ -226,7 +226,7 @@ function LessonForm({ moduleId, initial, submitLabel, onSubmit, onCancel }: { mo
       }}
       style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, background: "var(--color-accent-100)" }}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 110px", gap: 10 }}>
+      <div className="form-row" style={{ "--cols": "1fr 140px 110px", gap: 10 } as React.CSSProperties}>
         <input className="input" required placeholder="Ders başlığı" value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} style={input} />
         <select className="input" value={v.lesson_type} onChange={(e) => { const t = e.target.value as "video" | "text"; setV({ ...v, lesson_type: t, content: initial?.lesson_type === t ? initial.content : "" }); }} style={input}>
           <option value="text">Metin (Markdown)</option>

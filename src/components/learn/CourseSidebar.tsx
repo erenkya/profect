@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Check, CirclePlay, FileText, ListChecks, Lock, X } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { Check, ChevronDown, CirclePlay, FileText, ListChecks, Lock, X } from "lucide-react";
 import type { CourseTree } from "@/lib/lms";
 
 /** previewIds: satın almamış kullanıcı için açık (ücretsiz) ders kimlikleri; null → tam erişim. */
 export function CourseSidebar({ slug, title, tree, percentage, previewIds }: { slug: string; title: string; tree: CourseTree; percentage: number; previewIds: number[] | null }) {
   const pathname = usePathname();
   const base = `/ogrenim/${slug}`;
+  // Dar ekranda müfredat varsayılan olarak kapalıdır; ders içeriği hemen görünsün.
+  const [open, setOpen] = useState(false);
+  const navId = useId();
+  useEffect(() => setOpen(false), [pathname]);
 
   const icon = (done: boolean | undefined, Fallback: typeof FileText) =>
     done ? <Check className="side-check" size={16} strokeWidth={1.5} color="#3a5fdc" style={{ flex: "none", marginTop: 2 }} /> : <Fallback size={16} strokeWidth={1.5} style={{ flex: "none", marginTop: 2, opacity: 0.6 }} />;
@@ -40,7 +45,12 @@ export function CourseSidebar({ slug, title, tree, percentage, previewIds }: { s
         </>
       )}
 
-      <nav style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <button type="button" className="btn btn-secondary side-toggle" aria-expanded={open} aria-controls={navId} onClick={() => setOpen((o) => !o)}>
+        Müfredat
+        <ChevronDown size={16} aria-hidden="true" className="side-toggle-chev" />
+      </button>
+
+      <nav id={navId} className="side-nav" data-open={open} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         {tree.modules.map((m, i) => (
           <div key={m.id} className="side-group" style={{ "--i": i } as React.CSSProperties}>
             <div style={{ fontFamily: "var(--font-heading)", fontSize: 16, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".03em", marginBottom: 4 }}>

@@ -117,7 +117,7 @@ export function QuizEditor({ quizId, courseId, initial }: Props) {
       <h1 style={{ fontSize: 48, textTransform: "uppercase", margin: "12px 0 20px" }}>Sınav düzenle</h1>
       <Toast flash={flash} onClose={() => setFlash(null)} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px", gap: 14, marginBottom: 28 }}>
+      <div className="form-row" style={{ "--cols": "1fr 160px 160px", gap: 14, marginBottom: 28 } as React.CSSProperties}>
         <div className="field"><label>Başlık</label><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} style={input} /></div>
         <div className="field"><label>Geçme notu (%)</label><input className="input" type="number" min={1} max={100} value={passing} onChange={(e) => setPassing(e.target.value)} style={input} /></div>
         <div className="field"><label>Süre (dk)</label><input className="input" type="number" min={1} required value={duration} onChange={(e) => setDuration(e.target.value)} style={input} /></div>
