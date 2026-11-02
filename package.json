@@ -10,11 +10,14 @@
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test src/lib/*.test.ts",
     "db:migrate": "node --env-file=.env scripts/migrate.mjs",
     "r2:setup": "node --env-file=.env scripts/r2-setup.mjs",
+    "r2:blog-setup": "node --env-file=.env scripts/r2-blog-setup.mjs",
     "db:seed": "node --env-file=.env scripts/seed.mjs",
+    "db:seed-posts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/seed-posts.mjs",
     "db:create-admin": "node --env-file=.env scripts/create-admin.mjs",
     "test:api": "node --env-file=.env scripts/test-api.mjs",
     "test:programs": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-programs.mjs",
     "test:gifts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-gifts.mjs",
+    "test:posts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-posts.mjs",
     "test:verify": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-email-verification.mjs"
   },
   "dependencies": {

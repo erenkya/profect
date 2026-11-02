@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createProgramSchema, lessonSchema, quizSchema, updateProgramSchema, videoUploadSchema } from "./admin-schemas.ts";
+import { createPostSchema, createProgramSchema, lessonSchema, postImageUploadSchema, quizSchema, updatePostSchema, updateProgramSchema, videoUploadSchema } from "./admin-schemas.ts";
 
 const KEY = "kurslar/web-tasarim/34-giris/a1b2c3d4-html-temelleri.mp4";
 const lesson = (over: Record<string, unknown>) => lessonSchema.safeParse({ title: "Ders", lesson_type: "video", content: KEY, duration_minutes: 10, ...over });
@@ -159,4 +159,33 @@ test("updateProgramSchema: kısmi gövde kabul edilir; yayın, sıra, kapak ve k
   assert.equal(updateProgramSchema.safeParse({ is_published: true, sort_order: 2, thumbnail_url: null, course_ids: [2, 1] }).success, true);
   assert.equal(updateProgramSchema.safeParse({ course_ids: [] }).success, false);
   assert.equal(updateProgramSchema.safeParse({ price: -5 }).success, false);
+});
+
+const POST_KEY = "gorseller/a1b2c3d4e5f60718.png";
+const post = (over: Record<string, unknown> = {}) => ({ type: "blog", title: "Merhaba", content: "# x", status: "draft", ...over });
+
+test("createPostSchema: yalnızca tür, başlık, içerik ve durum zorunlu; geri kalanı isteğe bağlı", () => {
+  assert.ok(createPostSchema.safeParse(post()).success);
+  assert.ok(createPostSchema.safeParse(post({ slug: "merhaba-dunya", cover_key: POST_KEY, author: "Ayşe", excerpt: "Özet", published_at: "2026-10-05T09:30" })).success);
+  assert.ok(createPostSchema.safeParse(post({ published_at: "2026-10-05 09:30:00", cover_key: null })).success);
+});
+
+test("createPostSchema: geçersiz tür, adres, kapak ve tarih reddedilir", () => {
+  for (const bad of [{ type: "duyuru" }, { title: "a" }, { slug: "Büyük Harf" }, { slug: "a/b" }, { cover_key: "kapaklar/12-a1b2c3d4.jpg" }, { cover_key: "gorseller/../x.png" }, { published_at: "dün" }, { status: "archived" }, { excerpt: "x".repeat(401) }]) {
+    assert.ok(!createPostSchema.safeParse(post(bad)).success, JSON.stringify(bad));
+  }
+});
+
+test("updatePostSchema: kısmi güncellemeye izin verir ama alan kurallarını korur", () => {
+  assert.ok(updatePostSchema.safeParse({}).success);
+  assert.ok(updatePostSchema.safeParse({ status: "published" }).success);
+  assert.ok(!updatePostSchema.safeParse({ slug: "BÜYÜK" }).success);
+});
+
+test("postImageUploadSchema: tür ve 8 MB sınırı", () => {
+  assert.ok(postImageUploadSchema.safeParse({ content_type: "image/gif", size: 1000 }).success);
+  assert.ok(postImageUploadSchema.safeParse({ content_type: "image/webp", size: 8_388_608 }).success);
+  for (const bad of [{ content_type: "image/svg+xml", size: 10 }, { content_type: "image/png", size: 8_388_609 }, { content_type: "image/png", size: 0 }]) {
+    assert.ok(!postImageUploadSchema.safeParse(bad).success, JSON.stringify(bad));
+  }
 });

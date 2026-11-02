@@ -15,6 +15,8 @@ export function Nav({ user }: { user: SessionUser | null }) {
   const onCourses = pathname.startsWith("/kurslar");
   const onPrograms = pathname.startsWith("/programlar");
   const onAbout = pathname.startsWith("/hakkimizda");
+  const onBlog = pathname.startsWith("/blog");
+  const onNews = pathname.startsWith("/haberler");
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLElement>(null);
   const menuId = useId();
@@ -58,6 +60,8 @@ export function Nav({ user }: { user: SessionUser | null }) {
         <Link className="nav-link" href="/kurslar" aria-current={onCourses ? "page" : undefined}>Kurslar</Link>
         <Link className="nav-link" href="/programlar" aria-current={onPrograms ? "page" : undefined}>Programlar</Link>
         <Link className="nav-link" href="/#sertifika">Sertifikalar</Link>
+        <Link className="nav-link" href="/blog" aria-current={onBlog ? "page" : undefined}>Blog</Link>
+        <Link className="nav-link" href="/haberler" aria-current={onNews ? "page" : undefined}>Haberler</Link>
         <Link className="nav-link" href="/hakkimizda" aria-current={onAbout ? "page" : undefined}>Hakkımızda</Link>
         {!user && (
           <div className="nav-auth">

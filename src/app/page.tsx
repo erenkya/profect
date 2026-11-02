@@ -7,6 +7,8 @@ import { DEMO_CERT, FOUNDERS, MARQUEE, STEPS, BLUE, PURP, courseColor, courseDel
 import { getCurrentUser } from "@/lib/auth";
 import { listAccessibleCourseIds, listPublishedCourses } from "@/lib/lms";
 import Image from "next/image";
+import { HomePosts } from "@/components/posts/HomePosts";
+import { listPublishedPosts, type PostListItem } from "@/lib/posts";
 
 // Sertifika üzerindeki sahte QR deseni — tasarımdaki sabit tohumlu üreteçle aynı.
 function qrCells() {
@@ -20,8 +22,19 @@ function qrCells() {
   });
 }
 
+// Blog/haber bölümü ana sayfayı düşürmesin: okunamazsa bölüm gösterilmez.
+async function latestPosts(type: "blog" | "news", limit: number): Promise<PostListItem[]> {
+  try {
+    return await listPublishedPosts(type, { limit });
+  } catch (err) {
+    console.error(`[HomePage] ${type} yazıları okunamadı`, err);
+    return [];
+  }
+}
+
 export default async function HomePage() {
   const courses = (await listPublishedCourses()).slice(0, 6);
+  const [blog, news] = await Promise.all([latestPosts("blog", 3), latestPosts("news", 4)]);
   const user = await getCurrentUser();
   const owned = user ? await listAccessibleCourseIds(user.id) : new Set<number>();
   const marquee = [...MARQUEE, ...MARQUEE].map((t, i) => ({ t, c: i % 2 ? PURP : BLUE }));
@@ -51,9 +64,9 @@ export default async function HomePage() {
                 </span>
               </div>
               <h1 style={{ fontSize: "clamp(60px,8.4vw,124px)", lineHeight: 0.9, letterSpacing: "-.02em", textTransform: "uppercase", margin: "0 0 28px", fontWeight: 700 }}>
-                <span data-reveal="1" data-delay="0" style={{ display: "inline-block" }}>Öğren.</span><br />
-                <span data-reveal="1" data-delay="120" style={{ display: "inline-block", color: "var(--color-accent)" }}>Sına.</span><br />
-                <span data-reveal="1" data-delay="240" style={{ display: "inline-block", color: "var(--color-accent-2)" }}>Belgele.</span>
+                <span data-reveal="1" data-delay="0" style={{ display: "inline-block" }}>Perfect.</span><br />
+                <span data-reveal="1" data-delay="120" style={{ display: "inline-block", color: "var(--color-accent)" }}>Your.</span><br />
+                <span data-reveal="1" data-delay="240" style={{ display: "inline-block", color: "var(--color-accent-2)" }}>Profession.</span>
               </h1>
               <p data-reveal="1" data-delay="360" style={{ fontSize: 19, lineHeight: 1.55, maxWidth: 500, color: "color-mix(in srgb,var(--color-text) 78%,transparent)", textWrap: "pretty", marginBottom: 36 }}>
                 Profect’te sektörün uzmanlarınca hazırlanan, sürekli güncellenen ve küresel standartlarla uyumlu kursları tamamen online, kendi hızında tamamlarsın. Her modülün sonunda sınava girer, final sınavını geçtiğinde doğrulanabilir sertifikanı alırsın.
@@ -192,7 +205,7 @@ export default async function HomePage() {
         {/* PARALLAX WORD BAND */}
         <section aria-hidden style={{ position: "relative", overflow: "hidden", padding: "30px 0", borderTop: "1px solid var(--color-divider)", borderBottom: "1px solid var(--color-divider)" }}>
           <div data-fx="1" data-pxx="0.5" style={{ whiteSpace: "nowrap", fontFamily: "var(--font-heading)", fontWeight: 700, textTransform: "uppercase", fontSize: "clamp(80px,11vw,170px)", lineHeight: 1, color: "transparent", WebkitTextStroke: "1px var(--color-accent-300)", marginLeft: "-20%" }}>
-            Öğren ◆ Sına ◆ Belgele ◆ Öğren ◆ Sına ◆ Belgele
+            Perfect ◆ Your ◆ Profession ◆ Perfect ◆ Your ◆ Profession
           </div>
           <div data-fx="1" data-pxx="-0.5" style={{ whiteSpace: "nowrap", fontFamily: "var(--font-heading)", fontWeight: 700, textTransform: "uppercase", fontSize: "clamp(80px,11vw,170px)", lineHeight: 1, color: "transparent", WebkitTextStroke: "1px var(--color-accent-2-300)", marginLeft: "-60%" }}>
             Profect ◆ Profect ◆ Profect ◆ Profect ◆ Profect
@@ -260,6 +273,8 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+
+        <HomePosts blog={blog} news={news} />
       </main>
     </>
   );
