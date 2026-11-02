@@ -45,7 +45,7 @@ export function CourseCard({ course, color, delay, loggedIn, hasAccess }: { cour
             </div>
           </div>
         </Link>
-        <CourseCardActions slug={course.slug} loggedIn={loggedIn} hasAccess={hasAccess} />
+        <CourseCardActions slug={course.slug} loggedIn={loggedIn} hasAccess={hasAccess} giftable={course.price > 0} />
       </div>
     </div>
   );

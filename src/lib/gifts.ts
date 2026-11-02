@@ -1,0 +1,269 @@
+import "server-only";
+import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
+import pool from "@/lib/db";
+import type { Billing } from "@/lib/checkout-schema";
+import { formatDate } from "@/lib/format";
+import {
+  GIFT_MAX_SENDS_PER_WINDOW,
+  GIFT_RESEND_COOLDOWN_SECONDS,
+  GIFT_SEND_WINDOW_MINUTES,
+  GIFT_TTL_DAYS,
+  claimBlock,
+  isGiftToken,
+  normalizeRecipientEmail,
+  type GiftClaimReason,
+  type GiftStatus,
+} from "@/lib/gift-rules";
+import { sendGiftRecipientEmail, sendGiftSenderEmail } from "@/lib/mail";
+import { BILLING_COLUMNS, billingValues } from "@/lib/orders";
+import { createToken, hashToken } from "@/lib/tokens";
+
+export function giftUrl(token: string): string {
+  return `${(process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, "")}/hediye/${token}`;
+}
+
+/** Hediye siparişi: tek kalemli normal bir sipariş (plan='single') + ona bağlı `awaiting_payment` hediye. */
+export async function createGiftOrder(i: {
+  senderId: number;
+  courseId: number;
+  courseTitle: string;
+  price: number;
+  recipientEmail: string;
+  message: string | null;
+  billing: Billing;
+  provider: string;
+  ip: string;
+}): Promise<{ orderId: number; giftId: number }> {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [o] = await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, course_id, amount, provider) VALUES (?, 'single', ?, ?, ?)", [i.senderId, i.courseId, i.price, i.provider]);
+    const orderId = o.insertId;
+    await conn.execute(`UPDATE orders SET ${BILLING_COLUMNS} WHERE id = ?`, [...billingValues(i.billing, i.ip), orderId]);
+    await conn.execute("INSERT INTO order_items (order_id, item_type, course_id, title, unit_price) VALUES (?, 'course', ?, ?, ?)", [orderId, i.courseId, i.courseTitle, i.price]);
+    const [g] = await conn.execute<ResultSetHeader>("INSERT INTO gifts (order_id, sender_id, course_id, recipient_email, message) VALUES (?, ?, ?, ?, ?)", [
+      orderId, i.senderId, i.courseId, normalizeRecipientEmail(i.recipientEmail), i.message || null,
+    ]);
+    await conn.commit();
+    return { orderId, giftId: g.insertId };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+/** Son 60 dakikada bu gönderenin oluşturduğu hediye sayısı (her durum; mail bombalamaya karşı sınır için). */
+export async function countRecentGiftsBySender(senderId: number): Promise<number> {
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) AS n FROM gifts WHERE sender_id = ? AND created_at > NOW() - INTERVAL 60 MINUTE", [senderId]);
+  return Number(rows[0]?.n ?? 0);
+}
+
+/**
+ * `fulfillOrder` transaction'ı içinde, sipariş ödendiği anda çağrılır. Siparişe bağlı hediye yoksa null (normal sipariş).
+ * Varsa token üretir (yalnızca SHA-256 özeti saklanır), hediyeyi `pending` yapar ve ham token'ı mail için döndürür.
+ * Hediye satırı olup da aktive edilemeyecek bir durumdaysa fırlatır: kurs yanlışlıkla siparişi verene yazılmasın.
+ */
+export async function activateGiftForOrder(conn: PoolConnection, orderId: number): Promise<{ giftId: number; token: string } | null> {
+  const [rows] = await conn.query<RowDataPacket[]>("SELECT id, status FROM gifts WHERE order_id = ? FOR UPDATE", [orderId]);
+  const g = rows[0];
+  if (!g) return null;
+  if (g.status !== "awaiting_payment" && g.status !== "cancelled") throw new Error(`Hediye #${g.id} beklenmeyen durumda: ${g.status}`);
+  const { raw, hash } = createToken();
+  await conn.execute(
+    `UPDATE gifts SET status = 'pending', token_hash = ?, expires_at = NOW() + INTERVAL ${GIFT_TTL_DAYS} DAY,
+            sent_at = NOW(), send_count = 1, send_window_start = NOW() WHERE id = ?`,
+    [hash, g.id],
+  );
+  return { giftId: g.id, token: raw };
+}
+
+/** Hediye maillerini yollar. Asla fırlatmaz: mail hatası ödemeyi bozmaz, gönderen panelden linki yenileyebilir. */
+export async function sendGiftEmails(giftId: number, token: string, to: "both" | "recipient" = "both"): Promise<void> {
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT g.recipient_email, g.message, g.expires_at, c.title AS course_title, u.full_name AS sender_name, u.email AS sender_email
+         FROM gifts g JOIN courses c ON c.id = g.course_id JOIN users u ON u.id = g.sender_id WHERE g.id = ?`,
+      [giftId],
+    );
+    const g = rows[0];
+    if (!g) return;
+    const url = giftUrl(token);
+    const expiresAt = formatDate(g.expires_at);
+    try {
+      await sendGiftRecipientEmail({ to: g.recipient_email, senderName: g.sender_name, courseTitle: g.course_title, message: g.message, url, expiresAt });
+    } catch (err) {
+      console.error("[gift] alıcı maili gönderilemedi", { giftId, err });
+    }
+    if (to === "both") {
+      try {
+        await sendGiftSenderEmail({ to: g.sender_email, recipientEmail: g.recipient_email, courseTitle: g.course_title, url, expiresAt });
+      } catch (err) {
+        console.error("[gift] gönderen maili gönderilemedi", { giftId, err });
+      }
+    }
+  } catch (err) {
+    console.error("[gift] mailler hazırlanamadı", { giftId, err });
+  }
+}
+
+export type GiftView = {
+  id: number;
+  status: GiftStatus;
+  recipientEmail: string;
+  courseId: number;
+  courseSlug: string;
+  courseTitle: string;
+  senderName: string;
+  message: string | null;
+  secondsLeft: number;
+};
+
+/** Token'dan hediye. Bozuk/yok/pending olmayan/süresi geçmiş → null (süresi geçen satır burada `expired` işaretlenir). */
+export async function findGiftByToken(token: string): Promise<GiftView | null> {
+  if (!isGiftToken(token)) return null;
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT g.id, g.status, g.recipient_email, g.course_id, g.message, c.slug, c.title, u.full_name AS sender_name,
+            TIMESTAMPDIFF(SECOND, NOW(), g.expires_at) AS secondsLeft
+       FROM gifts g JOIN courses c ON c.id = g.course_id JOIN users u ON u.id = g.sender_id
+      WHERE g.token_hash = ? LIMIT 1`,
+    [hashToken(token)],
+  );
+  const g = rows[0];
+  if (!g || g.status !== "pending") return null;
+  if (Number(g.secondsLeft) <= 0) {
+    await pool.execute("UPDATE gifts SET status = 'expired' WHERE id = ? AND status = 'pending'", [g.id]);
+    return null;
+  }
+  return {
+    id: g.id,
+    status: g.status,
+    recipientEmail: g.recipient_email,
+    courseId: g.course_id,
+    courseSlug: g.slug,
+    courseTitle: g.title,
+    senderName: g.sender_name,
+    message: g.message,
+    secondsLeft: Number(g.secondsLeft),
+  };
+}
+
+/** Bu adresle doğrulanmış, aktif bir hesap var mı (giriş mi kayıt mı yönlendirmesi için). */
+export async function recipientHasAccount(email: string): Promise<boolean> {
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT 1 FROM users WHERE email = ? AND email_verified = 1 AND is_active = 1 LIMIT 1", [normalizeRecipientEmail(email)]);
+  return rows.length > 0;
+}
+
+/**
+ * Hediyeyi alır. Tek transaction: hediye satırı `FOR UPDATE` ile kilitlenir (çift alma yarışı yok), kural `claimBlock` ile
+ * uygulanır; başarıda kurs `source='gift'` ile yazılır, hediye `claimed` olur ve token_hash NULL'lanır (tek kullanım).
+ */
+export async function claimGift(token: string, userId: number): Promise<{ ok: true; courseSlug: string } | { ok: false; reason: GiftClaimReason }> {
+  if (!isGiftToken(token)) return { ok: false, reason: "invalid" };
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query<RowDataPacket[]>(
+      "SELECT id, status, recipient_email, course_id, TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS secondsLeft FROM gifts WHERE token_hash = ? LIMIT 1 FOR UPDATE",
+      [hashToken(token)],
+    );
+    const g = rows[0];
+    const [users] = await conn.query<RowDataPacket[]>("SELECT email, email_verified FROM users WHERE id = ? AND is_active = 1", [userId]);
+    const u = users[0];
+    if (!g || !u) {
+      await conn.rollback();
+      return { ok: false, reason: "invalid" };
+    }
+    const [owned] = await conn.query<RowDataPacket[]>("SELECT 1 FROM enrollments WHERE user_id = ? AND course_id = ? LIMIT 1", [userId, g.course_id]);
+    const block = claimBlock(
+      { status: g.status, secondsLeft: Number(g.secondsLeft), recipientEmail: g.recipient_email },
+      { email: u.email, emailVerified: !!u.email_verified },
+      owned.length > 0,
+    );
+    if (block) {
+      if (g.status === "pending" && Number(g.secondsLeft) <= 0) await conn.execute("UPDATE gifts SET status = 'expired' WHERE id = ?", [g.id]);
+      await conn.commit();
+      return { ok: false, reason: block };
+    }
+    const [course] = await conn.query<RowDataPacket[]>("SELECT slug FROM courses WHERE id = ?", [g.course_id]);
+    await conn.execute("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'gift')", [userId, g.course_id]);
+    await conn.execute("UPDATE gifts SET status = 'claimed', claimed_by_user_id = ?, claimed_at = NOW(), token_hash = NULL WHERE id = ?", [userId, g.id]);
+    await conn.commit();
+    return { ok: true, courseSlug: course[0].slug };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+export type RotateResult = { status: "ok"; token: string } | { status: "rate_limited"; retryAfter: number } | { status: "not_found" };
+
+/**
+ * Gönderenin linki yenilemesi / maili yeniden göndermesi: token döndürülür (eski link geçersiz olur, `expires_at` uzamaz).
+ * Cooldown ve saatlik sınır tek koşullu UPDATE ile uygulanır (eş zamanlı isteklerde de aşılamaz; DB saatiyle).
+ * SET ifadeleri soldan sağa işlenir: send_count, window_start'tan önce yazılmalı (eski pencereye bakar).
+ */
+export async function rotateGiftToken(giftId: number, senderId: number): Promise<RotateResult> {
+  const { raw, hash } = createToken();
+  const windowExpired = `(send_window_start IS NULL OR send_window_start <= NOW() - INTERVAL ${GIFT_SEND_WINDOW_MINUTES} MINUTE)`;
+  const [res] = await pool.execute<ResultSetHeader>(
+    `UPDATE gifts
+        SET token_hash = ?,
+            sent_at = NOW(),
+            send_count = IF(${windowExpired}, 1, send_count + 1),
+            send_window_start = IF(${windowExpired}, NOW(), send_window_start)
+      WHERE id = ? AND sender_id = ? AND status = 'pending' AND expires_at > NOW()
+        AND (sent_at IS NULL OR sent_at <= NOW() - INTERVAL ${GIFT_RESEND_COOLDOWN_SECONDS} SECOND)
+        AND (${windowExpired} OR send_count < ?)`,
+    [hash, giftId, senderId, GIFT_MAX_SENDS_PER_WINDOW],
+  );
+  if (res.affectedRows > 0) return { status: "ok", token: raw };
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT status, TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS secondsLeft,
+            GREATEST(0, ${GIFT_RESEND_COOLDOWN_SECONDS} - TIMESTAMPDIFF(SECOND, sent_at, NOW())) AS cooldown,
+            IF(send_count >= ? AND NOT ${windowExpired},
+               GREATEST(0, ${GIFT_SEND_WINDOW_MINUTES * 60} - TIMESTAMPDIFF(SECOND, send_window_start, NOW())), 0) AS capped
+       FROM gifts WHERE id = ? AND sender_id = ? LIMIT 1`,
+    [GIFT_MAX_SENDS_PER_WINDOW, giftId, senderId],
+  );
+  const g = rows[0];
+  if (!g || g.status !== "pending" || Number(g.secondsLeft) <= 0) return { status: "not_found" };
+  return { status: "rate_limited", retryAfter: Math.max(Number(g.cooldown ?? 0), Number(g.capped ?? 0), 1) };
+}
+
+export type SenderGift = {
+  id: number;
+  courseTitle: string;
+  recipientEmail: string;
+  status: GiftStatus;
+  expiresAt: string | null;
+  createdAt: string;
+};
+
+/** Gönderenin hediyeleri (yalnızca kendi satırları; ödeme bekleyenler hariç). Süresi geçen `pending`'ler burada `expired` olur. */
+export async function listGiftsForSender(senderId: number): Promise<SenderGift[]> {
+  await pool.execute("UPDATE gifts SET status = 'expired' WHERE sender_id = ? AND status = 'pending' AND expires_at <= NOW()", [senderId]);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT g.id, c.title AS course_title, g.recipient_email, g.status, g.expires_at, g.created_at
+       FROM gifts g JOIN courses c ON c.id = g.course_id
+      WHERE g.sender_id = ? AND g.status <> 'awaiting_payment' ORDER BY g.id DESC`,
+    [senderId],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    courseTitle: r.course_title,
+    recipientEmail: r.recipient_email,
+    status: r.status,
+    expiresAt: r.expires_at ?? null,
+    createdAt: r.created_at,
+  }));
+}
+
+/** Ödenmemiş (awaiting_payment) hediyeyi iptal eder; reddedilen siparişte çağrılır. Idempotent. */
+export async function cancelGiftsForOrder(orderId: number): Promise<void> {
+  await pool.execute("UPDATE gifts SET status = 'cancelled' WHERE order_id = ? AND status = 'awaiting_payment'", [orderId]);
+}

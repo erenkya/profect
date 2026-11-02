@@ -10,9 +10,9 @@ import { KvkkDialog } from "@/components/legal/KvkkDialog";
 import { FormMessage } from "./AuthShell";
 import { PasswordStrength } from "./PasswordStrength";
 
-export function RegisterForm({ siteKey, next }: { siteKey: string; next: string }) {
+export function RegisterForm({ siteKey, next, lockedEmail, giftToken }: { siteKey: string; next: string; lockedEmail?: string; giftToken?: string }) {
   const router = useRouter();
-  const [form, setForm] = useState({ full_name: "", email: "", phone: "", password: "" });
+  const [form, setForm] = useState({ full_name: "", email: lockedEmail ?? "", phone: "", password: "" });
   const [confirm, setConfirm] = useState("");
   const [kvkk, setKvkk] = useState(false);
   const [token, setToken] = useState("");
@@ -34,7 +34,7 @@ export function RegisterForm({ siteKey, next }: { siteKey: string; next: string 
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...form, kvkk, turnstileToken: token }),
+        body: JSON.stringify({ ...form, kvkk, turnstileToken: token, ...(giftToken && { giftToken }) }),
       });
       const json = await res.json();
       if (res.ok) {
@@ -55,7 +55,7 @@ export function RegisterForm({ siteKey, next }: { siteKey: string; next: string 
   return (
     <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className="field"><label htmlFor="full_name">Ad Soyad</label><input id="full_name" className="input" required minLength={2} autoComplete="name" value={form.full_name} onChange={set("full_name")} style={input} /></div>
-      <div className="field"><label htmlFor="email">E-posta</label><input id="email" className="input" type="email" required autoComplete="email" value={form.email} onChange={set("email")} style={input} /></div>
+      <div className="field"><label htmlFor="email">E-posta</label><input id="email" className="input" type="email" required autoComplete="email" value={form.email} onChange={set("email")} readOnly={!!lockedEmail} style={input} />{lockedEmail && <div style={{ fontSize: 13, color: "var(--muted-55)" }}>Hediye bu adrese gönderildi; kayıt yalnızca bu adresle yapılabilir.</div>}</div>
       <div className="field"><label htmlFor="phone">Telefon (isteğe bağlı)</label><input id="phone" className="input" type="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} style={input} /></div>
       <div className="field"><label htmlFor="password">Şifre</label><input id="password" className="input" type="password" required autoComplete="new-password" aria-describedby="pw-strength" value={form.password} onChange={set("password")} style={input} /></div>
       <div id="pw-strength"><PasswordStrength password={form.password} userInputs={userInputs} /></div>

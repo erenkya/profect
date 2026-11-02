@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ShoppingCart } from "lucide-react";
+import { Check, Gift, ShoppingCart } from "lucide-react";
 import { Corners } from "./Corners";
 import { addToCart, useCart } from "@/lib/cart";
 
@@ -14,11 +14,12 @@ type Props = {
   includes: string[];
   loggedIn: boolean;
   hasAccess: boolean;
+  giftable?: boolean;
 };
 
 const big = { fontSize: 19, padding: 15, marginTop: 0 } as const;
 
-export function PurchasePanel({ slug, priceLabel, oldPriceLabel, plusPriceLabel, includes, loggedIn, hasAccess }: Props) {
+export function PurchasePanel({ slug, priceLabel, oldPriceLabel, plusPriceLabel, includes, loggedIn, hasAccess, giftable = true }: Props) {
   const router = useRouter();
   const { items, ready } = useCart();
   const inCart = ready && items.some((i) => i.type === "course" && i.slug === slug);
@@ -61,6 +62,11 @@ export function PurchasePanel({ slug, priceLabel, oldPriceLabel, plusPriceLabel,
           </>
         )}
 
+        {giftable && (
+          <Link href={loggedIn ? `/hediye-et/${slug}` : `/giris?next=${encodeURIComponent(`/hediye-et/${slug}`)}`} className="btn btn-secondary btn-block" style={{ marginTop: 0 }}>
+            <Gift size={16} aria-hidden /> Hediye Et
+          </Link>
+        )}
         <div style={{ fontSize: 13, textAlign: "center", color: "var(--muted-55)" }}>14 gün içinde koşulsuz iade</div>
         <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12, fontSize: 15 }}>
           {includes.map((t) => (

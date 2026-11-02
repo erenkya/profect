@@ -11,24 +11,32 @@ import { KvkkDialog } from "@/components/legal/KvkkDialog";
 import { CheckoutPrivacyContent, DeliveryReturnContent, DistanceSalesContent } from "@/components/legal/CheckoutLegalContent";
 import { CARD_BRAND_ICON, CARD_BRAND_LABEL, cvcLength, detectCardBrand, formatCardNumber, formatExpiry, isValidExpiry } from "@/lib/card-brand";
 import { CONSENT_KEYS, billingSchema, cardSchema, type ConsentKey } from "@/lib/checkout-schema";
+import { giftCheckoutSchema } from "@/lib/gift-rules";
 import { useCart } from "@/lib/cart";
 import { formatPrice } from "@/lib/format";
 import { CartLines } from "./CartLines";
+import { GiftRecipientFields } from "./GiftRecipientFields";
 import { ConsentCheckbox } from "./ConsentCheckbox";
 import { CardPreview, type CardField } from "./CardPreview";
 import { PaymentBadges } from "./PaymentBadges";
 import { useQuote } from "./useQuote";
 
 type Defaults = { full_name: string; email: string; phone: string };
+/** Hediye modu: tek kurs, sepet/kupon yok; sipariş /api/gifts/checkout'a gider. */
+type GiftCheckout = { slug: string; title: string; price: number; provider: "manual" | "mock" | "tami" };
 type Errors = Record<string, string>;
 
 const input = { background: "#fff", minHeight: 44, fontSize: 16 } as const;
 const BUTTON_LABEL = { manual: "Siparişi oluştur", mock: "Öde (test modu)", tami: "Öde" } as const;
 
-export function CheckoutForm({ defaults }: { defaults: Defaults }) {
+export function CheckoutForm({ defaults, gift }: { defaults: Defaults; gift?: GiftCheckout }) {
   const router = useRouter();
-  const { items, ready } = useCart();
+  const cart = useCart();
+  const items = gift ? [] : cart.items; // hediye modunda sepet kullanılmaz
+  const ready = gift ? true : cart.ready;
   const q = useQuote(items, ready);
+  const provider = gift ? gift.provider : q.provider;
+  const [recipient, setRecipient] = useState({ email: "", message: "" });
 
   const [invoiceType, setInvoiceType] = useState<"bireysel" | "kurumsal">("bireysel");
   const [f, setF] = useState({ ...defaults, company_name: "", tax_office: "", tax_number: "", address: "", city: "", district: "", zip_code: "" });
@@ -46,14 +54,14 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
   const setConsent = (k: ConsentKey) => (v: boolean) => setConsents((c) => ({ ...c, [k]: v }));
   const allConsents = CONSENT_KEYS.every((k) => consents[k]);
-  const effTotal = coupon ? coupon.total : q.total;
-  const needsCard = q.provider === "tami" && effTotal > 0;
+  const effTotal = gift ? gift.price : coupon ? coupon.total : q.total;
+  const needsCard = provider === "tami" && effTotal > 0;
   const brand = detectCardBrand(card.number);
   const expiryProblem = card.expiry.length === 5 && !isValidExpiry(card.expiry) ? "Kartın son kullanma tarihi geçmiş ya da geçersiz." : "";
   const fp = (f: CardField) => ({ onFocus: () => setCardFocus(f), onBlur: () => setCardFocus(null) });
 
   if (!ready || q.loading) return <p style={{ color: "var(--muted-72)" }} aria-live="polite">Sipariş özetin yükleniyor…</p>;
-  if (items.length === 0 || q.payable.length === 0) {
+  if (!gift && (items.length === 0 || q.payable.length === 0)) {
     return (
       <div className="card blueprint" style={{ background: "#fff", padding: 32, gap: 14, alignItems: "flex-start" }}>
         <Corners />
@@ -96,6 +104,13 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
       const c = cardSchema.safeParse(card);
       if (!c.success) for (const i of c.error.issues) errs[`card.${String(i.path[0])}`] ??= i.message;
     }
+    if (gift) {
+      const g = giftCheckoutSchema.shape;
+      const re = g.recipient_email.safeParse(recipient.email);
+      if (!re.success) errs.recipient_email = re.error.issues[0].message;
+      const me = g.message.safeParse(recipient.message);
+      if (!me.success) errs.message = me.error.issues[0].message;
+    }
     setErrors(errs);
     if (Object.keys(errs).length) {
       document.getElementById("checkout-form")?.querySelector<HTMLElement>("[aria-invalid='true']")?.focus();
@@ -104,10 +119,14 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
 
     setBusy(true);
     try {
-      const res = await fetch("/api/checkout", {
+      const res = await fetch(gift ? "/api/gifts/checkout" : "/api/checkout", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items, billing, consents, ...(needsCard && { card }), ...(coupon && { coupon_code: coupon.code }) }),
+        body: JSON.stringify(
+          gift
+            ? { slug: gift.slug, recipient_email: recipient.email, message: recipient.message, billing, consents, ...(needsCard && { card }) }
+            : { items, billing, consents, ...(needsCard && { card }), ...(coupon && { coupon_code: coupon.code }) },
+        ),
       });
       const json = await res.json();
       if (!res.ok) return setError(json.message ?? "Sipariş oluşturulamadı.");
@@ -137,6 +156,7 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
   return (
     <form id="checkout-form" onSubmit={onSubmit} noValidate className="checkout-grid">
       <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+        {gift && <GiftRecipientFields email={recipient.email} message={recipient.message} onEmail={(v) => setRecipient((r) => ({ ...r, email: v }))} onMessage={(v) => setRecipient((r) => ({ ...r, message: v }))} errors={errors} />}
         <section className="card blueprint" style={{ background: "#fff", padding: 24, gap: 14 }}>
           <Corners />
           <h2 className="co-h">Fatura bilgileri</h2>
@@ -179,7 +199,7 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
             <p style={{ margin: 0, fontSize: 13, color: "var(--muted-55)", display: "flex", gap: 6, alignItems: "center" }}>
               <Lock size={14} aria-hidden /> Kart bilgilerin saklanmaz; 3D Secure ile bankanda doğrulanır.
             </p>
-          ) : q.provider === "mock" ? (
+          ) : provider === "mock" ? (
             <FormMessage kind="ok">Test modu: ödeme alınmaz, sipariş anında “ödendi” sayılır ve erişim açılır. Kart bilgileri hiçbir yere gönderilmez.</FormMessage>
           ) : null}
             {effTotal <= 0 ? (
@@ -224,8 +244,8 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
       <aside className="card blueprint elev-md checkout-summary" style={{ background: "#fff", padding: 24, gap: 14 }}>
         <Corners />
         <div className="dialog-title" style={{ fontSize: 24, textTransform: "uppercase" }}>Sipariş özeti</div>
-        <CartLines lines={q.lines} />
-        <div className="co-coupon">
+        {gift ? <div className="sum-row"><span>{gift.title}</span><span>{formatPrice(gift.price)}</span></div> : <CartLines lines={q.lines} />}
+        {!gift && <div className="co-coupon">
           {coupon ? (
             <div className="co-coupon-applied" role="status">
               <span><strong>{coupon.code}</strong> uygulandı · {coupon.label}</span>
@@ -252,7 +272,7 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
               {couponError && <div role="alert" className="field-err">{couponError}</div>}
             </>
           )}
-        </div>
+        </div>}
         {coupon && (
           <>
             <div className="sum-row"><span>Ara toplam</span><span>{formatPrice(coupon.subtotal)}</span></div>
@@ -278,11 +298,11 @@ export function CheckoutForm({ defaults }: { defaults: Defaults }) {
         {error && <FormMessage kind="error">{error}</FormMessage>}
         <button type="submit" disabled={busy || !allConsents} className="btn btn-primary blueprint btn-block" style={{ fontSize: 18, padding: 14 }}>
           <Corners />
-          {busy ? "İşleniyor…" : effTotal <= 0 ? "Siparişi tamamla (ücretsiz)" : q.provider === "tami" ? `${formatPrice(effTotal)} öde` : BUTTON_LABEL[q.provider]}
+          {busy ? "İşleniyor…" : effTotal <= 0 ? "Siparişi tamamla (ücretsiz)" : provider === "tami" ? `${formatPrice(effTotal)} öde` : gift ? "Hediyeyi satın al" : BUTTON_LABEL[provider]}
         </button>
         {!allConsents && <div style={{ fontSize: 13, color: "var(--muted-55)", textAlign: "center" }}>Devam etmek için dört onayın tümünü işaretle.</div>}
         <PaymentBadges secured={needsCard} />
-        <Link href="/sepet" style={{ fontSize: 14, textAlign: "center" }}>← Sepete dön</Link>
+        {gift ? <Link href={`/kurslar/${gift.slug}`} style={{ fontSize: 14, textAlign: "center" }}>← Kursa dön</Link> : <Link href="/sepet" style={{ fontSize: 14, textAlign: "center" }}>← Sepete dön</Link>}
       </aside>
     </form>
   );

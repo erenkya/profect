@@ -3,6 +3,7 @@ import "server-only";
 import { after } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
+import { activateGiftForOrder, sendGiftEmails } from "@/lib/gifts";
 import { sendOrderReceipt } from "@/lib/order-receipt";
 import { FREE_PREVIEW_LESSONS } from "@/lib/preview";
 
@@ -342,6 +343,8 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
       return { ok: true };
     }
     await conn.execute("UPDATE orders SET status = 'paid', paid_at = NOW() WHERE id = ?", [orderId]);
+    // Hediye siparişinde kurs siparişi verene DEĞİL, alıcıya gider: burada yalnızca hediye aktive edilir (token + mailler).
+    const gift = await activateGiftForOrder(conn, orderId);
     const [items] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id FROM order_items WHERE order_id = ?", [orderId]);
     // Eski (tek kalemli) siparişlerde kalem satırı yoktur: plan/course_id alanlarından türetilir.
     const lines: { item_type: "course" | "plus"; course_id: number | null }[] = items.length
@@ -355,7 +358,7 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
       // UNIQUE(order_id) → sipariş yeniden onaylansa da kupon bir kez sayılır.
       await conn.execute("INSERT IGNORE INTO coupon_redemptions (coupon_id, user_id, order_id, discount_amount) VALUES (?, ?, ?, ?)", [o.coupon_id, o.user_id, orderId, o.discount_amount ?? 0]);
     }
-    for (const line of lines) {
+    for (const line of gift ? [] : lines) {
       if (line.item_type === "course" && line.course_id) {
         await conn.execute("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'purchase')", [o.user_id, line.course_id]);
       } else if (line.item_type === "plus") {
@@ -367,6 +370,7 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
     }
     await conn.commit();
     after(() => sendOrderReceipt(orderId)); // yalnızca ilk ödeme geçişinde; yanıtı geciktirmez, hatası siparişi bozmaz
+    if (gift) after(() => sendGiftEmails(gift.giftId, gift.token)); // ham token yalnızca bu kapanışta ve mailde yaşar
     return { ok: true };
   } catch (err) {
     await conn.rollback();

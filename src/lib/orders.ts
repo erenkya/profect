@@ -19,10 +19,10 @@ type OrderInput = {
   discount?: number;
 };
 
-const BILLING_COLUMNS = `invoice_type = ?, full_name = ?, email = ?, phone = ?, tckn = ?, company_name = ?, tax_office = ?, tax_number = ?,
+export const BILLING_COLUMNS = `invoice_type = ?, full_name = ?, email = ?, phone = ?, tckn = ?, company_name = ?, tax_office = ?, tax_number = ?,
   address = ?, city = ?, district = ?, zip_code = ?, consents_accepted_at = NOW(), consent_ip = ?`;
 
-function billingValues(b: Billing, ip: string) {
+export function billingValues(b: Billing, ip: string) {
   const k = b.invoice_type === "kurumsal" ? b : null;
   return [
     b.invoice_type, b.full_name, b.email, k ? normalizePhone(k.phone) : null, null,

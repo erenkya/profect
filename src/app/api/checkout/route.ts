@@ -1,14 +1,14 @@
 import { requireUser } from "@/lib/auth";
 import { fail, getBaseUrl, ok, parseBody, serverError } from "@/lib/http";
 import pool from "@/lib/db";
-import { checkoutSchema, normalizePhone } from "@/lib/checkout-schema";
+import { checkoutSchema } from "@/lib/checkout-schema";
 import { quoteCart } from "@/lib/cart-quote";
 import { allocateDiscount, computeDiscount } from "@/lib/coupon-schema";
 import { validateCoupon } from "@/lib/coupons";
 import { createCartOrder } from "@/lib/orders";
 import { fulfillOrder } from "@/lib/lms";
 import { paymentProvider } from "@/lib/payment";
-import { authPayment3D } from "@/lib/payment/tami";
+import { startTamiCheckout } from "@/lib/payment/start-tami";
 
 /**
  * Sepetten sipariş oluşturur. Fiyat DAİMA sunucuda DB'den hesaplanır (istemciden tutar alınmaz).
@@ -59,52 +59,14 @@ export async function POST(request: Request) {
     if (provider.id === "manual") return ok({ orderId, status: "pending" }, 201);
 
     // ── Tami 3D Secure ──
-    const [mm, yy] = card!.expiry.split("/").map(Number);
-    const ref = `PRF${orderId}T${Date.now()}`; // her deneme Tami'de benzersiz olmalı
-    await pool.execute("UPDATE orders SET provider_ref = ? WHERE id = ?", [ref, orderId]);
-    const [first, ...rest] = billing.full_name.split(/\s+/);
-    const now = new Date().toISOString().replace("Z", "");
-    // Bireysel faturada adres/telefon/TCKN alınmaz; Tami'nin zorunlu alanları için sabit yer tutucular kullanılır.
-    // TODO: yeni Tami hesabı bireysel için bu alanları kabul etmezse formda yeniden istenmeli.
-    const k = billing.invoice_type === "kurumsal" ? billing : null;
-    const phone = k ? normalizePhone(k.phone)! : "5000000000";
-    const address = {
-      address: k?.address ?? "Dijital ürün (adres alınmadı)", city: k?.city ?? "İstanbul", district: k?.district ?? "Merkez", country: "Türkiye", zipCode: k?.zip_code ?? "34000",
-      companyName: k?.company_name,
-      contactName: billing.full_name, phoneNumber: phone, emailAddress: billing.email,
-    };
     const netPrices = allocateDiscount(quote.payable.map((x) => x.price), discount);
-    const data = await authPayment3D({
-      orderId: ref,
-      amount: total,
-      currency: "TRY",
-      installmentCount: 1,
-      paymentGroup: "PRODUCT",
-      paymentChannel: "WEB",
-      callbackUrl: `${(process.env.APP_URL || getBaseUrl(request)).replace(/\/+$/, "")}/api/checkout/tami-callback`,
-      card: { number: card!.number, holderName: card!.holder_name, expireMonth: mm, expireYear: 2000 + yy, cvv: card!.cvv },
-      buyer: {
-        ipAddress: ip, buyerId: String(userId), name: first, surName: rest.join(" ") || first,
-        identityNumber: k?.tax_number ?? "11111111111",
-        emailAddress: billing.email, phoneNumber: phone, city: address.city, country: "Türkiye", zipCode: address.zipCode,
-        registrationAddress: address.address, registrationDate: now, lastLoginDate: now,
-      },
-      billingAddress: address,
-      shippingAddress: address,
-      basket: {
-        basketId: ref,
-        // Sepet toplamı tahsil edilen tutara eşit olmalı: kupon indirimi kalemlere orantılı dağıtılır.
-        basketItems: quote.payable.map((l, i) => {
-          const price = netPrices[i];
-          return { itemId: l.key, name: l.title.slice(0, 100), itemType: "PHYSICAL" as const, category: "Eğitim", subCategory: l.item.type === "plus" ? "Abonelik" : "Kurs", numberOfProducts: 1, unitPrice: price, totalPrice: price };
-        }),
-      },
+    const r = await startTamiCheckout({
+      orderId, total, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
+      // Sepet toplamı tahsil edilen tutara eşit olmalı: kupon indirimi kalemlere orantılı dağıtılır.
+      basket: quote.payable.map((l, i) => ({ key: l.key, title: l.title, subCategory: l.item.type === "plus" ? "Abonelik" : "Kurs", price: netPrices[i] })),
     });
-    if (!data.success) {
-      await pool.execute("UPDATE orders SET status = 'rejected', error_message = ? WHERE id = ?", [String(data.errorMessage).slice(0, 255), orderId]);
-      return fail(data.errorMessage || "Ödeme başlatılamadı.", 400);
-    }
-    return ok({ orderId, status: "redirect", threeDSHtmlContent: data.threeDSHtmlContent }, 201);
+    if (!r.ok) return fail(r.message, 400);
+    return ok({ orderId, status: "redirect", threeDSHtmlContent: r.threeDSHtmlContent }, 201);
   } catch (err) {
     return serverError("[POST /api/checkout]", err);
   }

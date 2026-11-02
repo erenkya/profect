@@ -172,6 +172,7 @@ export default async function CoursePage({ params }: Props) {
           includes={includes}
           loggedIn={!!user}
           hasAccess={hasAccess}
+          giftable={course.price > 0}
         />
       </section>
     </main>
