@@ -1,4 +1,4 @@
-// Kurs hediyesinin saf (DB/ağ içermeyen) kuralları: sabitler, mail normalizasyonu, token biçimi, alma kararı ve ödeme şeması.
+// Kurs ve Uzmanlık Programı hediyesinin saf (DB/ağ içermeyen) kuralları: sabitler, mail normalizasyonu, token biçimi, alma kararı ve ödeme şeması.
 // `server-only` içermez; node --test ile doğrudan yüklenebilir.
 import { z } from "zod";
 import { billingSchema, cardSchema, consentsSchema } from "./checkout-schema.ts";
@@ -53,7 +53,12 @@ export function claimBlock(
 export const giftOrderLabel = (label: string, giftTo: string | null | undefined): string =>
   giftTo ? `${label} (hediye → ${giftTo})` : label;
 
+export const GIFT_KINDS = ["course", "program"] as const;
+export type GiftKind = (typeof GIFT_KINDS)[number];
+
 export const giftCheckoutSchema = z.object({
+  /** Hediye edilen şey: kurs (varsayılan) ya da Uzmanlık Programı; `slug` ona göre kursun/programın slug'ıdır. */
+  kind: z.enum(GIFT_KINDS).default("course"),
   slug: z.string().min(1).max(120),
   recipient_email: z.string().trim().toLowerCase().email("Geçerli bir alıcı e-postası girin.").max(190),
   message: z.string().trim().max(GIFT_MESSAGE_MAX, `Not en fazla ${GIFT_MESSAGE_MAX} karakter olabilir.`).optional(),

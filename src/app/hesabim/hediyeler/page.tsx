@@ -17,17 +17,17 @@ export default async function MyGiftsPage() {
   const gifts = await listGiftsForSender(user.id);
   return (
     <>
-      <PageTitle title="Hediyelerim" hint="Gönderdiğin kurs hediyeleri. Mail alıcıya ulaşmazsa linki yenileyip ona başka bir yolla iletebilirsin." />
+      <PageTitle title="Hediyelerim" hint="Gönderdiğin kurs ve program hediyeleri. Mail alıcıya ulaşmazsa linki yenileyip ona başka bir yolla iletebilirsin." />
       {gifts.length === 0 ? (
         <p style={{ color: "var(--muted-72)" }}>Henüz hediye göndermedin. <Link href="/kurslar">Kursları keşfet →</Link></p>
       ) : (
         <div className="admin-table-wrap">
           <table className="table">
-            <thead><tr><th>Kurs</th><th>Alıcı</th><th>Durum</th><th>Son tarih</th><th></th></tr></thead>
+            <thead><tr><th>Hediye</th><th>Alıcı</th><th>Durum</th><th>Son tarih</th><th></th></tr></thead>
             <tbody>
               {gifts.map((g) => (
                 <tr key={g.id}>
-                  <td>{g.courseTitle}</td>
+                  <td>{g.itemTitle}{g.kind === "program" && <span style={{ color: "var(--muted-55)" }}> · Program</span>}</td>
                   <td style={{ wordBreak: "break-all" }}>{g.recipientEmail}</td>
                   <td>{STATUS[g.status]}</td>
                   <td>{g.expiresAt ? formatDate(g.expiresAt) : "—"}</td>

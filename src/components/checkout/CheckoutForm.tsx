@@ -22,8 +22,8 @@ import { PaymentBadges } from "./PaymentBadges";
 import { useQuote } from "./useQuote";
 
 type Defaults = { full_name: string; email: string; phone: string };
-/** Hediye modu: tek kurs, sepet/kupon yok; sipariş /api/gifts/checkout'a gider. */
-type GiftCheckout = { slug: string; title: string; price: number; provider: "manual" | "mock" | "tami" };
+/** Hediye modu: tek kurs ya da program, sepet/kupon yok; sipariş /api/gifts/checkout'a gider. */
+type GiftCheckout = { kind: "course" | "program"; slug: string; title: string; price: number; provider: "manual" | "mock" | "tami" };
 type Errors = Record<string, string>;
 
 const input = { background: "#fff", minHeight: 44, fontSize: 16 } as const;
@@ -124,7 +124,7 @@ export function CheckoutForm({ defaults, gift }: { defaults: Defaults; gift?: Gi
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
           gift
-            ? { slug: gift.slug, recipient_email: recipient.email, message: recipient.message, billing, consents, ...(needsCard && { card }) }
+            ? { kind: gift.kind, slug: gift.slug, recipient_email: recipient.email, message: recipient.message, billing, consents, ...(needsCard && { card }) }
             : { items, billing, consents, ...(needsCard && { card }), ...(coupon && { coupon_code: coupon.code }) },
         ),
       });
@@ -302,7 +302,7 @@ export function CheckoutForm({ defaults, gift }: { defaults: Defaults; gift?: Gi
         </button>
         {!allConsents && <div style={{ fontSize: 13, color: "var(--muted-55)", textAlign: "center" }}>Devam etmek için dört onayın tümünü işaretle.</div>}
         <PaymentBadges secured={needsCard} />
-        {gift ? <Link href={`/kurslar/${gift.slug}`} style={{ fontSize: 14, textAlign: "center" }}>← Kursa dön</Link> : <Link href="/sepet" style={{ fontSize: 14, textAlign: "center" }}>← Sepete dön</Link>}
+        {gift ? <Link href={gift.kind === "program" ? `/programlar/${gift.slug}` : `/kurslar/${gift.slug}`} style={{ fontSize: 14, textAlign: "center" }}>{gift.kind === "program" ? "← Programa dön" : "← Kursa dön"}</Link> : <Link href="/sepet" style={{ fontSize: 14, textAlign: "center" }}>← Sepete dön</Link>}
       </aside>
     </form>
   );

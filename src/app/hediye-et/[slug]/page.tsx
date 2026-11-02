@@ -21,7 +21,7 @@ export default async function GiftCoursePage({ params }: { params: Promise<{ slu
       <h1 style={{ fontSize: "clamp(36px,5vw,56px)", lineHeight: 1, textTransform: "uppercase", margin: "0 0 28px" }}>Kurs hediye et</h1>
       <CheckoutForm
         defaults={{ full_name: user.full_name, email: user.email, phone: profile?.phone ?? "" }}
-        gift={{ slug: course.slug, title: course.title, price: course.price, provider: paymentProvider().id }}
+        gift={{ kind: "course", slug: course.slug, title: course.title, price: course.price, provider: paymentProvider().id }}
       />
     </main>
   );

@@ -12,21 +12,28 @@ import {
   isGiftToken,
   normalizeRecipientEmail,
   type GiftClaimReason,
+  type GiftKind,
   type GiftStatus,
 } from "@/lib/gift-rules";
 import { sendGiftRecipientEmail, sendGiftSenderEmail } from "@/lib/mail";
 import { BILLING_COLUMNS, billingValues } from "@/lib/orders";
+import { enrollInProgram, ensureProgramProgress } from "@/lib/programs";
 import { createToken, hashToken } from "@/lib/tokens";
 
 export function giftUrl(token: string): string {
   return `${(process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, "")}/hediye/${token}`;
 }
 
-/** Hediye siparişi: tek kalemli normal bir sipariş (plan='single') + ona bağlı `awaiting_payment` hediye. */
+/** Hediye edilen şey: tek kurs ya da Uzmanlık Programı (fiyatı çağıran sunucuda DB'den hesaplar). */
+export type GiftTarget = { kind: "course"; courseId: number; title: string } | { kind: "program"; programId: number; title: string };
+
+/**
+ * Hediye siparişi: tek kalemli bir sipariş + ona bağlı `awaiting_payment` hediye.
+ * Kurs: plan='single', kalem 'course'. Program: plan='cart', kalem 'program' (unit_price = hediye fiyatı B'); `gifts.program_id` dolu, `course_id` NULL.
+ */
 export async function createGiftOrder(i: {
   senderId: number;
-  courseId: number;
-  courseTitle: string;
+  target: GiftTarget;
   price: number;
   recipientEmail: string;
   message: string | null;
@@ -37,12 +44,19 @@ export async function createGiftOrder(i: {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [o] = await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, course_id, amount, provider) VALUES (?, 'single', ?, ?, ?)", [i.senderId, i.courseId, i.price, i.provider]);
+    const t = i.target;
+    const [o] = t.kind === "course"
+      ? await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, course_id, amount, provider) VALUES (?, 'single', ?, ?, ?)", [i.senderId, t.courseId, i.price, i.provider])
+      : await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, amount, provider) VALUES (?, 'cart', ?, ?)", [i.senderId, i.price, i.provider]);
     const orderId = o.insertId;
     await conn.execute(`UPDATE orders SET ${BILLING_COLUMNS} WHERE id = ?`, [...billingValues(i.billing, i.ip), orderId]);
-    await conn.execute("INSERT INTO order_items (order_id, item_type, course_id, title, unit_price) VALUES (?, 'course', ?, ?, ?)", [orderId, i.courseId, i.courseTitle, i.price]);
-    const [g] = await conn.execute<ResultSetHeader>("INSERT INTO gifts (order_id, sender_id, course_id, recipient_email, message) VALUES (?, ?, ?, ?, ?)", [
-      orderId, i.senderId, i.courseId, normalizeRecipientEmail(i.recipientEmail), i.message || null,
+    if (t.kind === "course") {
+      await conn.execute("INSERT INTO order_items (order_id, item_type, course_id, title, unit_price) VALUES (?, 'course', ?, ?, ?)", [orderId, t.courseId, t.title, i.price]);
+    } else {
+      await conn.execute("INSERT INTO order_items (order_id, item_type, program_id, title, unit_price) VALUES (?, 'program', ?, ?, ?)", [orderId, t.programId, t.title, i.price]);
+    }
+    const [g] = await conn.execute<ResultSetHeader>("INSERT INTO gifts (order_id, sender_id, course_id, program_id, recipient_email, message) VALUES (?, ?, ?, ?, ?, ?)", [
+      orderId, i.senderId, t.kind === "course" ? t.courseId : null, t.kind === "program" ? t.programId : null, normalizeRecipientEmail(i.recipientEmail), i.message || null,
     ]);
     await conn.commit();
     return { orderId, giftId: g.insertId };
@@ -53,6 +67,10 @@ export async function createGiftOrder(i: {
     conn.release();
   }
 }
+
+/** Hediyenin kurs/program ayrımı için ortak SQL parçaları: `g` = gifts takma adı; kurs ya da program LEFT JOIN'lenir. */
+const GIFT_ITEM_JOINS = "LEFT JOIN courses c ON c.id = g.course_id LEFT JOIN programs pr ON pr.id = g.program_id";
+const GIFT_ITEM_COLUMNS = "IF(g.program_id IS NULL, 'course', 'program') AS kind, COALESCE(c.slug, pr.slug) AS item_slug, COALESCE(c.title, pr.title) AS item_title";
 
 /** Son 60 dakikada bu gönderenin oluşturduğu ve mail üreten (ödenmiş) hediye sayısı; mail bombalamaya karşı sınır için. İptal/ödenmemiş sayılmaz. */
 export async function countRecentGiftsBySender(senderId: number): Promise<number> {
@@ -84,8 +102,8 @@ export async function sendGiftEmails(giftId: number, token: string, to: "both" |
   let recipientSent = false;
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT g.recipient_email, g.message, g.expires_at, c.title AS course_title, u.full_name AS sender_name, u.email AS sender_email
-         FROM gifts g JOIN courses c ON c.id = g.course_id JOIN users u ON u.id = g.sender_id WHERE g.id = ?`,
+      `SELECT g.recipient_email, g.message, g.expires_at, ${GIFT_ITEM_COLUMNS}, u.full_name AS sender_name, u.email AS sender_email
+         FROM gifts g ${GIFT_ITEM_JOINS} JOIN users u ON u.id = g.sender_id WHERE g.id = ?`,
       [giftId],
     );
     const g = rows[0];
@@ -93,14 +111,14 @@ export async function sendGiftEmails(giftId: number, token: string, to: "both" |
     const url = giftUrl(token);
     const expiresAt = formatDate(g.expires_at);
     try {
-      await sendGiftRecipientEmail({ to: g.recipient_email, senderName: g.sender_name, courseTitle: g.course_title, message: g.message, url, expiresAt });
+      await sendGiftRecipientEmail({ to: g.recipient_email, kind: g.kind, senderName: g.sender_name, itemTitle: g.item_title, message: g.message, url, expiresAt });
       recipientSent = true;
     } catch (err) {
       console.error("[gift] alıcı maili gönderilemedi", { giftId, err });
     }
     if (to === "both") {
       try {
-        await sendGiftSenderEmail({ to: g.sender_email, recipientEmail: g.recipient_email, courseTitle: g.course_title, url, expiresAt });
+        await sendGiftSenderEmail({ to: g.sender_email, kind: g.kind, recipientEmail: g.recipient_email, itemTitle: g.item_title, url, expiresAt });
       } catch (err) {
         console.error("[gift] gönderen maili gönderilemedi", { giftId, err });
       }
@@ -115,9 +133,9 @@ export type GiftView = {
   id: number;
   status: GiftStatus;
   recipientEmail: string;
-  courseId: number;
-  courseSlug: string;
-  courseTitle: string;
+  kind: GiftKind;
+  itemSlug: string;
+  itemTitle: string;
   senderName: string;
   message: string | null;
   secondsLeft: number;
@@ -127,9 +145,9 @@ export type GiftView = {
 export async function findGiftByToken(token: string): Promise<GiftView | null> {
   if (!isGiftToken(token)) return null;
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.id, g.status, g.recipient_email, g.course_id, g.message, c.slug, c.title, u.full_name AS sender_name,
+    `SELECT g.id, g.status, g.recipient_email, g.message, ${GIFT_ITEM_COLUMNS}, u.full_name AS sender_name,
             TIMESTAMPDIFF(SECOND, NOW(), g.expires_at) AS secondsLeft
-       FROM gifts g JOIN courses c ON c.id = g.course_id JOIN users u ON u.id = g.sender_id
+       FROM gifts g ${GIFT_ITEM_JOINS} JOIN users u ON u.id = g.sender_id
       WHERE g.token_hash = ? LIMIT 1`,
     [hashToken(token)],
   );
@@ -143,9 +161,9 @@ export async function findGiftByToken(token: string): Promise<GiftView | null> {
     id: g.id,
     status: g.status,
     recipientEmail: g.recipient_email,
-    courseId: g.course_id,
-    courseSlug: g.slug,
-    courseTitle: g.title,
+    kind: g.kind,
+    itemSlug: g.item_slug,
+    itemTitle: g.item_title,
     senderName: g.sender_name,
     message: g.message,
     secondsLeft: Number(g.secondsLeft),
@@ -160,9 +178,10 @@ export async function recipientHasAccount(email: string): Promise<boolean> {
 
 /**
  * Hediyeyi alır. Tek transaction: hediye satırı `FOR UPDATE` ile kilitlenir (çift alma yarışı yok), kural `claimBlock` ile
- * uygulanır; başarıda kurs `source='gift'` ile yazılır, hediye `claimed` olur ve token_hash NULL'lanır (tek kullanım).
+ * uygulanır; başarıda kurs `source='gift'` ile (program hediyesinde: programdaki her kurs + üyelik) yazılır, hediye `claimed`
+ * olur ve token_hash NULL'lanır (tek kullanım). Program hediyesinde "zaten sahip" = zaten program üyesi; kurs sahipliği engel değildir.
  */
-export async function claimGift(token: string, userId: number): Promise<{ ok: true; courseSlug: string } | { ok: false; reason: GiftClaimReason }> {
+export async function claimGift(token: string, userId: number): Promise<{ ok: true; kind: GiftKind; slug: string } | { ok: false; reason: GiftClaimReason; kind?: GiftKind }> {
   if (!isGiftToken(token)) return { ok: false, reason: "invalid" };
   const conn = await pool.getConnection();
   try {
@@ -175,7 +194,7 @@ export async function claimGift(token: string, userId: number): Promise<{ ok: tr
     let g: RowDataPacket | undefined;
     if (found[0]) {
       const [rows] = await conn.query<RowDataPacket[]>(
-        "SELECT id, status, recipient_email, course_id, token_hash, TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS secondsLeft FROM gifts WHERE id = ? FOR UPDATE",
+        "SELECT id, status, recipient_email, course_id, program_id, token_hash, TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS secondsLeft FROM gifts WHERE id = ? FOR UPDATE",
         [found[0].id],
       );
       if (rows[0]?.token_hash === hash) g = rows[0];
@@ -186,7 +205,10 @@ export async function claimGift(token: string, userId: number): Promise<{ ok: tr
       await conn.rollback();
       return { ok: false, reason: "invalid" };
     }
-    const [owned] = await conn.query<RowDataPacket[]>("SELECT 1 FROM enrollments WHERE user_id = ? AND course_id = ? LIMIT 1", [userId, g.course_id]);
+    const kind: GiftKind = g.program_id != null ? "program" : "course";
+    const [owned] = kind === "program"
+      ? await conn.query<RowDataPacket[]>("SELECT 1 FROM program_enrollments WHERE user_id = ? AND program_id = ? LIMIT 1", [userId, g.program_id])
+      : await conn.query<RowDataPacket[]>("SELECT 1 FROM enrollments WHERE user_id = ? AND course_id = ? LIMIT 1", [userId, g.course_id]);
     const block = claimBlock(
       { status: g.status, secondsLeft: Number(g.secondsLeft), recipientEmail: g.recipient_email },
       { email: u.email, emailVerified: !!u.email_verified },
@@ -195,18 +217,34 @@ export async function claimGift(token: string, userId: number): Promise<{ ok: tr
     if (block) {
       if (g.status === "pending" && Number(g.secondsLeft) <= 0) await conn.execute("UPDATE gifts SET status = 'expired' WHERE id = ?", [g.id]);
       await conn.commit();
-      return { ok: false, reason: block };
+      // Tür yalnızca "zaten sahip" mesajı için eklenir (o noktaya ancak e-postası eşleşen doğrulanmış alıcı gelir); diğer hatalar bilgi sızdırmaz.
+      return block === "already_owned" ? { ok: false, reason: block, kind } : { ok: false, reason: block };
     }
-    const [course] = await conn.query<RowDataPacket[]>("SELECT slug FROM courses WHERE id = ?", [g.course_id]);
-    const [ins] = await conn.execute<ResultSetHeader>("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'gift')", [userId, g.course_id]);
-    if (ins.affectedRows === 0) {
-      // Sahiplik kontrolünden sonra kurs başka yoldan eklendi (satın alma/Plus): hediye tüketilmez, pending kalır.
-      await conn.rollback();
-      return { ok: false, reason: "already_owned" };
+    let slug: string;
+    if (kind === "program") {
+      const [prog] = await conn.query<RowDataPacket[]>("SELECT slug FROM programs WHERE id = ?", [g.program_id]);
+      slug = prog[0].slug;
+      // Üyelik yeni değilse (sahiplik kontrolünden sonra başka yoldan eklendi) hiçbir şey tüketilmez: rollback kurs kayıtlarını da geri alır.
+      // enrollInProgram(…, 'gift') programdaki her kursa grantCourseEnrollment uygular (Plus kaydı gift'e yükselir, diğer kaynaklar aynen kalır).
+      if (!(await enrollInProgram(conn, userId, g.program_id, "gift"))) {
+        await conn.rollback();
+        return { ok: false, reason: "already_owned", kind };
+      }
+    } else {
+      const [course] = await conn.query<RowDataPacket[]>("SELECT slug FROM courses WHERE id = ?", [g.course_id]);
+      slug = course[0].slug;
+      const [ins] = await conn.execute<ResultSetHeader>("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'gift')", [userId, g.course_id]);
+      if (ins.affectedRows === 0) {
+        // Sahiplik kontrolünden sonra kurs başka yoldan eklendi (satın alma/Plus): hediye tüketilmez, pending kalır.
+        await conn.rollback();
+        return { ok: false, reason: "already_owned", kind };
+      }
     }
     await conn.execute("UPDATE gifts SET status = 'claimed', claimed_by_user_id = ?, claimed_at = NOW(), token_hash = NULL WHERE id = ?", [userId, g.id]);
     await conn.commit();
-    return { ok: true, courseSlug: course[0].slug };
+    // Alıcı program kurslarını daha önce bitirmiş olabilir: commit sonrası sertifika kontrolü (hatası hediyeyi bozmaz).
+    if (kind === "program") await ensureProgramProgress(userId, { programId: g.program_id }).catch((err) => console.error("[gift] program ilerlemesi", { giftId: g.id, err }));
+    return { ok: true, kind, slug };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -253,7 +291,9 @@ export async function rotateGiftToken(giftId: number, senderId: number): Promise
 
 export type SenderGift = {
   id: number;
-  courseTitle: string;
+  kind: GiftKind;
+  itemSlug: string;
+  itemTitle: string;
   recipientEmail: string;
   status: GiftStatus;
   expiresAt: string | null;
@@ -264,14 +304,16 @@ export type SenderGift = {
 export async function listGiftsForSender(senderId: number): Promise<SenderGift[]> {
   await pool.execute("UPDATE gifts SET status = 'expired' WHERE sender_id = ? AND status = 'pending' AND expires_at <= NOW()", [senderId]);
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.id, c.title AS course_title, g.recipient_email, g.status, g.expires_at, g.created_at
-       FROM gifts g JOIN courses c ON c.id = g.course_id
+    `SELECT g.id, ${GIFT_ITEM_COLUMNS}, g.recipient_email, g.status, g.expires_at, g.created_at
+       FROM gifts g ${GIFT_ITEM_JOINS}
       WHERE g.sender_id = ? AND g.status <> 'awaiting_payment' ORDER BY g.id DESC`,
     [senderId],
   );
   return rows.map((r) => ({
     id: r.id,
-    courseTitle: r.course_title,
+    kind: r.kind,
+    itemSlug: r.item_slug,
+    itemTitle: r.item_title,
     recipientEmail: r.recipient_email,
     status: r.status,
     expiresAt: r.expires_at ?? null,

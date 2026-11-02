@@ -82,6 +82,16 @@ test("giftCheckoutSchema: not sınırı, bozuk mail, boş slug ve eksik onay red
   assert.equal(giftCheckoutSchema.safeParse({ ...validBody, consents: { ...validBody.consents, kvkk: false } }).success, false);
 });
 
+test("giftCheckoutSchema: kind verilmezse course varsayılır, program kabul edilir, bilinmeyen değer reddedilir", () => {
+  const def = giftCheckoutSchema.safeParse(validBody);
+  assert.equal(def.success && def.data.kind, "course");
+  const prog = giftCheckoutSchema.safeParse({ ...validBody, kind: "program" });
+  assert.equal(prog.success && prog.data.kind, "program");
+  assert.equal(giftCheckoutSchema.safeParse({ ...validBody, kind: "course" }).success, true);
+  assert.equal(giftCheckoutSchema.safeParse({ ...validBody, kind: "x" }).success, false);
+  assert.equal(giftCheckoutSchema.safeParse({ ...validBody, kind: "plus" }).success, false);
+});
+
 test("giftOrderLabel: hediye siparişine alıcı eklenir, normal sipariş aynen kalır", () => {
   assert.equal(giftOrderLabel("Etik Hacking", "ayse@gmail.com"), "Etik Hacking (hediye → ayse@gmail.com)");
   assert.equal(giftOrderLabel("Etik Hacking", null), "Etik Hacking");

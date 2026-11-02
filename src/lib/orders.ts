@@ -43,7 +43,11 @@ export async function createCartOrder(input: OrderInput): Promise<number> {
     await conn.beginTransaction();
     const wanted = input.lines.map(lineKey).sort().join("|");
 
-    const [pending] = await conn.query<RowDataPacket[]>("SELECT id FROM orders WHERE user_id = ? AND plan = 'cart' AND status = 'pending' ORDER BY id DESC LIMIT 20 FOR UPDATE", [input.userId]);
+    // Program hediyesi de plan='cart' kullanır: hediye siparişi normal sepet siparişi olarak yeniden kullanılmasın (ödenince hediye aktive olurdu).
+    const [pending] = await conn.query<RowDataPacket[]>(
+      "SELECT id FROM orders WHERE user_id = ? AND plan = 'cart' AND status = 'pending' AND NOT EXISTS (SELECT 1 FROM gifts g WHERE g.order_id = orders.id) ORDER BY id DESC LIMIT 20 FOR UPDATE",
+      [input.userId],
+    );
     let orderId: number | undefined;
     for (const p of pending) {
       const [items] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id, program_id FROM order_items WHERE order_id = ?", [p.id]);

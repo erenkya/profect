@@ -417,6 +417,171 @@ try {
   for (const [i, cid] of courseIds.slice(0, 5).entries()) await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [jcert.id, cid, `PRF-8${i}-${stamp % 1e6}`]);
   const jcr = await join(jcert.cookie);
   check("join: 5 kursu da sertifikalı kullanıcıya program sertifikası da verilir", jcr.status === 200 && (await waitFor(async () => (await progCerts(jcert.id)).length === 1)), JSON.stringify(jcr));
+
+  // ── Görev 6: program hediyesi ──
+  const giftRow = async (id) => (await db.query("SELECT * FROM gifts WHERE id = ?", [id]))[0][0];
+  const giftCheckout = (user, body) => api("/api/gifts/checkout", { cookie: user.cookie, body: { recipient_email: mail("nobody"), message: "Başarılar!", billing: BILLING(user.email), consents: CONSENTS, ...body } });
+  /** Gönderen program hediyesi verir; manual sağlayıcıda admin onaylar. { r, giftId, orderId } döner. */
+  const sendProgramGift = async (sender, recipientEmail, slug = PROGRAM_SLUG) => {
+    const r = await giftCheckout(sender, { kind: "program", slug, recipient_email: recipientEmail });
+    if (r.status !== 201) return { r };
+    const [[gr]] = await db.query("SELECT id FROM gifts WHERE order_id = ?", [r.json.orderId]);
+    if (r.json.status === "pending") {
+      const a = await api(`/api/admin/orders/${r.json.orderId}`, { method: "PATCH", cookie: admCookie, body: { action: "approve" } });
+      if (a.status !== 200) throw new Error("admin onayı başarısız: " + JSON.stringify(a.json));
+    }
+    return { r, giftId: gr.id, orderId: r.json.orderId };
+  };
+  /** Gönderenin linkini yeniler ve ham token'ı döndürür (düz token DB'de yok). */
+  const giftToken = async (sender, giftId) => {
+    await db.query("UPDATE gifts SET sent_at = NOW() - INTERVAL 2 MINUTE WHERE id = ?", [giftId]);
+    const r = await api(`/api/gifts/${giftId}/link`, { cookie: sender.cookie, body: { mode: "copy" } });
+    if (r.status !== 200) throw new Error("link yenilenemedi: " + JSON.stringify(r.json));
+    return r.json.link.split("/hediye/")[1];
+  };
+  const claim = (user, token) => api("/api/gifts/claim", { cookie: user.cookie, body: { token } });
+  const gc = courseIds.slice(0, 5);
+
+  // Gönderen bazı kurslara sahip (c1, c2): hediye fiyatı yine B' = 4000 (gönderenin sahipliği önemsiz)
+  const gs = await mkBuyer("gift-sender");
+  await own(gs.id, gc.slice(0, 2));
+  const gsCourses = await enrollCount(gs.id);
+  const gr = await mkBuyer("gift-recipient");
+  // Alıcı: c1 purchase, c2 plus kaynaklı, c3 admin; c4/c5 yok
+  await own(gr.id, [gc[0]], "purchase");
+  await own(gr.id, [gc[1]], "plus");
+  await own(gr.id, [gc[2]], "admin");
+
+  const selfg = await giftCheckout(gs, { kind: "program", slug: PROGRAM_SLUG, recipient_email: " " + gs.email.toUpperCase() + " " });
+  check("program hediyesi: kendine gönderim 400", selfg.status === 400, JSON.stringify(selfg));
+  const gNo = await giftCheckout(gs, { kind: "program", slug: `${PREFIX}-yok`, recipient_email: gr.email });
+  check("program hediyesi: olmayan program 404", gNo.status === 404, JSON.stringify(gNo));
+  await db.query("UPDATE programs SET is_published = 0 WHERE id = ?", [programId]);
+  const gUn = await giftCheckout(gs, { kind: "program", slug: PROGRAM_SLUG, recipient_email: gr.email });
+  await db.query("UPDATE programs SET is_published = 1 WHERE id = ?", [programId]);
+  check("program hediyesi: yayında olmayan program 404", gUn.status === 404, JSON.stringify(gUn));
+  const gx1 = await giftCheckout(gs, { kind: "course", slug: PROGRAM_SLUG, recipient_email: gr.email });
+  check("kurs hediyesi (kind course) program slug'ını reddeder (404)", gx1.status === 404, JSON.stringify(gx1));
+  const gx2 = await giftCheckout(gs, { kind: "program", slug: `${PREFIX}-c1`, recipient_email: gr.email });
+  check("program hediyesi (kind program) kurs slug'ını reddeder (404)", gx2.status === 404, JSON.stringify(gx2));
+  const gx3 = await giftCheckout(gs, { slug: PROGRAM_SLUG, recipient_email: gr.email });
+  check("kind verilmeyen istek varsayılan course: program slug'ı 404", gx3.status === 404, JSON.stringify(gx3));
+  const gBad = await giftCheckout(gs, { kind: "x", slug: PROGRAM_SLUG, recipient_email: gr.email });
+  check("bilinmeyen kind 400", gBad.status === 400, JSON.stringify(gBad));
+
+  const gpg = await page(`/hediye-et/program/${PROGRAM_SLUG}`);
+  check("/hediye-et/program/<slug>: girişsiz -> giriş yönlendirmesi (next dahil)", [307, 308].includes(gpg.status) && gpg.location.includes("/giris?next=") && gpg.location.includes(encodeURIComponent(`/hediye-et/program/${PROGRAM_SLUG}`)), `${gpg.status} ${gpg.location}`);
+  const gpg2 = await page(`/hediye-et/program/${PROGRAM_SLUG}`, gs.cookie);
+  check("/hediye-et/program/<slug>: girişli 200, program adı ve 4000 TL (gönderen 2 kursa sahip olsa da)", gpg2.status === 200 && gpg2.text.includes(PROGRAM_TITLE_P) && /4\.000/.test(gpg2.text), String(gpg2.status));
+  check("/hediye-et/program/<olmayan>: 404", (await page(`/hediye-et/program/${PREFIX}-yok`, gs.cookie)).status === 404);
+
+  // Satışa kapalı program (bir kurs yayından kalktı) → 4xx, sipariş/hediye oluşmaz
+  await db.query("UPDATE courses SET is_published = 0 WHERE id = ?", [gc[2]]);
+  const gClosed = await giftCheckout(gs, { kind: "program", slug: PROGRAM_SLUG, recipient_email: gr.email });
+  await db.query("UPDATE courses SET is_published = 1 WHERE id = ?", [gc[2]]);
+  check("satışa kapalı program (kurs yayından kalktı): hediye checkout 4xx, sipariş/hediye yok",
+    gClosed.status >= 400 && gClosed.status < 500 && Number((await db.query("SELECT COUNT(*) n FROM orders WHERE user_id = ?", [gs.id]))[0][0].n) === 0 && Number((await db.query("SELECT COUNT(*) n FROM gifts WHERE sender_id = ?", [gs.id]))[0][0].n) === 0, JSON.stringify(gClosed));
+
+  // Gönderen programı hediye eder
+  const pg = await sendProgramGift(gs, gr.email);
+  check("program hediyesi: checkout 201", pg.r.status === 201 && !!pg.giftId, JSON.stringify(pg.r));
+  const pgOrder = pg.orderId ? await orderOf(pg.orderId) : null;
+  const pgItems = pg.orderId ? await itemsOf(pg.orderId) : [];
+  const pgPlan = pg.orderId ? (await db.query("SELECT plan FROM orders WHERE id = ?", [pg.orderId]))[0][0].plan : null;
+  check("hediye siparişi: tutar 4000 (gönderen 2 kursa sahip olsa da), plan cart, tek kalem program 4000",
+    Number(pgOrder?.amount) === 4000 && pgPlan === "cart" && pgItems.length === 1 && pgItems[0].item_type === "program" && pgItems[0].program_id === programId && pgItems[0].course_id === null && Number(pgItems[0].unit_price) === 4000 && pgItems[0].title === PROGRAM_TITLE_P,
+    JSON.stringify({ pgOrder, pgPlan, pgItems }));
+  let pgg = await giftRow(pg.giftId);
+  check("gifts: program_id dolu, course_id NULL, pending, token_hash dolu", pgg.program_id === programId && pgg.course_id === null && pgg.status === "pending" && !!pgg.token_hash, JSON.stringify(pgg));
+  check("siparişte gönderene kurs/üyelik yazılmadı", (await enrollCount(gs.id)) === gsCourses && !(await programMember(gs.id, programId)));
+
+  // Ödeme bekleyen sepet siparişi hediye siparişiyle karışmamalı: aynı gönderen kendi sepetinden aynı programı alır
+  const own3 = await mkBuyer("gift-sender-cart");
+  const ghold = await giftCheckout(own3, { kind: "program", slug: PROGRAM_SLUG, recipient_email: gr.email });
+  const cartAfter = await checkout(own3);
+  check("bekleyen program hediye siparişi, aynı gönderenin normal sepet siparişine dönüşmez (ayrı sipariş)",
+    ghold.status === 201 && cartAfter.status === 201 && cartAfter.json?.orderId !== ghold.json?.orderId, JSON.stringify({ ghold: ghold.json, cartAfter: cartAfter.json }));
+  if (cartAfter.json?.status === "pending") {
+    await settle(cartAfter);
+    check("normal sepet ödendi: gönderen programa üye (purchase), hediye hâlâ ödenmedi (awaiting_payment)",
+      (await programMember(own3.id, programId))?.source === "purchase" && (await enrollCount(own3.id)) === 5 && (await giftRow((await db.query("SELECT id FROM gifts WHERE order_id = ?", [ghold.json.orderId]))[0][0].id)).status === "awaiting_payment");
+  }
+
+  // Alma: yanlış hesap, doğrulanmamış, eşleşen
+  const tok = await giftToken(gs, pg.giftId);
+  const gw = await mkBuyer("gift-wrong");
+  const rw = await claim(gw, tok);
+  check("program hediyesi: yanlış hesap 403, hediye pending, kayıt/üyelik yok", rw.status === 403 && (await giftRow(pg.giftId)).status === "pending" && !(await programMember(gw.id, programId)) && (await enrollCount(gw.id)) === 0, JSON.stringify(rw));
+  await db.query("UPDATE users SET email_verified = 0 WHERE id = ?", [gr.id]);
+  const ru = await claim(gr, tok);
+  await db.query("UPDATE users SET email_verified = 1 WHERE id = ?", [gr.id]);
+  check("program hediyesi: doğrulanmamış hesap reddedilir (403/401), hediye pending, hiçbir kayıt yazılmadı",
+    [401, 403].includes(ru.status) && (await giftRow(pg.giftId)).status === "pending" && !(await programMember(gr.id, programId)) && (await enrollCount(gr.id)) === 3, JSON.stringify(ru));
+  const pgPage = await page(`/hediye/${tok}`, gr.cookie);
+  check("/hediye/<token>: program adı görünür, 'kurs hediye etti' denmez", pgPage.status === 200 && pgPage.text.includes(PROGRAM_TITLE_P) && pgPage.text.includes("Hediyeyi Al") && !pgPage.text.includes("sana bir kurs hediye etti"), String(pgPage.status));
+  const sPage = await page("/hesabim/hediyeler", gs.cookie);
+  check("/hesabim/hediyeler: program adı ve alıcı görünür", sPage.status === 200 && sPage.text.includes(PROGRAM_TITLE_P) && sPage.text.includes(gr.email), String(sPage.status));
+
+  const rc1 = await claim(gr, tok);
+  check("alıcı hediyeyi alır: 200 { kind: program, slug }", rc1.status === 200 && rc1.json?.kind === "program" && rc1.json?.slug === PROGRAM_SLUG, JSON.stringify(rc1));
+  const gsrc = await sources(gr.id, gc);
+  check("alma sonrası 5 kursun hepsi kayıtlı; plus -> gift, purchase aynen, admin aynen, yeniler gift",
+    JSON.stringify(gsrc) === JSON.stringify(["purchase", "gift", "admin", "gift", "gift"]) && (await enrollCount(gr.id)) === 5, JSON.stringify(gsrc));
+  check("program_enrollments.source gift", (await programMember(gr.id, programId))?.source === "gift");
+  pgg = await giftRow(pg.giftId);
+  check("hediye claimed, claimed_by alıcı, token_hash NULL", pgg.status === "claimed" && pgg.claimed_by_user_id === gr.id && pgg.token_hash === null && pgg.claimed_at !== null, JSON.stringify(pgg));
+  check("gönderene hâlâ kurs/üyelik yazılmadı", (await enrollCount(gs.id)) === gsCourses && !(await programMember(gs.id, programId)));
+  const rc2 = await claim(gr, tok);
+  check("aynı link ikinci kez: tek tip 404", rc2.status === 404, JSON.stringify(rc2));
+
+  // Eş zamanlı çift alma: biri 200, diğeri 404; tek üyelik
+  const gs2 = await mkBuyer("gift-sender2");
+  const gr2 = await mkBuyer("gift-recipient2");
+  const pg2 = await sendProgramGift(gs2, gr2.email);
+  const tok2 = await giftToken(gs2, pg2.giftId);
+  const [x, y] = await Promise.all([claim(gr2, tok2), claim(gr2, tok2)]);
+  check("program hediyesi: eş zamanlı iki alma -> 200 + 404, 5 kayıt, 1 üyelik", [x.status, y.status].sort().join() === "200,404" && (await enrollCount(gr2.id)) === 5 && (await progMembers(gr2.id)).length === 1, JSON.stringify([x.status, y.status]));
+
+  // Alıcı zaten program üyesi: hata, hediye pending kalır, kurs kayıtları yazılmaz
+  const gr3 = await mkBuyer("gift-recipient3");
+  await db.query("INSERT INTO program_enrollments (user_id, program_id, source) VALUES (?, ?, 'auto')", [gr3.id, programId]);
+  const pg3 = await sendProgramGift(gs2, gr3.email);
+  const tok3 = await giftToken(gs2, pg3.giftId);
+  const r3 = await claim(gr3, tok3);
+  const g3 = await giftRow(pg3.giftId);
+  check("alıcı zaten program üyesi: 409, hediye pending (token korunur), kurs kaydı yazılmadı", r3.status === 409 && g3.status === "pending" && g3.token_hash !== null && (await enrollCount(gr3.id)) === 0 && (await progMembers(gr3.id)).length === 1 && (await progMembers(gr3.id))[0].source === "auto", JSON.stringify({ r3, status: g3.status }));
+
+  // Alıcı 5 kursa sahip ama üye değil: kurs sahipliği engel değil -> hediye alınır
+  const gs4 = await mkBuyer("gift-sender4");
+  const gr4 = await mkBuyer("gift-recipient4");
+  await own(gr4.id, gc, "purchase");
+  const pg4 = await sendProgramGift(gs4, gr4.email);
+  const tok4 = await giftToken(gs4, pg4.giftId);
+  const r4 = await claim(gr4, tok4);
+  check("alıcı 5 kursa sahip ama üye değil: kurs sahipliği engel değil (200), üyelik gift, kurslar purchase kalır",
+    r4.status === 200 && (await programMember(gr4.id, programId))?.source === "gift" && (await sources(gr4.id, gc)).every((v) => v === "purchase"), JSON.stringify(r4));
+
+  // Alıcı tüm kurslarını önceden bitirmiş: alma sonrası program sertifikası
+  const gs5 = await mkBuyer("gift-sender5");
+  const gr5 = await mkBuyer("gift-recipient5");
+  for (const [i, cid] of gc.entries()) await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [gr5.id, cid, `PRF-7${i}-${stamp % 1e6}`]);
+  const pg5 = await sendProgramGift(gs5, gr5.email);
+  const tok5 = await giftToken(gs5, pg5.giftId);
+  const r5 = await claim(gr5, tok5);
+  const cert5 = await waitFor(async () => (await progCerts(gr5.id)).length === 1);
+  check("alıcı 5 kursu da bitirmişti: alma sonrası program sertifikası, üyelik gift kaldı", r5.status === 200 && cert5 && (await progMembers(gr5.id))[0]?.source === "gift", JSON.stringify({ r5, m: await progMembers(gr5.id) }));
+
+  // Kurs hediyesi regresyonu: kurs hediyesi hâlâ çalışır, claim yanıtı { kind: course, slug }
+  const gs6 = await mkBuyer("gift-sender6");
+  const gr6 = await mkBuyer("gift-recipient6");
+  const cg = await giftCheckout(gs6, { slug: `${PREFIX}-c1`, recipient_email: gr6.email });
+  check("kurs hediyesi (kind verilmedi): checkout 201, tutar 1000", cg.status === 201 && Number((await orderOf(cg.json?.orderId)).amount) === COURSE_PRICE, JSON.stringify(cg));
+  if (cg.json?.status === "pending") await api(`/api/admin/orders/${cg.json.orderId}`, { method: "PATCH", cookie: admCookie, body: { action: "approve" } });
+  const [[cgr]] = await db.query("SELECT id, course_id, program_id FROM gifts WHERE order_id = ?", [cg.json?.orderId]);
+  check("kurs hediyesi: gifts.course_id dolu, program_id NULL", cgr?.course_id === courseIds[0] && cgr.program_id === null, JSON.stringify(cgr));
+  const ctok = await giftToken(gs6, cgr.id);
+  const crc = await claim(gr6, ctok);
+  check("kurs hediyesi alma: 200 { kind: course, slug }, kurs gift, program üyeliği yok", crc.status === 200 && crc.json?.kind === "course" && crc.json?.slug === `${PREFIX}-c1` && (await enrolled(gr6.id, courseIds[0]))?.source === "gift" && !(await programMember(gr6.id, programId)), JSON.stringify(crc));
 } catch (e) {
   failN++;
   console.log("✗ FAIL beklenmeyen hata:", e);
