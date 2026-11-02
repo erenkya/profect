@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Şifre ve güvenlik" };
 export default function PasswordPage() {
   return (
     <>
-      <PageTitle title="Şifre ve güvenlik" hint="Hesabını korumak için güçlü bir şifre kullan." />
+      <PageTitle title="Şifre ve güvenlik" hint="Yeni şifren, e-postana gönderilen onay bağlantısına tıkladığında geçerli olur." />
       <ChangePasswordForm />
     </>
   );

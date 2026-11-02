@@ -54,6 +54,7 @@ export function LoginForm({ siteKey, next }: { siteKey: string; next: string }) 
       <div className="field">
         <label htmlFor="password">Şifre</label>
         <input id="password" className="input" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ background: "#fff", minHeight: 44, fontSize: 16 }} />
+        <Link href="/sifremi-unuttum" style={{ alignSelf: "flex-end", fontSize: 14, marginTop: 6 }}>Şifrenizi mi unuttunuz?</Link>
       </div>
       {siteKey && <Turnstile siteKey={siteKey} onSuccess={setToken} onExpire={() => setToken("")} options={{ theme: "light" }} />}
       {error && <FormMessage kind="error">{error}</FormMessage>}
@@ -61,8 +62,7 @@ export function LoginForm({ siteKey, next }: { siteKey: string; next: string }) 
         <Corners />
         {busy ? "Giriş yapılıyor…" : "Giriş Yap"}
       </button>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, flexWrap: "wrap", gap: 8 }}>
-        <Link href="/sifremi-unuttum">Şifremi unuttum</Link>
+      <div style={{ fontSize: 14 }}>
         <span>Hesabın yok mu? <Link href={`/kayit${next !== "/hesabim" ? `?next=${encodeURIComponent(next)}` : ""}`}>Kayıt ol</Link></span>
       </div>
     </form>

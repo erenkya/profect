@@ -97,6 +97,49 @@ export function ResetPasswordForm({ token }: { token: string }) {
   );
 }
 
+/** Onay e-postasındaki bağlantının açtığı ekran. Mail tarayıcıları bağlantıyı önceden açabildiği için değişiklik yalnızca butonla (POST) uygulanır. */
+export function ConfirmPasswordChange({ token }: { token: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+
+  async function confirm() {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/confirm-password-change", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
+      const json = await res.json();
+      if (res.ok) setDone(json.message);
+      else setError(json.message);
+    } catch {
+      setError("Bağlantı hatası. Lütfen tekrar deneyin.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!token) return <FormMessage kind="error">Onay bağlantısı eksik. Lütfen e-postadaki bağlantıyı kullanın.</FormMessage>;
+  if (done) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <FormMessage kind="ok">{done}</FormMessage>
+        <Link href="/giris" className="btn btn-primary blueprint"><Corners />Giriş yap</Link>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6 }}>Hesabınızın şifresi, hesap sayfasından belirlediğiniz yeni şifreyle değiştirilecek. Bu talebi siz yaptıysanız onaylayın.</p>
+      {error && <FormMessage kind="error">{error}</FormMessage>}
+      <button type="button" disabled={busy} onClick={confirm} className="btn btn-primary blueprint" style={{ fontSize: 17, padding: 13 }}>
+        <Corners />
+        {busy ? "Onaylanıyor…" : "Şifre değişikliğini onayla"}
+      </button>
+      <Link href="/hesabim" style={{ fontSize: 14 }}>Vazgeç</Link>
+    </div>
+  );
+}
+
 const CODE_LENGTH = 6;
 const CODE_TTL_MINUTES = 10;
 const RESEND_COOLDOWN_SECONDS = 60;

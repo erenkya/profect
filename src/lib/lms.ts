@@ -1,7 +1,9 @@
 // LMS veri erişimi (x-plore sorgularından uyarlandı). Ham SQL — mysql2 havuzu.
 import "server-only";
+import { after } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
+import { sendOrderReceipt } from "@/lib/order-receipt";
 import { FREE_PREVIEW_LESSONS } from "@/lib/preview";
 
 export type CourseRow = {
@@ -354,6 +356,7 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
       }
     }
     await conn.commit();
+    after(() => sendOrderReceipt(orderId)); // yalnızca ilk ödeme geçişinde; yanıtı geciktirmez, hatası siparişi bozmaz
     return { ok: true };
   } catch (err) {
     await conn.rollback();

@@ -22,7 +22,9 @@ export async function POST(request: Request) {
 
     const newHash = await bcrypt.hash(body.data.newPassword, 10);
     const [res] = await pool.execute<ResultSetHeader>(
-      `UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expiry = NULL
+      `UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expiry = NULL,
+              pending_password_hash = NULL, pending_password_token_hash = NULL,
+              pending_password_expiry = NULL, pending_password_sent_at = NULL
         WHERE id = ? AND reset_token_hash = ?`,
       [newHash, rows[0].id, hash],
     );

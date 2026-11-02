@@ -83,6 +83,81 @@ export async function sendVerificationCodeEmail(email: string, code: string, ttl
   });
 }
 
+/** Hesap sayfasından şifre değiştirilirken yeni şifreyi onaylatan bağlantı. */
+export async function sendPasswordChangeConfirmationEmail(email: string, url: string, ttlMinutes: number) {
+  const intro = "Hesabınızın şifresini değiştirmek istediniz. Değişikliği tamamlamak için aşağıdaki butonla onaylayın.";
+  const notice = `Bu bağlantı ${ttlMinutes} dakika geçerlidir. Onaylamazsanız şifreniz değişmez. Bu talebi siz yapmadıysanız bu e-postayı yok sayın ve şifrenizi değiştirmeyi düşünün.`;
+  await deliver({
+    to: email,
+    subject: "Şifre değişikliğini onaylayın — Profect",
+    html: layout("Şifre Değişikliği Onayı", intro, "Değişikliği Onayla", url, notice),
+    text: `${intro}\n\n${url}\n\n${notice}`,
+  });
+}
+
+export type OrderReceipt = {
+  orderNo: number;
+  paidAt: string;
+  buyer: { name: string; email: string; companyName?: string | null; taxOffice?: string | null; taxNumber?: string | null };
+  items: { title: string; price: number }[];
+  discount: number;
+  couponCode?: string | null;
+  total: number;
+  maskedCard?: string | null;
+  url: string;
+};
+
+const money = (n: number) => "₺" + new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+
+function receiptLayout(r: OrderReceipt) {
+  const row = (label: string, value: string, bold = false) =>
+    `<tr><td style="padding:6px 0;font-size:14px;color:#6b6880">${esc(label)}</td><td style="padding:6px 0;font-size:14px;text-align:right;${bold ? "font-weight:bold;color:#162357;font-size:16px" : ""}">${esc(value)}</td></tr>`;
+  const lines = r.items
+    .map((i) => `<tr><td style="padding:10px 0;border-bottom:1px solid #eceefa;font-size:14px">${esc(i.title)}</td><td style="padding:10px 0;border-bottom:1px solid #eceefa;font-size:14px;text-align:right;white-space:nowrap">${esc(money(i.price))}</td></tr>`)
+    .join("");
+  const b = r.buyer;
+  const buyer = [b.companyName ?? b.name, b.companyName ? `${b.taxOffice ?? ""} V.D. · ${b.taxNumber ?? ""}` : "", b.email].filter(Boolean).map(esc).join("<br>");
+  return `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><title>Sipariş Özeti</title></head>
+<body style="margin:0;background:#f6f6fb;font-family:Arial,sans-serif;color:#17142b">
+  <div style="max-width:560px;margin:24px auto;background:#fff;border:1px solid #dbe4fd">
+    <div style="background:#162357;color:#fff;padding:24px 28px">
+      <div style="font-size:22px;font-weight:bold;letter-spacing:.04em">PROFECT</div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px">Sipariş Özeti · #${r.orderNo}</div>
+    </div>
+    <div style="padding:28px">
+      <p style="font-size:15px;line-height:1.6;margin:0 0 20px">Ödemeniz alındı, teşekkür ederiz! Erişiminiz hesabınızda açıldı. Sipariş detaylarınız aşağıdadır.</p>
+      <p style="font-size:13px;color:#6b6880;line-height:1.6;margin:0 0 20px"><strong style="color:#17142b">Alıcı</strong><br>${buyer}</p>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:2px solid #162357">${lines}</table>
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:8px">
+        ${r.discount > 0 ? row(r.couponCode ? `İndirim (${r.couponCode})` : "İndirim", `-${money(r.discount)}`) : ""}
+        ${row("Toplam", money(r.total), true)}
+        ${row("Ödeme tarihi", r.paidAt)}
+        ${r.maskedCard ? row("Kart", r.maskedCard) : ""}
+      </table>
+      <p style="text-align:center;margin:28px 0">
+        <a href="${esc(r.url)}" style="background:#3a5fdc;color:#fff;text-decoration:none;padding:12px 28px;font-weight:bold;display:inline-block">Kurslarıma Git</a>
+      </p>
+      <p style="font-size:12px;color:#6b6880;line-height:1.5">Bu e-posta sipariş ve ödeme bilgilendirmesidir. Sorularınız için bu e-postayı yanıtlayabilirsiniz.</p>
+    </div>
+  </div>
+</body></html>`;
+}
+
+/** Ödeme alındığında alıcıya giden sipariş özeti / makbuz. */
+export async function sendOrderReceiptEmail(r: OrderReceipt) {
+  const text = [
+    `Ödemeniz alındı, teşekkür ederiz! Sipariş #${r.orderNo}`,
+    "",
+    ...r.items.map((i) => `- ${i.title}: ${money(i.price)}`),
+    ...(r.discount > 0 ? [`İndirim${r.couponCode ? ` (${r.couponCode})` : ""}: -${money(r.discount)}`] : []),
+    `Toplam: ${money(r.total)}`,
+    `Ödeme tarihi: ${r.paidAt}`,
+    "",
+    `Kurslarım: ${r.url}`,
+  ].join("\n");
+  await deliver({ to: r.buyer.email, subject: `Siparişiniz alındı #${r.orderNo} — Profect`, html: receiptLayout(r), text });
+}
+
 export async function sendPasswordResetEmail(email: string, url: string) {
   const intro = "Hesabınız için bir şifre sıfırlama talebi aldık. Yeni şifrenizi belirlemek için aşağıdaki butonu kullanın.";
   const notice = "Bu bağlantı 10 dakika geçerlidir. Talebi siz yapmadıysanız bu e-postayı yok sayın; şifreniz değişmez.";
