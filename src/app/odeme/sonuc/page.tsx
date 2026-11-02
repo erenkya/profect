@@ -21,9 +21,18 @@ export default async function CheckoutResultPage({ searchParams }: { searchParam
     ? await pool.query<RowDataPacket[]>("SELECT id, amount, status, error_message FROM orders WHERE id = ? AND user_id = ?", [id, user.id])
     : [[] as RowDataPacket[]];
   const order = rows[0] as { id: number; amount: string; status: "pending" | "paid" | "rejected"; error_message: string | null } | undefined;
+  // Hediye siparişi: erişim alıcıya gider, sepet boşaltılmaz; metinler buna göre.
+  const [giftRows] = order ? await pool.query<RowDataPacket[]>("SELECT 1 FROM gifts WHERE order_id = ? LIMIT 1", [order.id]) : [[] as RowDataPacket[]];
+  const isGift = giftRows.length > 0;
   const [items] = order ? await pool.query<RowDataPacket[]>("SELECT title FROM order_items WHERE order_id = ? ORDER BY id", [order.id]) : [[] as RowDataPacket[]];
 
-  const view = !order
+  const view = isGift && order
+    ? order.status === "paid"
+      ? { title: "Hediyen gönderildi", body: "Alıcıya ve sana e-posta gönderdik. Mail ulaşmazsa linki Hediyelerim sayfasından alabilirsin.", cta: { href: "/hesabim/hediyeler", label: "Hediyelerim" } }
+      : order.status === "pending"
+        ? { title: "Siparişin alındı", body: "Siparişin onay bekliyor. Ödemen doğrulandığında hediye alıcıya e-postayla gönderilecek.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } }
+        : { title: "Ödeme tamamlanamadı", body: order.error_message ? `Banka yanıtı: ${order.error_message}` : "Ödeme onaylanmadı.", cta: { href: "/kurslar", label: "Kurslara dön" } }
+    : !order
     ? { title: "Sipariş bulunamadı", body: "Bu sipariş kaydına ulaşılamadı.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } }
     : order.status === "paid"
       ? { title: "Ödemen alındı", body: "Erişimin açıldı. Kurslarına hesabından ulaşabilirsin.", cta: { href: "/hesabim/kurslarim", label: "Kurslarım" } }
@@ -33,7 +42,7 @@ export default async function CheckoutResultPage({ searchParams }: { searchParam
 
   return (
     <main style={{ minHeight: "calc(100vh - 140px)", display: "grid", placeItems: "center", padding: "clamp(40px,8vw,96px) 20px" }}>
-      {order && order.status !== "rejected" && <ClearCartOnMount />}
+      {order && !isGift && order.status !== "rejected" && <ClearCartOnMount />}
       <div className="card blueprint elev-md" style={{ width: "min(520px,100%)", background: "#fff", padding: "clamp(24px,5vw,40px)", gap: 16 }}>
         <Corners />
         <h1 style={{ fontSize: 34, textTransform: "uppercase", margin: 0 }}>{view.title}</h1>
