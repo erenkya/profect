@@ -181,7 +181,18 @@ export async function recipientHasAccount(email: string): Promise<boolean> {
  * uygulanır; başarıda kurs `source='gift'` ile (program hediyesinde: programdaki her kurs + üyelik) yazılır, hediye `claimed`
  * olur ve token_hash NULL'lanır (tek kullanım). Program hediyesinde "zaten sahip" = zaten program üyesi; kurs sahipliği engel değildir.
  */
-export async function claimGift(token: string, userId: number): Promise<{ ok: true; kind: GiftKind; slug: string } | { ok: false; reason: GiftClaimReason; kind?: GiftKind }> {
+export async function claimGift(token: string, userId: number): Promise<ClaimResult> {
+  const r: ClaimTxResult = await claimGiftTx(token, userId);
+  // Bağlantı havuza döndükten SONRA: ensureProgramProgress kendi bağlantılarını alır, claim'in bağlantısını tutarken beklemek havuzu kilitleyebilir.
+  // Alıcı program kurslarını daha önce bitirmiş olabilir: sertifika kontrolü (hatası hediyeyi bozmaz, yalnızca loglanır).
+  if (r.ok && r.programId != null) await ensureProgramProgress(userId, { programId: r.programId }).catch((err) => console.error("[gift] program ilerlemesi", { userId, programId: r.programId, err }));
+  return r.ok ? { ok: true, kind: r.kind, slug: r.slug } : r;
+}
+
+type ClaimResult = { ok: true; kind: GiftKind; slug: string } | { ok: false; reason: GiftClaimReason; kind?: GiftKind };
+type ClaimTxResult = { ok: true; kind: GiftKind; slug: string; programId?: number } | Extract<ClaimResult, { ok: false }>;
+
+async function claimGiftTx(token: string, userId: number): Promise<ClaimTxResult> {
   if (!isGiftToken(token)) return { ok: false, reason: "invalid" };
   const conn = await pool.getConnection();
   try {
@@ -242,9 +253,7 @@ export async function claimGift(token: string, userId: number): Promise<{ ok: tr
     }
     await conn.execute("UPDATE gifts SET status = 'claimed', claimed_by_user_id = ?, claimed_at = NOW(), token_hash = NULL WHERE id = ?", [userId, g.id]);
     await conn.commit();
-    // Alıcı program kurslarını daha önce bitirmiş olabilir: commit sonrası sertifika kontrolü (hatası hediyeyi bozmaz).
-    if (kind === "program") await ensureProgramProgress(userId, { programId: g.program_id }).catch((err) => console.error("[gift] program ilerlemesi", { giftId: g.id, err }));
-    return { ok: true, kind, slug };
+    return kind === "program" ? { ok: true, kind, slug, programId: Number(g.program_id) } : { ok: true, kind, slug };
   } catch (err) {
     await conn.rollback();
     throw err;

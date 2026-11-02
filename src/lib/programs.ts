@@ -237,10 +237,16 @@ async function candidatePrograms(userId: number, opts: { courseId?: number; prog
       `SELECT DISTINCT p.id FROM programs p
          JOIN program_courses pc ON pc.program_id = p.id
          JOIN certificates ce ON ce.course_id = pc.course_id AND ce.user_id = ?
-        WHERE p.is_published = 1`,
-      [userId],
+        WHERE p.is_published = 1 OR EXISTS (SELECT 1 FROM program_enrollments pe WHERE pe.user_id = ? AND pe.program_id = p.id)`,
+      [userId, userId],
     );
     ids = rows.map((r) => Number(r.id));
+  }
+  // Sertifikası zaten verilmiş programlar elenir: her ziyarette gereksiz yazma transaction'ı (kilit, auto-increment tüketimi) olmasın.
+  if (ids.length > 0) {
+    const [done] = await pool.query<RowDataPacket[]>("SELECT program_id FROM program_certificates WHERE user_id = ? AND program_id IN (?)", [userId, ids]);
+    const certified = new Set(done.map((r) => Number(r.program_id)));
+    ids = ids.filter((id) => !certified.has(id));
   }
   const out = new Map<number, number[]>();
   if (ids.length === 0) return out;
@@ -300,7 +306,8 @@ async function issueProgramCertificate(userId: number, programId: number): Promi
  * `program_enrollments`'a (`auto`, yoksa) ve `program_certificates`'a (yoksa) ekler. Yeni verilen kodları döner.
  *
  * Aday programlar: `programId` → o program (yayın durumuna bakılmaz); `courseId` → o kursu içeren programlardan yayında
- * olanlar ya da kullanıcının üye olduğu; ikisi de yoksa kullanıcının en az bir kursunun sertifikası olduğu yayındaki programlar.
+ * olanlar ya da kullanıcının üye olduğu; ikisi de yoksa kullanıcının en az bir kursunun sertifikası olduğu programlardan yayında olanlar
+ * ya da kullanıcının üye olduğu. Sertifikası zaten verilmiş programlar her modda elenir.
  * Kursu olmayan program asla tamamlanmaz. Daha önce verilmiş sertifika, kurs sonradan yayından kalksa da geçerli kalır.
  */
 export async function ensureProgramProgress(userId: number, opts: { courseId?: number; programId?: number } = {}): Promise<{ issued: string[] }> {

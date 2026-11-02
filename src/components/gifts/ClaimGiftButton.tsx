@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Corners } from "@/components/Corners";
 import { FormMessage } from "@/components/auth/AuthShell";
 
-/** "Hediyeyi Al": alma yalnızca POST ile yapılır (GET durum değiştirmez). Başarıda kursun ya da programın sayfasına yönlenir. */
+/** "Hediyeyi Al": alma yalnızca POST ile yapılır (GET durum değiştirmez). Başarıda kursa ya da "Programlarım"a yönlenir (program sonradan yayından kalkmış olabilir, program sayfası 404 verebilir). */
 export function ClaimGiftButton({ token }: { token: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -18,7 +18,7 @@ export function ClaimGiftButton({ token }: { token: string }) {
       const res = await fetch("/api/gifts/claim", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) });
       const json = await res.json();
       if (res.ok) {
-        router.push(json.kind === "program" ? `/programlar/${json.slug}` : `/ogrenim/${json.slug}`);
+        router.push(json.kind === "program" ? "/hesabim/programlarim" : `/ogrenim/${json.slug}`);
         router.refresh();
         return;
       }

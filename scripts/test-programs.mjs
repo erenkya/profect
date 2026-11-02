@@ -584,6 +584,30 @@ try {
   const crc = await claim(gr6, ctok);
   check("kurs hediyesi alma: 200 { kind: course, slug }, kurs gift, program üyeliği yok", crc.status === 200 && crc.json?.kind === "course" && crc.json?.slug === `${PREFIX}-c1` && (await enrolled(gr6.id, courseIds[0]))?.source === "gift" && !(await programMember(gr6.id, programId)), JSON.stringify(crc));
 
+  // ── Son inceleme düzeltmeleri: tembel ilerleme (yayında olmayan üyelik) ve sertifikalı programın yeniden yazılmaması ──
+  const fx = await mkUser("final-unpub-member");
+  await own(fx.id, gc);
+  for (const [i, cid] of gc.entries()) await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [fx.id, cid, `PRF-6${i}-${stamp % 1e6}`]);
+  await db.query("INSERT INTO program_enrollments (user_id, program_id, source) VALUES (?, ?, 'auto')", [fx.id, programId]);
+  await db.query("UPDATE programs SET is_published = 0 WHERE id = ?", [programId]);
+  await page("/hesabim/programlarim", fx.cookie);
+  const fxCerts = await progCerts(fx.id);
+  check("yayında olmayan programın üyesi, tüm kurs sertifikaları var: Programlarım açılışı program sertifikasını tamamlar", fxCerts.length === 1, JSON.stringify(fxCerts));
+  // Yayında olmayan programa üye olmayan kullanıcı tembel yolla sertifika almaz (katılım yalnızca yayındaki programlarda)
+  const fy = await mkUser("final-unpub-nonmember");
+  await own(fy.id, gc);
+  for (const [i, cid] of gc.entries()) await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [fy.id, cid, `PRF-5${i}-${stamp % 1e6}`]);
+  await page("/hesabim/programlarim", fy.cookie);
+  check("yayında olmayan programa üye olmayan: tembel yol sertifika/üyelik üretmez", (await progCerts(fy.id)).length === 0 && (await progMembers(fy.id)).length === 0);
+  await db.query("UPDATE programs SET is_published = 1 WHERE id = ?", [programId]);
+  // Sertifikalı program: Programlarım ziyareti ek INSERT yapmaz (auto-increment tüketilmez)
+  const nextId = async () => Number((await db.query("SELECT AUTO_INCREMENT n FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'program_certificates'"))[0][0].n);
+  const ai0 = await nextId();
+  await page("/hesabim/programlarim", fx.cookie);
+  await page("/hesabim/programlarim", fx.cookie);
+  const ai1 = await nextId();
+  check("sertifikası verilmiş program: tekrar ziyaretlerde program_certificates auto-increment ilerlemez", ai0 === ai1 && (await progCerts(fx.id)).length === 1, JSON.stringify([ai0, ai1]));
+
   // ── Görev 7: herkese açık sayfalar ve hesap arayüzü ──
   const listPg = await page("/programlar");
   check("GET /programlar: 200, program adını içerir", listPg.status === 200 && listPg.text.includes(PROGRAM_TITLE_P), String(listPg.status));
