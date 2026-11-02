@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import mysql from "mysql2/promise";
 // Çalışan bir sunucuya karşı uçtan uca API testi (kurs oluşturur, test kullanıcısı açar, sonunda hepsini siler).
 // Kullanım: ADMIN_EMAIL=... ADMIN_PASSWORD=... npm run test:api   (önce `npm run dev`)
@@ -63,15 +64,17 @@ try {
   r = await api("admin", "PATCH", "/api/admin/lessons/reorder", { module_id: m1, ids: [l2, l1] }); check("ders sırala", r.status === 200);
 
   // — kayıt + doğrulama
-  r = await api("user", "POST", "/api/auth/register", { full_name: "E2E Test", email, password: "kısa", kvkk: true, turnstileToken: T }); check("kısa parola reddedildi", r.status === 400);
-  r = await api("user", "POST", "/api/auth/register", { full_name: "E2E Test", email, password: "Test1234!", kvkk: false, turnstileToken: T }); check("KVKK onaysız reddedildi", r.status === 400);
-  r = await api("user", "POST", "/api/auth/register", { full_name: "E2E Test", email, password: "Test1234!", kvkk: true, turnstileToken: T }); check("kayıt", r.status === 201, JSON.stringify(r.json));
-  r = await api("user", "POST", "/api/auth/register", { full_name: "E2E Test", email, password: "Test1234!", kvkk: true, turnstileToken: T }); check("aynı e-posta 409", r.status === 409);
+  r = await api("user", "POST", "/api/auth/register", { full_name: "E2E Test", email, kvkk: false, turnstileToken: T }); check("KVKK onaysız reddedildi", r.status === 400);
+  // Kayıt şifre almaz: hesap şifresi e-posta kodu girilirken doğrulamada belirlenir.
+  r = await api("user", "POST", "/api/auth/register", { full_name: "E2E Test", email, kvkk: true, turnstileToken: T }); check("kayıt", r.status === 201, JSON.stringify(r.json));
+  r = await api("user", "POST", "/api/auth/register", { full_name: "E2E Test", email, kvkk: true, turnstileToken: T }); check("bekleme süresinde yeniden kayıt 429", r.status === 429);
   r = await api("user", "POST", "/api/auth/login", { email, password: "Test1234!", turnstileToken: T }); check("doğrulanmamış giriş 403 + needsVerification", r.status === 403 && r.json.needsVerification === true);
   const [[u]] = await db.query("SELECT id, verification_token_hash AS h FROM users WHERE email=?", [email]); userId = u.id;
   check("kod DB'de özet olarak (64 hex)", /^[0-9a-f]{64}$/.test(u.h));
-  r = await api("user", "POST", "/api/auth/verify-email", { email, code: "000000" }); check("yanlış doğrulama kodu reddedildi", r.status === 400);
-  await db.query("UPDATE users SET email_verified=1 WHERE id=?", [userId]);
+  r = await api("user", "POST", "/api/auth/verify-email", { email, code: "000000", password: "kısa" }); check("kısa parola reddedildi", r.status === 400);
+  r = await api("user", "POST", "/api/auth/verify-email", { email, code: "000000", password: "Test1234!" }); check("yanlış doğrulama kodu reddedildi", r.status === 400);
+  // Kayıtta şifre yazılmadığı için doğrulamayı DB'den simüle ederken şifreyi de yazarız.
+  await db.query("UPDATE users SET email_verified=1, password_hash=? WHERE id=?", [await bcrypt.hash("Test1234!", 10), userId]);
   r = await api("user", "POST", "/api/auth/login", { email, password: "Test1234!", turnstileToken: T }); check("kullanıcı girişi", r.status === 200 && r.json.user.role === "user");
   r = await api("user", "GET", "/api/admin/courses"); check("kullanıcı admin API'ye giremez (403)", r.status === 403);
 

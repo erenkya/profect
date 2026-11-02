@@ -21,11 +21,12 @@ const db = await mysql.createConnection({ host: process.env.DB_HOST, user: proce
 const stamp = Date.now();
 const mail = (n) => `e2e-verify-${stamp}-${n}@example.invalid`;
 const row = async (email) => (await db.query("SELECT *, TIMESTAMPDIFF(SECOND, NOW(), verification_token_expiry) AS ttl FROM users WHERE email=?", [email]))[0][0];
-const register = (email, over = {}) => api("/api/auth/register", { full_name: "E2E Doğrulama", email, password: PW, kvkk: true, turnstileToken: T, ...over });
+// Kayıt şifre ALMAZ: hesap şifresi doğrulamada, kodu giren kişi tarafından belirlenir.
+const register = (email, over = {}) => api("/api/auth/register", { full_name: "E2E Doğrulama", email, kvkk: true, turnstileToken: T, ...over });
 const login = (email, password = PW) => api("/api/auth/login", { email, password, turnstileToken: T });
 const cooldownPassed = (id) => db.query("UPDATE users SET verification_sent_at = NOW() - INTERVAL 2 MINUTE WHERE id=?", [id]);
 const setKnownCode = (id, code) => db.query("UPDATE users SET verification_token_hash=? WHERE id=?", [hashCode(id, code, SECRET), id]);
-const verify = (email, code) => api("/api/auth/verify-email", { email, code });
+const verify = (email, code, password = PW) => api("/api/auth/verify-email", { email, code, password });
 const resend = (email) => api("/api/auth/resend-verification", { email });
 
 try {
@@ -52,19 +53,21 @@ try {
   // — Girişte engel + bekleme süresinde yeni kod gitmez
   r = await login(a); check("onaysız giriş 403 + needsVerification + email", r.status === 403 && r.json.needsVerification === true && r.json.email === a);
   check("onaysız girişte oturum çerezi verilmedi", r.auth === "");
-  r = await login(a, "yanlis-Sifre-1!"); check("onaysız hesapta yanlış şifre 401 (durum sızmaz)", r.status === 401);
+  r = await login(a, "yanlis-Sifre-1!"); check("onaysız hesapta şifre kanıt değil: yanlış şifre de 403 + needsVerification", r.status === 403 && r.json.needsVerification === true && r.auth === "");
   u = await row(a); check("bekleme süresinde giriş yeni kod üretmedi", u.verification_token_hash === firstHash);
 
   // — Sıklık sınırı
   r = await resend(a); check("hemen tekrar gönder 429 + retryAfter", r.status === 429 && r.json.retryAfter > 0 && r.json.retryAfter <= 60, JSON.stringify(r.json));
-  r = await register(a, { password: PW2 }); check("bekleme süresinde yeniden kayıt 429", r.status === 429);
-  r = await login(a); check("yeniden kayıt denemesi şifreyi değiştirmedi", r.status === 403);
+  r = await register(a); check("bekleme süresinde yeniden kayıt 429", r.status === 429);
 
   // — Kod girişi doğrulamaları
   r = await verify(a, "12345"); check("5 haneli kod reddedildi (400)", r.status === 400);
   r = await verify(a, "abcdef"); check("harfli kod reddedildi (400)", r.status === 400);
   u = await row(a); check("biçim hataları deneme hakkı harcamaz", u.verification_attempts === 0);
   await setKnownCode(u.id, "424242");
+  r = await api("/api/auth/verify-email", { email: a, code: "424242" }); check("şifresiz doğrulama reddedildi (400)", r.status === 400);
+  r = await verify(a, "424242", "123"); check("zayıf şifre 400 + field=password", r.status === 400 && r.json.field === "password", JSON.stringify(r.json));
+  u = await row(a); check("şifre hataları deneme hakkı harcamaz, hesap onaylanmadı", u.verification_attempts === 0 && u.email_verified === 0);
   r = await verify(a, "000000"); check("yanlış kod 400 + kalan hak", r.status === 400 && /4 deneme/.test(r.json.message), r.json?.message);
   u = await row(a); check("yanlış deneme sayacı arttı", u.verification_attempts === 1 && u.email_verified === 0);
 
@@ -98,7 +101,7 @@ try {
   check("DB: onaylandı + zaman damgası + kod temizlendi", u.email_verified === 1 && u.email_verified_at !== null && u.verification_token_hash === null && u.verification_token_expiry === null);
   r = await api("/api/auth/me", null, cookie); check("doğrulama sonrası oturum geçerli (/me)", r.status === 200, String(r.status));
   r = await verify(a, "987654"); check("kod tek kullanımlık: tekrar kullanılamaz", r.status === 400);
-  r = await login(a); check("doğrulama sonrası normal giriş 200", r.status === 200 && r.auth !== "");
+  r = await login(a); check("doğrulama sonrası doğrulamada seçilen şifreyle giriş 200", r.status === 200 && r.auth !== "");
   r = await resend(a); check("onaylı hesap için gönder: genel yanıt, kod üretmez", r.status === 200);
   u = await row(a); check("onaylı hesapta kod yok", u.verification_token_hash === null);
   r = await register(a); check("onaylı e-postayla kayıt 409", r.status === 409);
@@ -111,14 +114,24 @@ try {
   r = await verify(c, "314159"); check("başka hesabın kodu geçmez", r.status === 400);
   r = await verify(b, "314159"); check("kendi kodu geçer", r.status === 200);
 
-  // — Yarım kalan kaydı yeniden başlatma (son gönderen kazanır, eski kod geçersiz)
+  // — Yarım kalan kaydı yeniden başlatma: yalnızca yeni kod gider (şifre kayıtta saklanmadığı için ona dokunulmaz)
   await cooldownPassed(uc.id);
   await setKnownCode(uc.id, "271828");
-  r = await register(c, { full_name: "Yeni İsim", password: PW2 }); check("yarım kayıt yeniden kayıt 201", r.status === 201 && r.json.needsVerification === true, JSON.stringify(r.json));
+  r = await register(c, { full_name: "Yeni İsim" }); check("yarım kayıt yeniden kayıt 201", r.status === 201 && r.json.needsVerification === true, JSON.stringify(r.json));
   r = await verify(c, "271828"); check("yeniden kayıt sonrası eski kod geçersiz", r.status === 400);
-  r = await login(c, PW); check("eski şifre artık geçmez (401)", r.status === 401);
-  r = await login(c, PW2); check("yeni şifre geçerli, hâlâ doğrulama bekler (403)", r.status === 403 && r.json.needsVerification);
   const uc2 = await row(c); check("ad güncellendi", uc2.full_name === "Yeni İsim");
+
+  // — Şifre ele geçirme denemesi: kurban kaydolur, saldırgan aynı adresle yeniden kayıt olur
+  const e = mail("e"); await register(e); const ue = await row(e);
+  await cooldownPassed(ue.id);
+  r = await register(e, { full_name: "Saldırgan" }); check("saldırganın yeniden kaydı yalnızca kod yollar (201)", r.status === 201);
+  r = await login(e, "Saldirgan-Sifre-1!"); check("saldırganın şifresiyle giriş oturum açmaz (403)", r.status === 403 && r.auth === "");
+  r = await verify(e, "577215", "Saldirgan-Sifre-1!"); check("saldırgan koda sahip değil: doğrulayamaz (400)", r.status === 400);
+  await setKnownCode(ue.id, "577215");
+  r = await verify(e, "577215", PW2); check("e-posta sahibi kodu girip KENDİ şifresini seçer (200)", r.status === 200 && r.auth !== "");
+  r = await login(e, PW2); check("seçilen şifreyle giriş 200", r.status === 200);
+  r = await login(e, "Saldirgan-Sifre-1!"); check("saldırganın şifresi geçmez (401)", r.status === 401);
+  r = await login(e, PW); check("kayıttaki/ilk şifre de geçmez (401)", r.status === 401);
 
   // — Saatlik üst sınır
   await db.query("UPDATE users SET verification_send_count=5, verification_window_start=NOW() - INTERVAL 10 MINUTE, verification_sent_at = NOW() - INTERVAL 5 MINUTE WHERE id=?", [uc.id]);

@@ -85,10 +85,14 @@ export type VerifyResult =
   | { ok: false; status: number; message: string; reason: "invalid" | "expired" | "locked" | "wrong" | "inactive" };
 
 /**
- * Kodu doğrular. Yanlış deneme sayacı karşılaştırmadan ÖNCE tek bir koşullu UPDATE ile artırılır; böylece
- * eş zamanlı istekler de en fazla MAX_ATTEMPTS karşılaştırma yapabilir. Doğru kod tek kullanımlıktır.
+ * Kodu doğrular ve hesabın şifresini AYNI atomik UPDATE ile yazar. Kayıtta şifre saklanmaz: şifre, e-posta
+ * sahipliğini kanıtlayan kişinin kodla birlikte gönderdiği şifredir. Böylece başkası aynı adresle yeniden kayıt olup
+ * (ya da önceden kayıt açıp) hesabın şifresini belirleyemez.
+ * `passwordHash` yalnızca kod doğru çıktıktan sonra çağrılır (yanlış kod denemeleri bcrypt CPU'su harcatmasın).
+ * Yanlış deneme sayacı karşılaştırmadan ÖNCE tek bir koşullu UPDATE ile artırılır; böylece eş zamanlı istekler de
+ * en fazla MAX_ATTEMPTS karşılaştırma yapabilir. Doğru kod tek kullanımlıktır.
  */
-export async function verifyEmailCode(email: string, code: string): Promise<VerifyResult> {
+export async function verifyEmailCode(email: string, code: string, passwordHash: () => Promise<string>): Promise<VerifyResult> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT id, full_name, email, role, is_active, email_verified, verification_token_hash AS hash,
             verification_attempts AS attempts,
@@ -119,12 +123,13 @@ export async function verifyEmailCode(email: string, code: string): Promise<Veri
   }
 
   // Aynı kodla iki eş zamanlı istek gelirse yalnızca biri hesabı doğrulayabilir.
+  const hash = await passwordHash();
   const [done] = await pool.execute<ResultSetHeader>(
     `UPDATE users
-        SET email_verified = 1, email_verified_at = NOW(), verification_token_hash = NULL,
+        SET password_hash = ?, email_verified = 1, email_verified_at = NOW(), verification_token_hash = NULL,
             verification_token_expiry = NULL, verification_attempts = 0
       WHERE id = ? AND email_verified = 0 AND verification_token_hash = ?`,
-    [u.id, u.hash],
+    [hash, u.id, u.hash],
   );
   if (done.affectedRows === 0) return { ok: false, status: 400, message: VERIFY_MESSAGES.invalid, reason: "invalid" };
   return { ok: true, user: { id: u.id, full_name: u.full_name, email: u.email, role: u.role } };

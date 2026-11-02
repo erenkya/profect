@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
@@ -7,29 +8,23 @@ import { fail, ok, parseBody, serverError } from "@/lib/http";
 import { issueVerificationCode } from "@/lib/verification";
 import { RESEND_COOLDOWN_SECONDS } from "@/lib/verification-code";
 import { verifyTurnstile } from "@/lib/turnstile";
-import { passwordProblem } from "@/lib/password-strength";
 import { GIFT_INVALID_MESSAGE, isGiftToken } from "@/lib/gift-rules";
 import { findGiftByToken } from "@/lib/gifts";
-import { emailSchema, passwordSchema } from "@/lib/validation";
+import { emailSchema } from "@/lib/validation";
 
 const schema = z.object({
   full_name: z.string().trim().min(2, "Ad soyad gerekli.").max(150),
   email: emailSchema,
   phone: z.string().trim().max(40).optional().or(z.literal("")),
-  password: passwordSchema,
   kvkk: z.literal(true, { errorMap: () => ({ message: "KVKK aydınlatma metnini onaylamalısınız." }) }),
   turnstileToken: z.string().optional(),
   giftToken: z.string().max(200).refine(isGiftToken).optional(),
-}).superRefine((d, ctx) => {
-  // Genel şifre kuralları passwordSchema'da; ad/e-posta içeriyor mu kontrolü alanlar birlikteyken yapılır.
-  const problem = passwordProblem(d.password, [d.full_name, d.email]);
-  if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["password"], message: problem });
 });
 
 export async function POST(request: Request) {
   const body = await parseBody(request, schema);
   if (body.error) return body.error;
-  const { full_name, phone, password, turnstileToken, giftToken } = body.data;
+  const { full_name, phone, turnstileToken, giftToken } = body.data;
   let email = body.data.email;
 
   const bot = await verifyTurnstile(turnstileToken);
@@ -42,7 +37,10 @@ export async function POST(request: Request) {
       if (!gift) return fail(GIFT_INVALID_MESSAGE, 400);
       email = gift.recipientEmail;
     }
-    const hash = await bcrypt.hash(password, 10);
+    // Şifre burada ALINMAZ ve saklanmaz: hesap şifresi, e-posta kodunu giren kişi tarafından doğrulama adımında
+    // yazılır. Aksi halde bir başkası aynı adresle kayıt olup hesabın şifresini belirleyebilirdi. Satırda hiçbir
+    // girişle eşleşmeyecek rastgele bir bcrypt özeti durur.
+    const hash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
     let userId: number;
     try {
       const [res] = await pool.execute<ResultSetHeader>(
@@ -53,8 +51,8 @@ export async function POST(request: Request) {
       userId = res.insertId;
     } catch (err) {
       if ((err as { code?: string }).code !== "ER_DUP_ENTRY") throw err;
-      // Doğrulanmış hesap varsa kayıt reddedilir. Doğrulanmamış (yarım kalmış) kayıt varsa, e-posta sahibi
-      // yeniden kaydolabilir: bilgiler yeni kodla birlikte güncellenir (eski kod geçersiz olur).
+      // Doğrulanmış hesap varsa kayıt reddedilir. Doğrulanmamış (yarım kalmış) kayıt varsa yeni kod gönderilir
+      // (eski kod geçersiz olur); şifreye DOKUNULMAZ, o doğrulama adımında belirlenir.
       const [rows] = await pool.query<RowDataPacket[]>(
         "SELECT id FROM users WHERE email = ? AND email_verified = 0 AND is_active = 1 AND role = 'user' LIMIT 1",
         [email],
@@ -69,8 +67,8 @@ export async function POST(request: Request) {
         );
       }
       await pool.execute(
-        "UPDATE users SET full_name = ?, phone = ?, password_hash = ?, kvkk_consent_at = NOW() WHERE id = ? AND email_verified = 0",
-        [full_name, phone || null, hash, userId],
+        "UPDATE users SET full_name = ?, phone = ?, kvkk_consent_at = NOW() WHERE id = ? AND email_verified = 0",
+        [full_name, phone || null, userId],
       );
       return registered(email);
     }
