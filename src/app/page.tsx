@@ -7,6 +7,8 @@ import { DEMO_CERT, FOUNDERS, MARQUEE, STEPS, BLUE, PURP, courseColor, courseDel
 import { getCurrentUser } from "@/lib/auth";
 import { listAccessibleCourseIds, listPublishedCourses } from "@/lib/lms";
 import Image from "next/image";
+import { HomePosts } from "@/components/posts/HomePosts";
+import { listPublishedPosts, type PostListItem } from "@/lib/posts";
 
 // Sertifika üzerindeki sahte QR deseni — tasarımdaki sabit tohumlu üreteçle aynı.
 function qrCells() {
@@ -20,8 +22,19 @@ function qrCells() {
   });
 }
 
+// Blog/haber bölümü ana sayfayı düşürmesin: okunamazsa bölüm gösterilmez.
+async function latestPosts(type: "blog" | "news", limit: number): Promise<PostListItem[]> {
+  try {
+    return await listPublishedPosts(type, { limit });
+  } catch (err) {
+    console.error(`[HomePage] ${type} yazıları okunamadı`, err);
+    return [];
+  }
+}
+
 export default async function HomePage() {
   const courses = (await listPublishedCourses()).slice(0, 6);
+  const [blog, news] = await Promise.all([latestPosts("blog", 3), latestPosts("news", 4)]);
   const user = await getCurrentUser();
   const owned = user ? await listAccessibleCourseIds(user.id) : new Set<number>();
   const marquee = [...MARQUEE, ...MARQUEE].map((t, i) => ({ t, c: i % 2 ? PURP : BLUE }));
@@ -260,6 +273,8 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+
+        <HomePosts blog={blog} news={news} />
       </main>
     </>
   );
