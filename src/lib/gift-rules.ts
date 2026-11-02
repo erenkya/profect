@@ -49,6 +49,10 @@ export function claimBlock(
   return null;
 }
 
+/** Sipariş listelerinde hediye siparişini ayırt etmek için: "Kurs (hediye → alıcı@…)". */
+export const giftOrderLabel = (label: string, giftTo: string | null | undefined): string =>
+  giftTo ? `${label} (hediye → ${giftTo})` : label;
+
 export const giftCheckoutSchema = z.object({
   slug: z.string().min(1).max(120),
   recipient_email: z.string().trim().toLowerCase().email("Geçerli bir alıcı e-postası girin.").max(190),

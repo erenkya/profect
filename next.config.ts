@@ -18,6 +18,9 @@ const nextConfig: NextConfig = {
           { key: "Cache-Control", value: "no-store" },
         ],
       },
+      // Kayıt/giriş sayfaları hediye token'ını sorgu parametresinde (?hediye=, ?next=/hediye/…) taşıyabilir.
+      { source: "/kayit", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+      { source: "/giris", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
     ];
   },
 };

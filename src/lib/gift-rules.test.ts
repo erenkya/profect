@@ -4,6 +4,7 @@ import {
   GIFT_MESSAGE_MAX,
   claimBlock,
   giftCheckoutSchema,
+  giftOrderLabel,
   isGiftToken,
   isSelfGift,
   maskEmail,
@@ -79,4 +80,10 @@ test("giftCheckoutSchema: not sınırı, bozuk mail, boş slug ve eksik onay red
   assert.equal(giftCheckoutSchema.safeParse({ ...validBody, recipient_email: "abc" }).success, false);
   assert.equal(giftCheckoutSchema.safeParse({ ...validBody, slug: "" }).success, false);
   assert.equal(giftCheckoutSchema.safeParse({ ...validBody, consents: { ...validBody.consents, kvkk: false } }).success, false);
+});
+
+test("giftOrderLabel: hediye siparişine alıcı eklenir, normal sipariş aynen kalır", () => {
+  assert.equal(giftOrderLabel("Etik Hacking", "ayse@gmail.com"), "Etik Hacking (hediye → ayse@gmail.com)");
+  assert.equal(giftOrderLabel("Etik Hacking", null), "Etik Hacking");
+  assert.equal(giftOrderLabel("Etik Hacking", undefined), "Etik Hacking");
 });

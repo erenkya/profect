@@ -1,4 +1,4 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
@@ -27,8 +27,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ gif
         { status: 429 },
       );
     }
-    if (body.data.mode === "email") after(() => sendGiftEmails(id, r.token, "recipient"));
-    return ok({ link: giftUrl(r.token), emailed: body.data.mode === "email" });
+    // Token zaten döndü (eski link geçersiz): mail gitmediyse istemci yeni linki gösterip elle iletmeyi önerebilsin.
+    const emailed = body.data.mode === "email" ? await sendGiftEmails(id, r.token, "recipient") : false;
+    return ok({ link: giftUrl(r.token), emailed });
   } catch (err) {
     return serverError("[POST /api/gifts/:id/link]", err);
   }

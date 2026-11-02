@@ -119,7 +119,7 @@ try {
   await setKnownCode(uc.id, "271828");
   r = await register(c, { full_name: "Yeni İsim" }); check("yarım kayıt yeniden kayıt 201", r.status === 201 && r.json.needsVerification === true, JSON.stringify(r.json));
   r = await verify(c, "271828"); check("yeniden kayıt sonrası eski kod geçersiz", r.status === 400);
-  const uc2 = await row(c); check("ad güncellendi", uc2.full_name === "Yeni İsim");
+  const uc2 = await row(c); check("yeniden kayıt adı/telefonu değiştirmez (sahip henüz kanıtlanmadı)", uc2.full_name === "E2E Doğrulama");
 
   // — Şifre ele geçirme denemesi: kurban kaydolur, saldırgan aynı adresle yeniden kayıt olur
   const e = mail("e"); await register(e); const ue = await row(e);

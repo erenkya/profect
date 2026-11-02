@@ -124,8 +124,10 @@ try {
   const [[ru]] = await db.query("SELECT id, email, email_verified, password_hash FROM users WHERE email=?", [R]);
   const [[stray]] = await db.query("SELECT COUNT(*) n FROM users WHERE email=?", [attackerEmail]);
   check("DB: kullanıcı hediye adresiyle açıldı, başka adresle açılmadı", !!ru && ru.email_verified === 0 && stray.n === 0);
-  r = await api("/api/auth/register", { body: { full_name: "X", email: mail("bad"), kvkk: true, turnstileToken: T, giftToken: "A".repeat(64) } });
-  check("bozuk giftToken ile kayıt reddedildi (400)", r.status === 400);
+  r = await api("/api/auth/register", { body: { full_name: "Bozuk Token", email: mail("bad"), kvkk: true, turnstileToken: T, giftToken: "A".repeat(64) } });
+  check("bozuk giftToken ile kayıt reddedildi (400, tek tip mesaj)", r.status === 400 && /geçersiz veya süresi dolmuş/.test(r.json?.message ?? ""), JSON.stringify(r.json));
+  p = await page("/kayit");
+  check("/kayit sayfası no-referrer başlığı taşır", p.headers.get("referrer-policy") === "no-referrer");
 
   // — Şifre doğrulamada belirlenir; kayıttaki/önceki şifre geçmez
   r = await login(R, PW); check("doğrulanmamış alıcı: şifreyle giriş oturum açmaz (403)", r.status === 403 && r.auth === "");
@@ -186,6 +188,12 @@ try {
   check("DB: tembel olarak expired işaretlendi, kurs eklenmedi", (await gift(g3.giftId)).status === "expired" && !(await enrolled(wId, courseId)));
   p = await page(`/hediye/${t3}`, wCookie); check("süresi geçmiş link sayfası tek tip mesaj", p.text.includes("Bu hediye linki geçersiz veya süresi dolmuş"));
   r = await api("/api/gifts/" + g3.giftId + "/link", { cookie: sCookie, body: { mode: "copy" } }); check("süresi geçmiş hediyenin linki yenilenemez (404)", r.status === 404);
+
+  // — Admin sipariş listesi hediyeyi ayırt eder
+  r = await api("/api/admin/orders", { method: "GET", cookie: adminCookie });
+  check("admin sipariş listesinde hediye siparişi alıcısıyla işaretli", r.status === 200 && r.json.data.find((o) => o.id === g1.orderId)?.gift_to === R, String(r.status));
+  p = await page("/hesabim/siparislerim", sCookie);
+  check("Siparişlerim hediye siparişini 'hediye →' ile gösterir", p.status === 200 && p.text.includes("hediye") && p.text.includes(R));
 
   // — Hediyeler sayfası (gönderen)
   p = await page("/hesabim/hediyeler", sCookie);

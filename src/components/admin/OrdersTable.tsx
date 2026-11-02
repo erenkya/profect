@@ -5,8 +5,9 @@ import { useState } from "react";
 import { Toast, useFlash } from "./Toast";
 import { formatDate, formatPrice } from "@/lib/format";
 import { adminApi } from "./api";
+import { giftOrderLabel } from "@/lib/gift-rules";
 
-export type OrderRow = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected"; provider: string; created_at: string; paid_at: string | null; user_name: string; user_email: string; course_title: string | null; items_summary: string | null; invoice_type: "bireysel" | "kurumsal" | null; company_name: string | null; tckn: string | null; tax_number: string | null; tax_office: string | null; phone: string | null; address: string | null; city: string | null; district: string | null; error_message: string | null; coupon_code: string | null; discount_amount: string };
+export type OrderRow = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected"; provider: string; created_at: string; paid_at: string | null; user_name: string; user_email: string; course_title: string | null; items_summary: string | null; gift_to: string | null; invoice_type: "bireysel" | "kurumsal" | null; company_name: string | null; tckn: string | null; tax_number: string | null; tax_office: string | null; phone: string | null; address: string | null; city: string | null; district: string | null; error_message: string | null; coupon_code: string | null; discount_amount: string };
 const STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi" } as const;
 
 export function OrdersTable({ orders }: { orders: OrderRow[] }) {
@@ -32,7 +33,7 @@ export function OrdersTable({ orders }: { orders: OrderRow[] }) {
                 <td>{o.id}</td>
                 <td>{o.user_name}<div style={{ fontSize: 12, color: "var(--muted-55)" }}>{o.user_email}</div></td>
                 <td>
-                  {o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—")}
+                  {giftOrderLabel(o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—"), o.gift_to)}
                   {o.invoice_type === "kurumsal" && (
                     <details style={{ fontSize: 12, color: "var(--muted-55)", whiteSpace: "normal" }}>
                       <summary style={{ cursor: "pointer" }}>Kurumsal fatura bilgisi</summary>

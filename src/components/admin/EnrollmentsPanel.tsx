@@ -10,7 +10,7 @@ import { adminApi } from "./api";
 export type EnrollmentRow = { id: number; user_id: number; course_id: number; user_name: string; user_email: string; course_title: string; status: string; source: string; enrolled_at: string; completed_lessons: number; total_lessons: number; certificate_code: string | null };
 type Opt = { id: number; label: string };
 
-const SOURCE: Record<string, string> = { admin: "Yönetici", purchase: "Satın alma", plus: "Plus" };
+const SOURCE: Record<string, string> = { admin: "Yönetici", purchase: "Satın alma", plus: "Plus", gift: "Hediye" };
 
 export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow[]; users: Opt[]; courses: Opt[] }) {
   const router = useRouter();

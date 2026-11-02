@@ -191,7 +191,10 @@ export function VerifyEmail({ email, next }: { email: string; next: string }) {
         return;
       }
       setError(json.message ?? "Doğrulama başarısız.");
-      if (json.field === "password") setStashed(null); // taşınan şifre kabul edilmedi: yeniden sor
+      if (json.field === "password") {
+        clearPendingPassword(); // reddedilen şifre yenilemede tekrar denenmesin
+        setStashed(null); // taşınan şifre kabul edilmedi: yeniden sor
+      }
       setCode("");
     } catch {
       setError("Bağlantı hatası. Lütfen tekrar deneyin.");

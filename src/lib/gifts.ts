@@ -54,9 +54,9 @@ export async function createGiftOrder(i: {
   }
 }
 
-/** Son 60 dakikada bu gönderenin oluşturduğu hediye sayısı (her durum; mail bombalamaya karşı sınır için). */
+/** Son 60 dakikada bu gönderenin oluşturduğu ve mail üreten (ödenmiş) hediye sayısı; mail bombalamaya karşı sınır için. İptal/ödenmemiş sayılmaz. */
 export async function countRecentGiftsBySender(senderId: number): Promise<number> {
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) AS n FROM gifts WHERE sender_id = ? AND created_at > NOW() - INTERVAL 60 MINUTE", [senderId]);
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) AS n FROM gifts WHERE sender_id = ? AND created_at > NOW() - INTERVAL 60 MINUTE AND status IN ('pending', 'claimed', 'expired')", [senderId]);
   return Number(rows[0]?.n ?? 0);
 }
 
@@ -80,7 +80,8 @@ export async function activateGiftForOrder(conn: PoolConnection, orderId: number
 }
 
 /** Hediye maillerini yollar. Asla fırlatmaz: mail hatası ödemeyi bozmaz, gönderen panelden linki yenileyebilir. */
-export async function sendGiftEmails(giftId: number, token: string, to: "both" | "recipient" = "both"): Promise<void> {
+export async function sendGiftEmails(giftId: number, token: string, to: "both" | "recipient" = "both"): Promise<boolean> {
+  let recipientSent = false;
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.recipient_email, g.message, g.expires_at, c.title AS course_title, u.full_name AS sender_name, u.email AS sender_email
@@ -88,11 +89,12 @@ export async function sendGiftEmails(giftId: number, token: string, to: "both" |
       [giftId],
     );
     const g = rows[0];
-    if (!g) return;
+    if (!g) return false;
     const url = giftUrl(token);
     const expiresAt = formatDate(g.expires_at);
     try {
       await sendGiftRecipientEmail({ to: g.recipient_email, senderName: g.sender_name, courseTitle: g.course_title, message: g.message, url, expiresAt });
+      recipientSent = true;
     } catch (err) {
       console.error("[gift] alıcı maili gönderilemedi", { giftId, err });
     }
@@ -106,6 +108,7 @@ export async function sendGiftEmails(giftId: number, token: string, to: "both" |
   } catch (err) {
     console.error("[gift] mailler hazırlanamadı", { giftId, err });
   }
+  return recipientSent;
 }
 
 export type GiftView = {
@@ -195,7 +198,12 @@ export async function claimGift(token: string, userId: number): Promise<{ ok: tr
       return { ok: false, reason: block };
     }
     const [course] = await conn.query<RowDataPacket[]>("SELECT slug FROM courses WHERE id = ?", [g.course_id]);
-    await conn.execute("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'gift')", [userId, g.course_id]);
+    const [ins] = await conn.execute<ResultSetHeader>("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'gift')", [userId, g.course_id]);
+    if (ins.affectedRows === 0) {
+      // Sahiplik kontrolünden sonra kurs başka yoldan eklendi (satın alma/Plus): hediye tüketilmez, pending kalır.
+      await conn.rollback();
+      return { ok: false, reason: "already_owned" };
+    }
     await conn.execute("UPDATE gifts SET status = 'claimed', claimed_by_user_id = ?, claimed_at = NOW(), token_hash = NULL WHERE id = ?", [userId, g.id]);
     await conn.commit();
     return { ok: true, courseSlug: course[0].slug };

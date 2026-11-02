@@ -4,6 +4,7 @@ import { after } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
 import { activateGiftForOrder, sendGiftEmails } from "@/lib/gifts";
+import { giftOrderLabel } from "@/lib/gift-rules";
 import { sendOrderReceipt } from "@/lib/order-receipt";
 import { FREE_PREVIEW_LESSONS } from "@/lib/preview";
 
@@ -176,7 +177,7 @@ export async function getCourseTree(courseId: number, userId?: number): Promise<
 }
 
 // ── Erişim ────────────────────────────────────────────────────────────────────
-export type EnrollmentSource = "admin" | "purchase" | "plus";
+export type EnrollmentSource = "admin" | "purchase" | "plus" | "gift";
 
 export async function grantEnrollment(userId: number, courseId: number, source: EnrollmentSource): Promise<boolean> {
   const [res] = await pool.execute<ResultSetHeader>(
@@ -460,11 +461,14 @@ export async function listMyCertificates(userId: number) {
 /** Sipariş kalemlerinin okunur özeti: "Kurs A, Kurs B + Profect Plus". Kalem satırı olmayan eski siparişler için null. */
 export const ORDER_ITEMS_SUMMARY_SQL = `(SELECT GROUP_CONCAT(oi.title ORDER BY oi.id SEPARATOR ' · ') FROM order_items oi WHERE oi.order_id = o.id)`;
 
-export type MyOrder = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected"; created_at: string; course_title: string | null; items_summary: string | null };
+/** Siparişe bağlı hediye varsa alıcının e-postası (hediye siparişi değilse NULL). */
+export const ORDER_GIFT_TO_SQL = `(SELECT g.recipient_email FROM gifts g WHERE g.order_id = o.id)`;
+
+export type MyOrder = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected"; created_at: string; course_title: string | null; items_summary: string | null; gift_to: string | null };
 
 export async function listMyOrders(userId: number): Promise<MyOrder[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT o.id, o.plan, o.amount, o.status, o.created_at, c.title AS course_title, ${ORDER_ITEMS_SUMMARY_SQL} AS items_summary
+    `SELECT o.id, o.plan, o.amount, o.status, o.created_at, c.title AS course_title, ${ORDER_ITEMS_SUMMARY_SQL} AS items_summary, ${ORDER_GIFT_TO_SQL} AS gift_to
        FROM orders o LEFT JOIN courses c ON c.id = o.course_id WHERE o.user_id = ? ORDER BY o.created_at DESC LIMIT 50`,
     [userId],
   );
@@ -472,8 +476,8 @@ export async function listMyOrders(userId: number): Promise<MyOrder[]> {
 }
 
 /** Sipariş ürün adı (eski ve yeni siparişler için tek yerden). */
-export function orderLabel(o: { plan: "single" | "plus" | "cart"; course_title: string | null; items_summary: string | null }): string {
-  return o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—");
+export function orderLabel(o: { plan: "single" | "plus" | "cart"; course_title: string | null; items_summary: string | null; gift_to?: string | null }): string {
+  return giftOrderLabel(o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—"), o.gift_to);
 }
 
 export type AccountProfile = { full_name: string; email: string; phone: string | null; email_verified: boolean; created_at: string };

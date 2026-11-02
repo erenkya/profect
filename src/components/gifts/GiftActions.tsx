@@ -30,8 +30,11 @@ export function GiftActions({ giftId }: { giftId: number }) {
         if (typeof json.retryAfter === "number") setCooldown(json.retryAfter);
         return;
       }
-      if (mode === "email") {
+      if (mode === "email" && json.emailed) {
         setInfo("Alıcıya yeni linkli mail gönderildi. Önceki link artık geçersiz.");
+      } else if (mode === "email") {
+        setError("Mail gönderilemedi. Yeni link aşağıda; alıcıya kendiniz iletebilirsiniz. Önceki link artık geçersiz.");
+        setLink(json.link);
       } else {
         try {
           await navigator.clipboard.writeText(json.link);

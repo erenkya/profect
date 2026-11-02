@@ -18,7 +18,7 @@ const schema = z.object({
   phone: z.string().trim().max(40).optional().or(z.literal("")),
   kvkk: z.literal(true, { errorMap: () => ({ message: "KVKK aydınlatma metnini onaylamalısınız." }) }),
   turnstileToken: z.string().optional(),
-  giftToken: z.string().max(200).refine(isGiftToken).optional(),
+  giftToken: z.string().max(200).refine(isGiftToken, GIFT_INVALID_MESSAGE).optional(),
 });
 
 export async function POST(request: Request) {
@@ -40,7 +40,8 @@ export async function POST(request: Request) {
     // Şifre burada ALINMAZ ve saklanmaz: hesap şifresi, e-posta kodunu giren kişi tarafından doğrulama adımında
     // yazılır. Aksi halde bir başkası aynı adresle kayıt olup hesabın şifresini belirleyebilirdi. Satırda hiçbir
     // girişle eşleşmeyecek rastgele bir bcrypt özeti durur.
-    const hash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+    // 256 bit rastgele ön görüntü tahmin edilemez; düşük maliyet (4) bu yüzden güvenlidir ve yinelenen kayıt yolunda CPU boşa gitmez.
+    const hash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 4);
     let userId: number;
     try {
       const [res] = await pool.execute<ResultSetHeader>(
@@ -52,28 +53,25 @@ export async function POST(request: Request) {
     } catch (err) {
       if ((err as { code?: string }).code !== "ER_DUP_ENTRY") throw err;
       // Doğrulanmış hesap varsa kayıt reddedilir. Doğrulanmamış (yarım kalmış) kayıt varsa yeni kod gönderilir
-      // (eski kod geçersiz olur); şifreye DOKUNULMAZ, o doğrulama adımında belirlenir.
+      // (eski kod geçersiz olur). Şifre, ad, telefon ve KVKK onay tarihine DOKUNULMAZ: hesabın sahibi henüz
+      // kanıtlanmadığı için başkasının aynı adresle yaptığı kayıt bunları değiştirememeli (şifre doğrulamada belirlenir).
       const [rows] = await pool.query<RowDataPacket[]>(
         "SELECT id FROM users WHERE email = ? AND email_verified = 0 AND is_active = 1 AND role = 'user' LIMIT 1",
         [email],
       );
       if (!rows[0]) return fail("Bu e-posta adresiyle kayıtlı bir hesap zaten var.", 409);
       userId = rows[0].id;
-      const issued = await issueVerificationCode(userId, email);
-      if (issued.status === "rate_limited") {
+      const reissued = await issueVerificationCode(userId, email);
+      if (reissued.status === "rate_limited") {
         return NextResponse.json(
-          { success: false, message: `Bu e-posta için kısa süre önce kod gönderildi. ${issued.retryAfter} saniye sonra tekrar deneyin.`, retryAfter: issued.retryAfter },
+          { success: false, message: `Bu e-posta için kısa süre önce kod gönderildi. ${reissued.retryAfter} saniye sonra tekrar deneyin.`, retryAfter: reissued.retryAfter },
           { status: 429 },
         );
       }
-      await pool.execute(
-        "UPDATE users SET full_name = ?, phone = ?, kvkk_consent_at = NOW() WHERE id = ? AND email_verified = 0",
-        [full_name, phone || null, userId],
-      );
       return registered(email);
     }
 
-    const issued = await issueVerificationCode(userId, email);
+    await issueVerificationCode(userId, email);
     return registered(email);
   } catch (err) {
     return serverError("[POST /api/auth/register]", err);
