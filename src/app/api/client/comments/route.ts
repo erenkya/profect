@@ -13,7 +13,7 @@ const schema = z.object({
   body: z.string().trim().min(1, "Mesaj boş olamaz.").max(COMMENT_MAX, `Mesaj en çok ${COMMENT_MAX} karakter olabilir.`),
 });
 
-/** Ders altına soru (parent_id yok) ya da cevap yazar. Öğrenci mesajı eğitmene e-postayla bildirilir. */
+/** Ders altına soru (parent_id yok) ya da cevap yazar. Her yorum eğitmene / yöneticilere e-postayla bildirilir. */
 export async function POST(request: Request) {
   const guard = await requireUser();
   if (guard.error) return guard.error;
@@ -44,12 +44,17 @@ export async function POST(request: Request) {
       [d.lesson_id, user.id, d.parent_id, d.body],
     );
 
-    if (!staff) {
-      const [u] = await pool.query<RowDataPacket[]>("SELECT full_name FROM users WHERE id = ?", [user.id]);
-      // Yanıt dönünce gönderilir (SMTP yavaşsa istek beklemez); hata notifyQuestion içinde loglanır.
-      const mail = { studentName: u[0]?.full_name ?? "Bir öğrenci", body: d.body, baseUrl: getBaseUrl(request), commentId: d.parent_id ?? res.insertId };
-      after(() => notifyQuestion(d.lesson_id, mail));
-    }
+    const [u] = await pool.query<RowDataPacket[]>("SELECT full_name, email FROM users WHERE id = ?", [user.id]);
+    // Yanıt dönünce gönderilir (SMTP yavaşsa istek beklemez); hata notifyQuestion içinde loglanır.
+    const mail = {
+      authorName: u[0]?.full_name ?? "Bir kullanıcı",
+      authorEmail: u[0]?.email ?? "",
+      byStaff: staff,
+      body: d.body,
+      baseUrl: getBaseUrl(request),
+      commentId: d.parent_id ?? res.insertId,
+    };
+    after(() => notifyQuestion(d.lesson_id, mail));
     return ok({ commentId: res.insertId }, 201);
   } catch (err) {
     return serverError("[POST /api/client/comments]", err);

@@ -1,7 +1,7 @@
 import "server-only";
 import type { RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
-import { sendLessonQuestionEmail } from "@/lib/mail";
+import { QUESTION_CC, sendLessonQuestionEmail } from "@/lib/mail";
 
 export const COMMENT_MAX = 2000;
 /** Bir kullanıcı dakikada en çok bu kadar yorum yazabilir (e-posta bombardımanını sınırlar). */
@@ -87,7 +87,7 @@ async function questionRecipients(lessonId: number): Promise<string[]> {
 }
 
 /** Bildirim hatası yorumun kaydını bozmaz: yalnızca loglanır (SMTP geçici olarak düşmüş olabilir). */
-export async function notifyQuestion(lessonId: number, q: { studentName: string; body: string; baseUrl: string; commentId: number }) {
+export async function notifyQuestion(lessonId: number, q: { authorName: string; authorEmail: string; byStaff: boolean; body: string; baseUrl: string; commentId: number }) {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT l.title AS lesson_title, c.title AS course_title FROM lessons l JOIN modules m ON m.id = l.module_id JOIN courses c ON c.id = m.course_id WHERE l.id = ?",
@@ -95,9 +95,11 @@ export async function notifyQuestion(lessonId: number, q: { studentName: string;
     );
     if (rows.length === 0) return;
     const url = `${q.baseUrl}/egitmen/sorular?soru=${q.commentId}`;
-    const mail = { studentName: q.studentName, courseTitle: rows[0].course_title, lessonTitle: rows[0].lesson_title, body: q.body, url };
+    const mail = { authorName: q.authorName, byStaff: q.byStaff, courseTitle: rows[0].course_title, lessonTitle: rows[0].lesson_title, body: q.body, url };
     // CC adresi birden fazla yöneticiye giden aynı bildirimin her kopyasında değil, yalnızca ilkinde olsun.
-    const recipients = await questionRecipients(lessonId);
+    // Yorumu yazan kişiye kendi yorumunun bildirimi gitmez; kimse kalmazsa bildirim yine de CC adresine ulaşsın.
+    const others = (await questionRecipients(lessonId)).filter((e) => e.toLowerCase() !== q.authorEmail.toLowerCase());
+    const recipients = others.length > 0 ? others : [QUESTION_CC];
     for (const [i, to] of recipients.entries()) await sendLessonQuestionEmail(to, mail, i === 0);
   } catch (err) {
     console.error("[notifyQuestion]", err);

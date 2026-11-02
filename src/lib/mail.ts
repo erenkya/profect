@@ -170,20 +170,21 @@ export async function sendPasswordResetEmail(email: string, url: string) {
 }
 
 /** Ders altına yazılan her yorumun bildirimi ayrıca bu adrese CC gider. */
-const QUESTION_CC = "kaan.tuncbilek@xellence.com.tr";
+export const QUESTION_CC = "kaan.tuncbilek@xellence.com.tr";
 
-export type LessonQuestionMail = { studentName: string; courseTitle: string; lessonTitle: string; body: string; url: string };
+export type LessonQuestionMail = { authorName: string; byStaff: boolean; courseTitle: string; lessonTitle: string; body: string; url: string };
 
-/** Bir öğrenci ders altına soru yazınca dersin eğitmenine (ya da atanmamışsa yöneticilere) giden bildirim. */
+/** Ders altına yorum yazılınca dersin eğitmenine (ya da atanmamışsa yöneticilere) giden bildirim; öğrenci "soru", personel "yorum" yazar. */
 export async function sendLessonQuestionEmail(to: string, q: LessonQuestionMail, withCc = true) {
-  const intro = `${q.studentName}, “${q.courseTitle}” kursundaki “${q.lessonTitle}” dersinin altına bir soru yazdı: “${q.body}”`;
+  const what = q.byStaff ? "yorum" : "soru";
+  const intro = `${q.authorName}, “${q.courseTitle}” kursundaki “${q.lessonTitle}” dersinin altına bir ${what} yazdı: “${q.body}”`;
   const notice = "Cevaplamak için butonla soru ekranına gidin. Cevabınız dersin altında öğrencilere görünür.";
   await deliver({
     to,
     // Alıcı zaten bu adresse aynı postayı iki kez göndermeyelim.
     cc: withCc && to.toLowerCase() !== QUESTION_CC ? QUESTION_CC : undefined,
-    subject: `Yeni soru: ${q.lessonTitle} — Profect`,
-    html: layout("Derste Yeni Soru", intro, "Soruyu Cevapla", q.url, notice),
+    subject: `Yeni ${what}: ${q.lessonTitle} — Profect`,
+    html: layout(q.byStaff ? "Derste Yeni Yorum" : "Derste Yeni Soru", intro, q.byStaff ? "Yoruma Git" : "Soruyu Cevapla", q.url, notice),
     text: `${intro}\n\n${q.url}\n\n${notice}`,
   });
 }
