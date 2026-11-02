@@ -8,6 +8,8 @@ import { issueVerificationCode } from "@/lib/verification";
 import { RESEND_COOLDOWN_SECONDS } from "@/lib/verification-code";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { passwordProblem } from "@/lib/password-strength";
+import { GIFT_INVALID_MESSAGE, isGiftToken } from "@/lib/gift-rules";
+import { findGiftByToken } from "@/lib/gifts";
 import { emailSchema, passwordSchema } from "@/lib/validation";
 
 const schema = z.object({
@@ -17,6 +19,7 @@ const schema = z.object({
   password: passwordSchema,
   kvkk: z.literal(true, { errorMap: () => ({ message: "KVKK aydınlatma metnini onaylamalısınız." }) }),
   turnstileToken: z.string().optional(),
+  giftToken: z.string().max(200).refine(isGiftToken).optional(),
 }).superRefine((d, ctx) => {
   // Genel şifre kuralları passwordSchema'da; ad/e-posta içeriyor mu kontrolü alanlar birlikteyken yapılır.
   const problem = passwordProblem(d.password, [d.full_name, d.email]);
@@ -26,12 +29,19 @@ const schema = z.object({
 export async function POST(request: Request) {
   const body = await parseBody(request, schema);
   if (body.error) return body.error;
-  const { full_name, email, phone, password, turnstileToken } = body.data;
+  const { full_name, phone, password, turnstileToken, giftToken } = body.data;
+  let email = body.data.email;
 
   const bot = await verifyTurnstile(turnstileToken);
   if (!bot.ok) return fail(bot.message, bot.status);
 
   try {
+    if (giftToken) {
+      // Hediye linkiyle kayıtta e-posta, gövdedekine bakılmadan hediyedeki alıcı adresine kilitlenir.
+      const gift = await findGiftByToken(giftToken);
+      if (!gift) return fail(GIFT_INVALID_MESSAGE, 400);
+      email = gift.recipientEmail;
+    }
     const hash = await bcrypt.hash(password, 10);
     let userId: number;
     try {
