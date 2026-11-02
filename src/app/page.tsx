@@ -175,7 +175,6 @@ export default async function HomePage() {
               <div style={{ display: "grid", gap: 36 }}>
                 {FOUNDERS.map((f) => (
                   <div key={f.n}>
-                    <div className="card-kicker" style={{ fontSize: 11, color: f.color, marginBottom: 6 }}>{f.n} · {f.role}</div>
                     <h3 style={{ fontSize: 34, textTransform: "uppercase", marginBottom: 10 }}>{f.name}</h3>
                     <p style={{ fontSize: 15, color: "var(--muted-72)", textWrap: "pretty", maxWidth: 440, margin: "0 auto 10px" }}>{f.short}</p>
                     <a href={f.linkedin} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 15 }} aria-label={`${f.name} LinkedIn profili`}>LinkedIn →</a>
