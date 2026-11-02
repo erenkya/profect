@@ -267,6 +267,47 @@ button { font: inherit; }
 .md th, .md td { border: 1px solid var(--color-divider); padding: 6px 12px; text-align: left; }
 .md img { max-width: 100%; height: auto; }
 
+/* — Blog & haber — */
+.post-md { max-width: 74ch; margin-inline: auto; }
+.post-md > :first-child { margin-top: 0; }
+.post-md a { color: var(--color-accent-700); text-underline-offset: 3px; }
+.post-md a:hover { color: var(--color-accent); }
+.post-md img { display: block; margin: 1.8em auto; border: 1px solid var(--color-divider); background: #fff; }
+.post-md hr { border: 0; border-top: 1px solid var(--color-divider); margin: 2.2em 0; }
+.post-md h2 { padding-top: 0.2em; }
+.post-md blockquote { font-size: 1.1em; }
+.post-lead { font-size: clamp(18px, 2.2vw, 22px); line-height: 1.5; color: var(--muted-72); text-wrap: pretty; margin: 0; }
+.post-cover { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--color-accent-100); }
+.post-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.post-art { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-bottom: 1px solid var(--color-divider); background: var(--color-accent-100); }
+.post-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .6s var(--ease, ease); }
+.post-link:hover .post-art img { transform: scale(1.04); }
+.post-link { display: flex; flex-direction: column; flex: 1; color: inherit; text-decoration: none; }
+.post-link:focus-visible { outline-offset: 6px; }
+.post-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.news-list { display: grid; border-top: 1px solid var(--color-divider); }
+.news-row {
+  display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: clamp(16px, 3vw, 40px); align-items: center;
+  padding: 26px 8px; border-bottom: 1px solid var(--color-divider); color: inherit; text-decoration: none;
+  transition: background .25s;
+}
+.news-row:hover { background: var(--color-accent-100); }
+.news-row:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.news-date { font-family: var(--font-heading); font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--color-accent-2-700); line-height: 1.25; }
+.news-thumb { position: relative; width: 150px; aspect-ratio: 16 / 10; overflow: hidden; border: 1px solid var(--color-divider); background: var(--color-accent-100); }
+.news-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 760px) {
+  .news-row { grid-template-columns: 1fr; gap: 10px; padding: 22px 4px; }
+  .news-thumb { display: none; }
+}
+
+/* — Yönetici: yazı düzenleyici — */
+.post-editor-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--color-divider); border-bottom: 0; background: var(--color-surface); }
+.post-editor-area { position: relative; }
+.post-editor-area textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; line-height: 1.6; min-height: 520px; background: #fff; border-radius: 0; tab-size: 2; }
+.post-editor-area[data-drop="true"] textarea { border-color: var(--color-accent); background: var(--color-accent-100); }
+.post-editor-preview { min-height: 520px; padding: 24px clamp(16px, 3vw, 32px); border: 1px solid var(--color-divider); background: #fff; overflow-x: auto; }
+
 /* — Öğrenme alanı — */
 .learn-shell { display: grid; grid-template-columns: 320px minmax(0, 1fr); min-height: calc(100vh - 80px); }
 .learn-side { border-right: 1px solid var(--color-divider); padding: 24px 20px; position: sticky; top: 70px; align-self: start; max-height: calc(100vh - 70px); overflow-y: auto; }

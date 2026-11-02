@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { MAX_VIDEO_BYTES, isVideoKey } from "./video-key.ts";
 import { MAX_COVER_BYTES, isCoverKey, isCoverType } from "./cover-key.ts";
+import { MAX_POST_IMAGE_BYTES, isPostImageKey, isPostImageType } from "./post-key.ts";
 import { validatePool } from "./quiz-pool.ts";
 
 const money = z.coerce.number().min(0).max(1_000_000);
@@ -144,3 +145,24 @@ export const coverUploadSchema = z.object({
   content_type: z.string().refine(isCoverType, "Yalnızca JPG, PNG veya WebP yüklenebilir."),
   size: z.number().int().min(1).max(MAX_COVER_BYTES, "Kapak resmi en çok 5 MB olabilir."),
 });
+
+/** Yönetici blog/haber görseli yüklemesi başlatırken gönderilir (dosyanın kendisi değil, meta bilgisi). */
+export const postImageUploadSchema = z.object({
+  content_type: z.string().refine(isPostImageType, "Yalnızca JPG, PNG, WebP veya GIF yüklenebilir."),
+  size: z.number().int().min(1).max(MAX_POST_IMAGE_BYTES, "Görsel en çok 8 MB olabilir."),
+});
+
+export const postFields = {
+  type: z.enum(["blog", "news"]),
+  title: z.string().trim().min(2, "Başlık en az 2 karakter olmalı.").max(200),
+  slug: z.string().trim().min(2).max(160).regex(/^[a-z0-9-]+$/, "Adres yalnızca küçük harf, rakam ve tire içerebilir."),
+  excerpt: z.string().trim().max(400, "Özet en çok 400 karakter olabilir."),
+  content: z.string().max(300_000, "İçerik çok uzun."),
+  cover_key: z.string().refine(isPostImageKey, "Geçersiz kapak görseli.").nullable(), // R2 nesne anahtarı
+  author: z.string().trim().min(1).max(150),
+  status: z.enum(["draft", "published"]),
+  published_at: z.string().regex(/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?$/, "Geçersiz yayın tarihi.").nullable(),
+};
+
+export const createPostSchema = z.object(postFields).partial({ slug: true, excerpt: true, cover_key: true, author: true, published_at: true });
+export const updatePostSchema = z.object(postFields).partial();

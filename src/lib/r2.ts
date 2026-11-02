@@ -30,6 +30,8 @@ function s3(): S3Client {
   return client;
 }
 const bucket = () => env("R2_BUCKET");
+// Blog/haber görselleri kurs videolarından ayrı bir bucket'ta durur.
+const blogBucket = () => env("R2_BLOG_BUCKET");
 
 /** Yönetici yüklemesi için tek anahtara yazan, 10 dk geçerli imzalı PUT. İstemci `headers`'ı aynen göndermeli. */
 export async function presignVideoUpload(key: string, size: number): Promise<{ url: string; headers: Record<string, string> }> {
@@ -51,10 +53,37 @@ export async function presignCoverUpload(key: string, size: number, contentType:
   return { url, headers: { "Content-Type": contentType } };
 }
 
+/** Blog/haber görseli için tek anahtara yazan, 10 dk geçerli imzalı PUT. İstemci `headers`'ı aynen göndermeli. */
+export async function presignPostImageUpload(key: string, size: number, contentType: string): Promise<{ url: string; headers: Record<string, string> }> {
+  const url = await getSignedUrl(
+    s3(),
+    new PutObjectCommand({ Bucket: blogBucket(), Key: key, ContentType: contentType, ContentLength: size }),
+    { expiresIn: 600 },
+  );
+  return { url, headers: { "Content-Type": contentType } };
+}
+
+/** Blog/haber görselini (en çok MAX_POST_IMAGE_BYTES) bütün olarak okur; yoksa null. */
+export const getPostImage = (key: string) => readWhole(blogBucket(), key);
+
+/** Silme çağıranı bozmaz: hata loglanır (DB kaydı zaten silinmiştir). */
+export async function deletePostImages(keys: string[]): Promise<void> {
+  for (let i = 0; i < keys.length; i += 1000) {
+    const batch = keys.slice(i, i + 1000);
+    try {
+      await s3().send(new DeleteObjectsCommand({ Bucket: blogBucket(), Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true } }));
+    } catch (err) {
+      console.error("[r2.deletePostImages]", batch.length, err);
+    }
+  }
+}
+
 /** Kapak resmini (en çok MAX_COVER_BYTES) bütün olarak okur; yoksa null. */
-export async function getCover(key: string): Promise<{ body: Uint8Array; size: number } | null> {
+export const getCover = (key: string) => readWhole(bucket(), key);
+
+async function readWhole(Bucket: string, key: string): Promise<{ body: Uint8Array; size: number } | null> {
   try {
-    const r = await s3().send(new GetObjectCommand({ Bucket: bucket(), Key: key }));
+    const r = await s3().send(new GetObjectCommand({ Bucket, Key: key }));
     if (!r.Body) return null;
     const body = await r.Body.transformToByteArray();
     return { body, size: body.byteLength };
