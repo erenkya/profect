@@ -179,6 +179,107 @@ try {
   // checkout henüz program satırını işlemez (Görev 5) ama çökmez
   const co = await api("/api/checkout", { cookie: a.cookie, body: { items: [P], billing: { invoice_type: "bireysel", full_name: "E2E Alıcı", email: mail("own3") }, consents: { distance_sales: true, privacy: true, delivery_return: true, kvkk: true } } });
   check("checkout program satırında 409 (Görev 5'e kadar), sipariş yazılmaz", co.status === 409 && !(await db.query("SELECT 1 FROM orders WHERE user_id = ?", [a.id]))[0].length, `${co.status} ${JSON.stringify(co.json)}`);
+
+  // ── Görev 4: üyelik (auto) ve program sertifikası ──
+  const PROGRAM_TITLE = "E2E Uzmanlık Programı";
+  const passQuiz = async (userId, cid) => {
+    const [[q]] = await db.query("SELECT id FROM quizzes WHERE course_id = ? AND module_id IS NULL", [cid]);
+    await db.query("INSERT INTO quiz_attempts (user_id, quiz_id, score, is_passed) VALUES (?, ?, 90, 1)", [userId, q.id]);
+  };
+  const gen = (cookie, cid) => api("/api/client/certificates/generate", { cookie, body: { course_id: cid } });
+  const progCerts = async (userId, pid = programId) => (await db.query("SELECT certificate_code FROM program_certificates WHERE user_id = ? AND program_id = ?", [userId, pid]))[0];
+  const progMembers = async (userId, pid = programId) => (await db.query("SELECT source FROM program_enrollments WHERE user_id = ? AND program_id = ?", [userId, pid]))[0];
+  const first5 = courseIds.slice(0, COURSE_COUNT);
+
+  // Satın almış kullanıcı: 4 kurs → program yok; 5. → tam 1 sertifika + 1 auto üyelik
+  const g4 = await mkUser("cert-buyer");
+  await own(g4.id, first5);
+  for (const cid of first5) await passQuiz(g4.id, cid);
+  for (const cid of first5.slice(0, 4)) {
+    const r = await gen(g4.cookie, cid);
+    check(`4 kursun sertifikası alınır (kurs ${cid}): 200, program_certificate_codes boş`, r.status === 200 && !!r.json?.certificate_code && Array.isArray(r.json?.program_certificate_codes) && r.json.program_certificate_codes.length === 0, JSON.stringify(r));
+  }
+  check("4 sertifika: program_certificates satırı yok, üyelik yok", (await progCerts(g4.id)).length === 0 && (await progMembers(g4.id)).length === 0);
+  const last = await gen(g4.cookie, first5[4]);
+  const codes = last.json?.program_certificate_codes;
+  check("5. sertifika: yanıtta tam 1 program kodu (PRP-...)", last.status === 200 && Array.isArray(codes) && codes.length === 1 && /^PRP-\d{4}-\d{6}$/.test(codes[0]), JSON.stringify(last));
+  const pc1 = await progCerts(g4.id), pm1 = await progMembers(g4.id);
+  check("5. sertifika: tam 1 program_certificates ve 1 program_enrollments (auto)", pc1.length === 1 && pm1.length === 1 && pm1[0].source === "auto" && pc1[0].certificate_code === codes?.[0], JSON.stringify({ pc1, pm1 }));
+  const PCODE = pc1[0]?.certificate_code;
+  check("ikinci program (c6 sertifikasız) için sertifika yok", (await progCerts(g4.id, program2Id)).length === 0);
+  const again = await gen(g4.cookie, first5[4]);
+  check("aynı istek tekrar: 200, yeni program kodu yok, hâlâ 1 satır",
+    again.status === 200 && Array.isArray(again.json?.program_certificate_codes) && again.json.program_certificate_codes.length === 0 && (await progCerts(g4.id)).length === 1 && (await progMembers(g4.id)).length === 1, JSON.stringify(again));
+  check("üyelik 'auto' kurs kaydı yazmaz: kurs kayıtları purchase kalır", (await enrolled(g4.id, first5[0]))?.source === "purchase");
+
+  // Eşzamanlılık: 4 sertifika hazır, 5.'yi iki kez paralel iste
+  const cc = await mkUser("cert-race");
+  await own(cc.id, first5);
+  for (const cid of first5) await passQuiz(cc.id, cid);
+  for (const cid of first5.slice(0, 4)) await gen(cc.cookie, cid);
+  const [ra, rb] = await Promise.all([gen(cc.cookie, first5[4]), gen(cc.cookie, first5[4])]);
+  check("eşzamanlı 2 istek: ikisi de 2xx", ra.status >= 200 && ra.status < 300 && rb.status >= 200 && rb.status < 300, JSON.stringify([ra.status, rb.status, ra.json, rb.json]));
+  check("eşzamanlı 2 istek: tam 1 program sertifikası ve 1 üyelik", (await progCerts(cc.id)).length === 1 && (await progMembers(cc.id)).length === 1);
+  // daha ağır deneme: 6 paralel istek
+  const cc2 = await mkUser("cert-race6");
+  await own(cc2.id, first5);
+  for (const cid of first5) await passQuiz(cc2.id, cid);
+  for (const cid of first5.slice(0, 4)) await gen(cc2.cookie, cid);
+  const many = await Promise.all(Array.from({ length: 6 }, () => gen(cc2.cookie, first5[4])));
+  const issuedCodes = many.flatMap((r) => r.json?.program_certificate_codes ?? []);
+  check("eşzamanlı 6 istek: hepsi 2xx, tam 1 sertifika, 1 üyelik, yanıtlarda toplam 1 yeni kod",
+    many.every((r) => r.status === 200) && (await progCerts(cc2.id)).length === 1 && (await progMembers(cc2.id)).length === 1 && issuedCodes.length === 1, JSON.stringify(many.map((r) => [r.status, r.json?.program_certificate_codes])));
+
+  // Plus: kaydı yok, final sınavları SQL ile geçildi → generate tembel plus kaydı yazar, program sertifikası verilir
+  const px = await mkUser("cert-plus");
+  await db.query("UPDATE users SET plus_until = DATE_ADD(NOW(), INTERVAL 20 DAY) WHERE id = ?", [px.id]);
+  for (const cid of first5) await passQuiz(px.id, cid);
+  let plusLast;
+  for (const cid of first5) plusLast = await gen(px.cookie, cid);
+  check("Plus: 5 kurs sertifikası sonrası program sertifikası verildi (auto üyelik)", plusLast?.status === 200 && plusLast.json?.program_certificate_codes?.length === 1 && (await progCerts(px.id)).length === 1 && (await progMembers(px.id))[0]?.source === "auto", JSON.stringify(plusLast?.json));
+
+  // Yayında olmayan program: üye değilse çağrıdan sertifika üretilmez; yayına alınınca üretilir
+  const dr = await mkUser("cert-draft");
+  await own(dr.id, first5);
+  for (const cid of first5) await passQuiz(dr.id, cid);
+  await db.query("UPDATE programs SET is_published = 0 WHERE id = ?", [programId]);
+  let drLast;
+  for (const cid of first5) drLast = await gen(dr.cookie, cid);
+  check("yayında olmayan program, üye değil: sertifika/üyelik yok", drLast?.status === 200 && drLast.json?.program_certificate_codes?.length === 0 && (await progCerts(dr.id)).length === 0 && (await progMembers(dr.id)).length === 0, JSON.stringify(drLast?.json));
+  await db.query("UPDATE programs SET is_published = 1 WHERE id = ?", [programId]);
+  const drAgain = await gen(dr.cookie, first5[0]);
+  check("program yayına alınınca bir sonraki çağrıda sertifika verilir", drAgain.json?.program_certificate_codes?.length === 1 && (await progCerts(dr.id)).length === 1, JSON.stringify(drAgain.json));
+
+  // Okuma: sayfa, PDF, JSON, hesabım listesi
+  const cpage = await page(`/sertifika/${PCODE}`);
+  check("GET /sertifika/<program kodu> 200 ve program adını içerir", cpage.status === 200 && cpage.text.includes(PROGRAM_TITLE), String(cpage.status));
+  check("sertifika sayfası dahil edilen kursları listeler ve final puanı iddia etmez", first5.every((_, i) => cpage.text.includes(`E2E Program Kursu ${i + 1}`)) && !cpage.text.includes("final sınavını"));
+  const ppdf = await fetch(`${B}/api/public/certificates/${PCODE}/pdf`);
+  const pdfBytes = Buffer.from(await ppdf.arrayBuffer());
+  check("program PDF: 200, application/pdf, %PDF ile başlar", ppdf.status === 200 && (ppdf.headers.get("content-type") ?? "").includes("application/pdf") && pdfBytes.subarray(0, 4).toString() === "%PDF", `${ppdf.status} ${ppdf.headers.get("content-type")}`);
+  const pj = await api(`/api/public/certificates/${PCODE}`, { method: "GET" });
+  check("program JSON: data.course_title program adı, kind=program", pj.status === 200 && pj.json?.data?.course_title === PROGRAM_TITLE && pj.json.data.kind === "program", JSON.stringify(pj.json));
+  const OLD_KEYS = ["certificate_code", "course_minutes", "course_title", "issued_at", "kind", "score", "student_name"];
+  check("program JSON yalnızca eski alanlar + kind (sızıntı yok), score null", JSON.stringify(Object.keys(pj.json?.data ?? {}).sort()) === JSON.stringify(OLD_KEYS) && pj.json.data.score === null && pj.json.data.course_minutes >= 0, JSON.stringify(pj.json?.data));
+  const [[cc1]] = await db.query("SELECT certificate_code FROM certificates WHERE user_id = ? AND course_id = ?", [g4.id, first5[0]]);
+  const cj = await api(`/api/public/certificates/${cc1.certificate_code}`, { method: "GET" });
+  check("kurs sertifikası JSON: aynı alanlar, kind=course, score dolu", cj.status === 200 && JSON.stringify(Object.keys(cj.json?.data ?? {}).sort()) === JSON.stringify(OLD_KEYS) && cj.json.data.kind === "course" && cj.json.data.course_title === "E2E Program Kursu 1" && cj.json.data.score === 90, JSON.stringify(cj.json?.data));
+  const cpdf = await fetch(`${B}/api/public/certificates/${cc1.certificate_code}/pdf`);
+  check("kurs PDF'i hâlâ çalışır (%PDF)", cpdf.status === 200 && Buffer.from(await cpdf.arrayBuffer()).subarray(0, 4).toString() === "%PDF");
+  const cpage2 = await page(`/sertifika/${cc1.certificate_code}`);
+  check("kurs sertifika sayfası: kurs adı ve %90 puan görünür", cpage2.status === 200 && cpage2.text.includes("E2E Program Kursu 1") && /%(<!-- -->)?90/.test(cpage2.text));
+  const mine = await page("/hesabim/sertifikalarim", g4.cookie);
+  check("/hesabim/sertifikalarim program kodunu ve kurs kodlarını içerir", mine.status === 200 && mine.text.includes(PCODE) && mine.text.includes(cc1.certificate_code), String(mine.status));
+
+  // Satıştan kalkma: verilmiş sertifika/üyelik kalır, ikinci sertifika üretilmez
+  await db.query("UPDATE courses SET is_published = 0 WHERE id = ?", [first5[2]]);
+  const afterUnpub = await page(`/sertifika/${PCODE}`);
+  const genUnpub = await gen(g4.cookie, first5[0]);
+  const pdfUnpub = await fetch(`${B}/api/public/certificates/${PCODE}/pdf`);
+  check("kurs yayından kalktı: program sertifika sayfası 200, PDF 200", afterUnpub.status === 200 && pdfUnpub.status === 200);
+  check("kurs yayından kalktı: üyelik duruyor, ikinci sertifika üretilmedi", (await progMembers(g4.id)).length === 1 && (await progCerts(g4.id)).length === 1 && genUnpub.json?.program_certificate_codes?.length === 0, JSON.stringify(genUnpub.json));
+  await db.query("UPDATE courses SET is_published = 1 WHERE id = ?", [first5[2]]);
+  check("kurs geri yayına alındı", (await db.query("SELECT is_published FROM courses WHERE id = ?", [first5[2]]))[0][0].is_published === 1);
 } catch (e) {
   failN++;
   console.log("✗ FAIL beklenmeyen hata:", e);

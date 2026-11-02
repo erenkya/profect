@@ -4,7 +4,7 @@ import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import pool from "@/lib/db";
 import { priceProgram, type ProgramQuoteCalc } from "@/lib/program-pricing";
-import { courseProblems } from "@/lib/program-rules";
+import { courseProblems, generateProgramCertificateCode, isProgramComplete } from "@/lib/program-rules";
 
 /** Havuz da, transaction bağlantısı da uyar. */
 export type Queryable = Pick<PoolConnection, "query" | "execute">;
@@ -175,4 +175,103 @@ export async function enrollInProgram(conn: Queryable, userId: number, programId
     for (const r of rows) await grantCourseEnrollment(conn, userId, Number(r.course_id), source);
   }
   return res.affectedRows === 1;
+}
+
+// ── Otomatik üyelik ve program sertifikası ───────────────────────────────────
+/** Aday programlar (kapsam kuralları için `ensureProgramProgress`a bakın) ve her birinin TÜM kurs id'leri. */
+async function candidatePrograms(userId: number, opts: { courseId?: number; programId?: number }): Promise<Map<number, number[]>> {
+  let ids: number[];
+  if (opts.programId != null) {
+    const [rows] = await pool.query<RowDataPacket[]>("SELECT id FROM programs WHERE id = ?", [opts.programId]);
+    ids = rows.map((r) => Number(r.id));
+  } else if (opts.courseId != null) {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT p.id FROM programs p JOIN program_courses pc ON pc.program_id = p.id AND pc.course_id = ?
+        WHERE p.is_published = 1 OR EXISTS (SELECT 1 FROM program_enrollments pe WHERE pe.user_id = ? AND pe.program_id = p.id)`,
+      [opts.courseId, userId],
+    );
+    ids = rows.map((r) => Number(r.id));
+  } else {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT DISTINCT p.id FROM programs p
+         JOIN program_courses pc ON pc.program_id = p.id
+         JOIN certificates ce ON ce.course_id = pc.course_id AND ce.user_id = ?
+        WHERE p.is_published = 1`,
+      [userId],
+    );
+    ids = rows.map((r) => Number(r.id));
+  }
+  const out = new Map<number, number[]>();
+  if (ids.length === 0) return out;
+  const [courses] = await pool.query<RowDataPacket[]>(
+    "SELECT program_id, course_id FROM program_courses WHERE program_id IN (?) ORDER BY program_id, sort_order, course_id",
+    [ids],
+  );
+  for (const id of ids) out.set(id, []);
+  for (const r of courses) out.get(Number(r.program_id))?.push(Number(r.course_id));
+  return out;
+}
+
+/**
+ * Tek bir (kullanıcı, program) için `auto` üyelik + program sertifikası yazar; tek transaction.
+ * Eşzamanlı çağrılar `UNIQUE (user_id, program_id)` anahtarlarında seri hale gelir: üyelik `INSERT IGNORE`,
+ * sertifika `INSERT IGNORE` (kod çakışmasında kod yeniden üretilir). Yeni verilen kodu ya da `null` döner.
+ */
+async function issueProgramCertificate(userId: number, programId: number): Promise<string | null> {
+  for (let attempt = 0; ; attempt++) {
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await enrollInProgram(conn, userId, programId, "auto");
+      let issued: string | null = null;
+      for (let i = 0; i < 5 && !issued; i++) {
+        const code = generateProgramCertificateCode();
+        const [res] = await conn.execute<ResultSetHeader>(
+          "INSERT IGNORE INTO program_certificates (user_id, program_id, certificate_code) VALUES (?, ?, ?)",
+          [userId, programId, code],
+        );
+        if (res.affectedRows === 1) {
+          issued = code;
+          break;
+        }
+        // Eklenmedi: ya (kullanıcı, program) için sertifika zaten var (çift sertifika yok) ya da kod çakıştı.
+        const [existing] = await conn.query<RowDataPacket[]>(
+          "SELECT 1 FROM program_certificates WHERE user_id = ? AND program_id = ? LIMIT 1",
+          [userId, programId],
+        );
+        if (existing.length > 0) break;
+        if (i === 4) throw new Error("Program sertifika kodu üretilemedi.");
+      }
+      await conn.commit();
+      return issued;
+    } catch (err) {
+      await conn.rollback().catch(() => {});
+      if ((err as { code?: string }).code === "ER_LOCK_DEADLOCK" && attempt < 3) continue;
+      throw err;
+    } finally {
+      conn.release();
+    }
+  }
+}
+
+/**
+ * İdempotent ve eşzamanlılığa dayanıklı: kullanıcının bir programdaki TÜM kursların `certificates` satırı varsa
+ * `program_enrollments`'a (`auto`, yoksa) ve `program_certificates`'a (yoksa) ekler. Yeni verilen kodları döner.
+ *
+ * Aday programlar: `programId` → o program (yayın durumuna bakılmaz); `courseId` → o kursu içeren programlardan yayında
+ * olanlar ya da kullanıcının üye olduğu; ikisi de yoksa kullanıcının en az bir kursunun sertifikası olduğu yayındaki programlar.
+ * Kursu olmayan program asla tamamlanmaz. Daha önce verilmiş sertifika, kurs sonradan yayından kalksa da geçerli kalır.
+ */
+export async function ensureProgramProgress(userId: number, opts: { courseId?: number; programId?: number } = {}): Promise<{ issued: string[] }> {
+  const candidates = await candidatePrograms(userId, opts);
+  if (candidates.size === 0) return { issued: [] };
+  const [certRows] = await pool.query<RowDataPacket[]>("SELECT course_id FROM certificates WHERE user_id = ?", [userId]);
+  const certified = new Set(certRows.map((r) => Number(r.course_id)));
+  const issued: string[] = [];
+  for (const [programId, courseIds] of candidates) {
+    if (!isProgramComplete(courseIds, certified)) continue;
+    const code = await issueProgramCertificate(userId, programId);
+    if (code) issued.push(code);
+  }
+  return { issued };
 }

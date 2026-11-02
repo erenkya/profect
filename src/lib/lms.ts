@@ -421,6 +421,8 @@ export function flattenTree(tree: CourseTree): FlowItem[] {
 }
 
 export type CertificateRow = {
+  /** `course`: kurs sertifikası · `program`: Uzmanlık Programı sertifikası (course_title = program adı). */
+  kind: "course" | "program";
   certificate_code: string;
   issued_at: string;
   score: number | null;
@@ -428,6 +430,8 @@ export type CertificateRow = {
   course_title: string;
   course_minutes: number;
   instructor: string;
+  /** Program sertifikasında programın tüm kurs adları (program sırasıyla); kurs sertifikasında boş. */
+  included_courses: string[];
 };
 
 /** Kursun toplam süresi (dk): tüm derslerin + tüm sınavların süreleri. `cr` = courses takma adı. */
@@ -437,25 +441,81 @@ export const COURSE_MINUTES_SQL = `(
 )`;
 
 export async function getCertificateByCode(code: string): Promise<CertificateRow | null> {
+  const normalized = code.trim().toUpperCase();
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT c.certificate_code, c.issued_at, c.score, u.full_name AS student_name,
             cr.title AS course_title, cr.instructor,
             ${COURSE_MINUTES_SQL} AS course_minutes
        FROM certificates c JOIN users u ON u.id = c.user_id JOIN courses cr ON cr.id = c.course_id
       WHERE c.certificate_code = ?`,
-    [code.trim().toUpperCase()],
+    [normalized],
   );
   const row = rows[0];
-  return row ? ({ ...row, course_minutes: Number(row.course_minutes) } as CertificateRow) : null;
+  if (row) {
+    return {
+      kind: "course",
+      certificate_code: row.certificate_code,
+      issued_at: row.issued_at,
+      score: row.score,
+      student_name: row.student_name,
+      course_title: row.course_title,
+      course_minutes: Number(row.course_minutes),
+      instructor: row.instructor,
+      included_courses: [],
+    };
+  }
+
+  // Program sertifikası: program adı, kursların toplam süresi; eğitmen/puan yok. Kurs yayından kalksa da okunur.
+  const [prog] = await pool.query<RowDataPacket[]>(
+    `SELECT pc.certificate_code, pc.issued_at, u.full_name AS student_name, p.id AS program_id, p.title AS course_title,
+            (SELECT COALESCE(SUM(${COURSE_MINUTES_SQL}), 0) FROM program_courses pcc JOIN courses cr ON cr.id = pcc.course_id WHERE pcc.program_id = p.id) AS course_minutes
+       FROM program_certificates pc JOIN users u ON u.id = pc.user_id JOIN programs p ON p.id = pc.program_id
+      WHERE pc.certificate_code = ?`,
+    [normalized],
+  );
+  const pr = prog[0];
+  if (!pr) return null;
+  const [included] = await pool.query<RowDataPacket[]>(
+    "SELECT cr.title FROM program_courses pcc JOIN courses cr ON cr.id = pcc.course_id WHERE pcc.program_id = ? ORDER BY pcc.sort_order, cr.id",
+    [pr.program_id],
+  );
+  return {
+    kind: "program",
+    certificate_code: pr.certificate_code,
+    issued_at: pr.issued_at,
+    score: null,
+    student_name: pr.student_name,
+    course_title: pr.course_title,
+    course_minutes: Number(pr.course_minutes),
+    instructor: "",
+    included_courses: included.map((r) => r.title as string),
+  };
 }
 
-export async function listMyCertificates(userId: number) {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT c.certificate_code, c.issued_at, c.score, cr.title AS course_title, cr.slug
-       FROM certificates c JOIN courses cr ON cr.id = c.course_id WHERE c.user_id = ? ORDER BY c.issued_at DESC`,
-    [userId],
-  );
-  return rows as { certificate_code: string; issued_at: string; score: number | null; course_title: string; slug: string }[];
+export type MyCertificate = {
+  kind: "course" | "program";
+  certificate_code: string;
+  issued_at: string;
+  score: number | null;
+  course_title: string;
+  slug: string;
+};
+
+/** Kurs ve program sertifikaları birlikte, yeniden eskiye. `course_title` programda program adıdır. */
+export async function listMyCertificates(userId: number): Promise<MyCertificate[]> {
+  const [[courseRows], [programRows]] = await Promise.all([
+    pool.query<RowDataPacket[]>(
+      `SELECT 'course' AS kind, c.certificate_code, c.issued_at, c.score, cr.title AS course_title, cr.slug
+         FROM certificates c JOIN courses cr ON cr.id = c.course_id WHERE c.user_id = ?`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT 'program' AS kind, pc.certificate_code, pc.issued_at, NULL AS score, p.title AS course_title, p.slug
+         FROM program_certificates pc JOIN programs p ON p.id = pc.program_id WHERE pc.user_id = ?`,
+      [userId],
+    ),
+  ]);
+  return ([...courseRows, ...programRows] as MyCertificate[]).sort((a, b) => (a.issued_at < b.issued_at ? 1 : a.issued_at > b.issued_at ? -1 : 0));
 }
 
 /** Sipariş kalemlerinin okunur özeti: "Kurs A, Kurs B + Profect Plus". Kalem satırı olmayan eski siparişler için null. */

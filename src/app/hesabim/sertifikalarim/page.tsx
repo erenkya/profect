@@ -16,15 +16,16 @@ export default async function MyCertificatesPage() {
     <>
       <PageTitle title="Sertifikalarım" />
       {certs.length === 0 ? (
-        <p style={{ color: "var(--muted-72)" }}>Final sınavını geçtiğinde sertifikaların burada görünür. <Link href="/hesabim/kurslarim">Kurslarıma git →</Link></p>
+        <p style={{ color: "var(--muted-72)" }}>Kurs final sınavını geçtiğinde sertifikaların burada görünür. <Link href="/hesabim/kurslarim">Kurslarıma git →</Link></p>
       ) : (
         <div className="admin-table-wrap">
           <table className="table">
-            <thead><tr><th>Kurs</th><th>Numara</th><th>Puan</th><th>Tarih</th><th>PDF</th></tr></thead>
+            <thead><tr><th>Kurs / Program</th><th>Tür</th><th>Numara</th><th>Puan</th><th>Tarih</th><th>PDF</th></tr></thead>
             <tbody>
               {certs.map((c) => (
                 <tr key={c.certificate_code}>
                   <td>{c.course_title}</td>
+                  <td>{c.kind === "program" ? "Uzmanlık Programı" : "Kurs"}</td>
                   <td><Link href={`/sertifika/${c.certificate_code}`}>{c.certificate_code}</Link></td>
                   <td>{c.score !== null ? `%${c.score}` : "—"}</td>
                   <td>{formatDate(c.issued_at)}</td>
