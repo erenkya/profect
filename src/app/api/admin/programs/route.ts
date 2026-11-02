@@ -63,6 +63,7 @@ export async function POST(request: Request) {
         return ok({ programId: res.insertId, slug }, 201);
       } catch (err) {
         await conn.rollback();
+        if ((err as { code?: string }).code === "ER_NO_REFERENCED_ROW_2") return fail("Seçilen kurslardan biri bu sırada silinmiş; sayfayı yenileyip tekrar deneyin.", 409);
         if ((err as { code?: string }).code === "ER_DUP_ENTRY") {
           if (d.slug && d.code) return fail("Bu slug veya program kodu zaten kullanılıyor.", 409);
           continue;

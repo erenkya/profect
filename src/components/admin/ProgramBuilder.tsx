@@ -15,6 +15,7 @@ import type { ProgramRow } from "@/lib/programs";
 type Props = {
   program?: ProgramRow; // yoksa "yeni program" formu
   courses?: CourseEligibility[]; // programın kursları, program içi sırayla
+  memberCount?: number; // programın üye sayısı (program_enrollments)
   options: CourseEligibility[]; // kurs seçici: yayındaki kurslar
   categories: string[];
 };
@@ -25,7 +26,7 @@ const iconBtn = { width: 32, height: 32 } as const;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Program oluşturma (program yok) ve düzenleme: bilgiler, kurs ekle-çıkar-sırala, canlı fiyat özeti. */
-export function ProgramBuilder({ program, courses = [], options, categories }: Props) {
+export function ProgramBuilder({ program, courses = [], memberCount = 0, options, categories }: Props) {
   const router = useRouter();
   const [flash, setFlash] = useFlash();
   const [open, setOpen] = useState(!!program);
@@ -37,7 +38,11 @@ export function ProgramBuilder({ program, courses = [], options, categories }: P
 
   const listTotal = round2(rows.reduce((s, c) => s + c.price, 0)); // S
   const price = Number(f.price) || 0; // B
-  const overPrice = rows.length > 0 ? priceProblem(price, rows) : null; // B > S kaydı engeller
+  const overPrice = rows.length > 0 ? priceProblem(price, rows) : null; // B > S: fiyat ya da kurs listesi değişen kaydı engeller
+  // Kayıtta yalnızca değişen alanlar gönderilir: kurs fiyatı düşüp B > S olmuş ya da bir kursu sorunlu hâle gelmiş programda
+  // alakasız bir düzenleme (başlık vb.) sunucuda fiyat/kurs denetimine takılmasın.
+  const coursesChanged = !program || rows.length !== courses.length || rows.some((c, i) => c.id !== courses[i].id);
+  const priceTouched = coursesChanged || (!!program && price !== program.price);
   const discount = listTotal > 0 && !overPrice ? Math.round((1 - price / listTotal) * 1000) / 10 : 0;
   const problems = rows.length > 0 ? courseProblems(rows) : [];
   const available = options.filter((o) => !rows.some((r) => r.id === o.id));
@@ -57,9 +62,18 @@ export function ProgramBuilder({ program, courses = [], options, categories }: P
 
   async function save(e: React.FormEvent, published = program?.is_published ?? false) {
     e.preventDefault();
+    const unpublishing = !!program?.is_published && !published; // yayından kaldırma her zaman mümkün
+    if (unpublishing) {
+      setBusy(true);
+      const r = await adminApi("PATCH", `/api/admin/programs/${program.id}`, { is_published: false });
+      setBusy(false);
+      setFlash({ kind: r.ok ? "ok" : "error", text: r.ok ? "Program yayından kaldırıldı." : r.message });
+      if (r.ok) router.refresh();
+      return;
+    }
     if (e.currentTarget instanceof HTMLButtonElement && !e.currentTarget.form?.reportValidity()) return;
     if (rows.length === 0) return setFlash({ kind: "error", text: "Programa en az bir kurs ekleyin." });
-    if (overPrice) return setFlash({ kind: "error", text: overPrice });
+    if (overPrice && (priceTouched || published)) return setFlash({ kind: "error", text: overPrice });
     setBusy(true);
     const course_ids = rows.map((c) => c.id);
     if (!program) {
@@ -69,9 +83,21 @@ export function ProgramBuilder({ program, courses = [], options, categories }: P
       else setFlash({ kind: "error", text: r.message });
       return;
     }
-    const r = await adminApi("PATCH", `/api/admin/programs/${program.id}`, { title: f.title, description: f.description, category: f.category, price, course_ids, ...(published !== program.is_published && { is_published: published }) }); // yayın durumu yalnızca değişiyorsa gönderilir
+    const body = {
+      ...(f.title !== program.title && { title: f.title }),
+      ...(f.description !== program.description && { description: f.description }),
+      ...(f.category !== program.category && { category: f.category }),
+      ...(price !== program.price && { price }),
+      ...(coursesChanged && { course_ids }),
+      ...(published !== program.is_published && { is_published: published }),
+    };
+    if (Object.keys(body).length === 0) {
+      setBusy(false);
+      return setFlash({ kind: "ok", text: "Değişiklik yok." });
+    }
+    const r = await adminApi("PATCH", `/api/admin/programs/${program.id}`, body);
     setBusy(false);
-    setFlash({ kind: r.ok ? "ok" : "error", text: r.ok ? (published === program.is_published ? "Program kaydedildi." : published ? "Program yayınlandı." : "Program yayından kaldırıldı.") : r.message });
+    setFlash({ kind: r.ok ? "ok" : "error", text: r.ok ? (published === program.is_published ? "Program kaydedildi." : "Program yayınlandı.") : r.message });
     if (r.ok) router.refresh();
   }
 
@@ -124,6 +150,11 @@ export function ProgramBuilder({ program, courses = [], options, categories }: P
           </div>
         ))}
         {rows.length === 0 && <p style={{ color: "var(--muted-55)", fontSize: 14, margin: 0 }}>Henüz kurs eklenmedi.</p>}
+        {program?.is_published && memberCount > 0 && (
+          <div role="note" style={{ fontSize: 14, padding: 10, background: "var(--color-accent-2-100)", color: "var(--color-accent-2-800)" }}>
+            Bu programın {memberCount} üyesi var. Yeni eklenen kurslar mevcut üyelere otomatik verilmez; üyeler programı tamamlamak için eklenen kursu ayrıca satın almalı.
+          </div>
+        )}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <select className="input" aria-label="Eklenecek kurs" value={pick} onChange={(e) => setPick(e.target.value)} style={{ ...input, flex: 1, minWidth: 220, maxWidth: 520 }}>
             <option value="">Kurs seçin (yalnızca yayındaki kurslar)</option>
@@ -138,16 +169,16 @@ export function ProgramBuilder({ program, courses = [], options, categories }: P
         <span>Program fiyatı (B): <b>{formatPrice(price)}</b></span>
         <span>İndirim: <b>%{discount.toLocaleString("tr-TR")}</b></span>
       </div>
-      {overPrice && <div role="alert" style={{ color: "#b00020", fontSize: 14 }}>{overPrice} Kaydedilemez; fiyatı düşürün.</div>}
-      {program && !program.is_published && problems.length > 0 && (
+      {overPrice && <div role="alert" style={{ color: "#b00020", fontSize: 14 }}>{overPrice} {priceTouched || !program?.is_published ? "Kaydedilemez; fiyatı düşürün." : "Yayından kaldırabilir ya da fiyatı düşürebilirsiniz."}</div>}
+      {program && problems.length > 0 && (
         <div style={{ fontSize: 14, color: "var(--muted-72)" }}>
-          <b>Yayınlamadan önce:</b>
+          <b>{program.is_published ? "Dikkat, program satışa kapalı (kurs listesini değiştirirken düzeltilmeli):" : "Yayınlamadan önce:"}</b>
           <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>{problems.map((m) => <li key={m}>{m}</li>)}</ul>
         </div>
       )}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button type="submit" className="btn btn-primary blueprint" disabled={busy || !!overPrice}><Corners />{busy ? "Kaydediliyor…" : program ? "Kaydet" : "Oluştur ve düzenle"}</button>
+        <button type="submit" className="btn btn-primary blueprint" disabled={busy || (!!overPrice && priceTouched)}><Corners />{busy ? "Kaydediliyor…" : program ? "Kaydet" : "Oluştur ve düzenle"}</button>
         {!program && <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>Vazgeç</button>}
         {program && <Link href={`/programlar/${program.slug}`} className="btn btn-secondary">{program.is_published ? "Sayfayı gör" : "Önizle"}</Link>}
       </div>

@@ -3,7 +3,7 @@ import pool from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { updateProgramSchema } from "@/lib/admin-schemas";
-import { getCourseEligibility, getProgramById, listProgramCourses } from "@/lib/programs";
+import { countProgramMembers, getCourseEligibility, getProgramById, listProgramCourses } from "@/lib/programs";
 import { courseProblems, priceProblem } from "@/lib/program-rules";
 
 type Ctx = { params: Promise<{ programId: string }> };
@@ -17,15 +17,16 @@ export async function GET(_req: Request, { params }: Ctx) {
   try {
     const program = await getProgramById(programId);
     if (!program) return fail("Program bulunamadı.", 404);
-    return ok({ program, courses: await listProgramCourses(programId) });
+    return ok({ program, courses: await listProgramCourses(programId), member_count: await countProgramMembers(programId) });
   } catch (err) {
     return serverError("[GET /api/admin/programs/:id]", err);
   }
 }
 
 /**
- * Kaydederken her zaman B ≤ S denetlenir. Yayına alırken (ya da yayındaki programın kurs listesi değişirken)
- * ayrıca tüm kurslar yayında olmalı ve soru içeren bir final sınavı bulunmalı.
+ * Fiyat (B ≤ S) yalnızca fiyat ya da kurs listesi değişirken ya da yayına alırken denetlenir; yayından kaldırma
+ * ve başlık/açıklama gibi alanlar, kurs fiyatları sonradan düştüğünde bile her zaman kaydedilebilir.
+ * Yayına alırken (ya da yayındaki programın kurs listesi değişirken) ayrıca tüm kurslar yayında olmalı ve soru içeren bir final sınavı bulunmalı.
  */
 export async function PATCH(request: Request, { params }: Ctx) {
   const guard = await requireAdmin();
@@ -53,17 +54,21 @@ export async function PATCH(request: Request, { params }: Ctx) {
     if (!current) return fail("Program bulunamadı.", 404);
 
     // Kaydedildikten sonraki durum üzerinden doğrula.
-    let courses;
-    if (courseIds) {
-      courses = await getCourseEligibility(courseIds);
-      if (courses.length !== courseIds.length) return fail("Seçilen kurslardan biri bulunamadı.", 400);
-    } else {
-      courses = await listProgramCourses(programId);
+    const publishing = fields.is_published === true;
+    const checkPrice = fields.price !== undefined || !!courseIds || publishing;
+    const checkCourses = publishing || (!!courseIds && (fields.is_published ?? current.is_published));
+    if (checkPrice || checkCourses) {
+      let courses;
+      if (courseIds) {
+        courses = await getCourseEligibility(courseIds);
+        if (courses.length !== courseIds.length) return fail("Seçilen kurslardan biri bulunamadı.", 400);
+      } else {
+        courses = await listProgramCourses(programId);
+      }
+      const problems = [checkPrice ? priceProblem(fields.price ?? current.price, courses) : null].filter((m): m is string => !!m);
+      if (checkCourses) problems.push(...courseProblems(courses));
+      if (problems.length > 0) return fail(problems.join(" "), 400);
     }
-    const published = fields.is_published ?? current.is_published;
-    const problems = [priceProblem(fields.price ?? current.price, courses)].filter((m): m is string => !!m);
-    if (fields.is_published === true || (courseIds && published)) problems.push(...courseProblems(courses));
-    if (problems.length > 0) return fail(problems.join(" "), 400);
 
     const conn = await pool.getConnection();
     try {
@@ -83,7 +88,9 @@ export async function PATCH(request: Request, { params }: Ctx) {
     }
     return ok({ message: "Program güncellendi." });
   } catch (err) {
-    if ((err as { code?: string }).code === "ER_DUP_ENTRY") return fail("Bu slug veya program kodu zaten kullanılıyor.", 409);
+    const code = (err as { code?: string }).code;
+    if (code === "ER_DUP_ENTRY") return fail("Bu slug veya program kodu zaten kullanılıyor.", 409);
+    if (code === "ER_NO_REFERENCED_ROW_2") return fail("Seçilen kurslardan biri bu sırada silinmiş; sayfayı yenileyip tekrar deneyin.", 409);
     return serverError("[PATCH /api/admin/programs/:id]", err);
   }
 }

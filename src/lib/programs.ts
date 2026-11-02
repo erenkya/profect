@@ -141,6 +141,12 @@ export async function getCourseEligibility(courseIds: readonly number[]): Promis
   return courseIds.flatMap((id) => byId.get(id) ?? []);
 }
 
+/** Programın üye sayısı (program_enrollments). */
+export async function countProgramMembers(programId: number): Promise<number> {
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT COUNT(*) AS n FROM program_enrollments WHERE program_id = ?", [programId]);
+  return Number(rows[0]?.n ?? 0);
+}
+
 /** Yönetim kurs seçicisi: yayındaki kurslar (final sınavı eksik olanlar da gelir; editör onları seçilemez gösterir). */
 export async function listPublishedCourseOptions(): Promise<CourseEligibility[]> {
   const [rows] = await pool.query<RowDataPacket[]>(

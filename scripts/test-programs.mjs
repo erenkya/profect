@@ -763,6 +763,46 @@ try {
   check("GET /admin/programlar/<olmayan id>: 404", (await page("/admin/programlar/2147483000", admCookie)).status === 404);
   const listUsr = await page("/admin/programlar", nonAdm.cookie);
   check("GET /admin/programlar (admin olmayan): 200 değil (yönlendirme/yasak)", listUsr.status !== 200, String(listUsr.status));
+
+  // ── Görev 8 düzeltme: yayından kaldırma / alakasız düzenleme engellenmez, üye uyarısı ──
+  const fc = [await mkCourse(95), await mkCourse(96)];
+  const fcr = await adm(AP, "POST", newBody({ course_ids: fc, price: 2000, slug: `${PREFIX}-fx`, code: `PRG-E2EX-${stamp}`.slice(0, 30), title: "E2E Düzeltme Programı" }));
+  const fId = fcr.json?.programId;
+  if (fId) adminProgramIds.push(fId);
+  check("düzeltme: program oluşturuldu ve yayına alındı", fcr.status === 201 && (await adm(`${AP}/${fId}`, "PATCH", { is_published: true })).status === 200 && (await apRow(fId)).is_published === 1, JSON.stringify(fcr.json));
+
+  // yayındaki programda kurs fiyatı düştü: B (2000) > S (1500)
+  await db.query("UPDATE courses SET price = 500 WHERE id = ?", [fc[0]]);
+  const titleOnly = await adm(`${AP}/${fId}`, "PATCH", { title: "E2E Düzeltme Programı (v2)" });
+  check("B > S durumunda yalnızca başlık PATCH'i 200", titleOnly.status === 200 && (await apRow(fId)).title === "E2E Düzeltme Programı (v2)", JSON.stringify(titleOnly.json));
+  const priceTouch = await adm(`${AP}/${fId}`, "PATCH", { price: 1900 });
+  check("B > S durumunda fiyata dokunan PATCH hâlâ 400", priceTouch.status === 400, JSON.stringify(priceTouch.json));
+  const unpubOver = await adm(`${AP}/${fId}`, "PATCH", { is_published: false });
+  check("B > S durumunda {is_published:false} 200 ve program taslak", unpubOver.status === 200 && (await apRow(fId)).is_published === 0, JSON.stringify(unpubOver.json));
+  const repubOver = await adm(`${AP}/${fId}`, "PATCH", { is_published: true });
+  check("B > S iken yayına almak hâlâ 400", repubOver.status === 400 && (await apRow(fId)).is_published === 0, JSON.stringify(repubOver.json));
+
+  // yayındaki programda üye kurs final sınavını kaybetti
+  await db.query("UPDATE courses SET price = 1000 WHERE id = ?", [fc[0]]);
+  await db.query("UPDATE programs SET is_published = 1 WHERE id = ?", [fId]);
+  await db.query("DELETE FROM quizzes WHERE course_id = ? AND module_id IS NULL", [fc[1]]);
+  const titleBad = await adm(`${AP}/${fId}`, "PATCH", { description: "e2e (düzenlendi)" });
+  check("üye kurs sorunlu hâle gelince alakasız PATCH 200", titleBad.status === 200, JSON.stringify(titleBad.json));
+  const idsBad = await adm(`${AP}/${fId}`, "PATCH", { course_ids: [...fc].reverse() });
+  check("yayındaki programa course_ids gönderilince kurs denetimi: 400, mesajda kurs adı", idsBad.status === 400 && String(idsBad.json?.message).includes("E2E Program Kursu 96") && JSON.stringify(await pcOrder(fId)) === JSON.stringify(fc), JSON.stringify(idsBad.json));
+  const unpubBad = await adm(`${AP}/${fId}`, "PATCH", { is_published: false });
+  check("sorunlu kursla da yayından kaldırma 200", unpubBad.status === 200);
+
+  // üye sayısı: GET yanıtı ve editör uyarısı
+  await db.query("UPDATE programs SET is_published = 1 WHERE id = ?", [fId]);
+  await db.query("INSERT INTO program_enrollments (user_id, program_id, source) VALUES (?, ?, 'purchase')", [nonAdm.id, fId]);
+  const oneM = await adm(`${AP}/${fId}`, "GET");
+  check("GET :id member_count üye sayısını döner (1)", oneM.json?.member_count === 1, JSON.stringify(oneM.json?.member_count));
+  const memPg = await page(`/admin/programlar/${fId}`, admCookie);
+  check("yayındaki üyeli programın editöründe üye uyarısı", memPg.status === 200 && memPg.text.includes("1 üyesi var") && memPg.text.includes("otomatik verilmez"), String(memPg.status));
+  await db.query("UPDATE programs SET is_published = 0 WHERE id = ?", [fId]);
+  const draftPg = await page(`/admin/programlar/${fId}`, admCookie);
+  check("taslak programda üye uyarısı yok", draftPg.status === 200 && !draftPg.text.includes("otomatik verilmez"));
 } catch (e) {
   failN++;
   console.log("✗ FAIL beklenmeyen hata:", e);
