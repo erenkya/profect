@@ -26,12 +26,14 @@ type Props = {
   /** Ödenecek tutar 0 ve tüm kurslar gerçekten edinilmiş: ücretsiz katılım (sunucu da aynısını doğrular). */
   joinable?: boolean;
   /** Üye için ilerleme özeti ("3/5 kurs") ve varsa program sertifikası. */
+  /** Taslak program (yalnızca admin görür): satın alma, katılma ve hediye düğmeleri gösterilmez. */
+  draft?: boolean;
   progress?: { completed: number; total: number; certificateCode: string | null };
 };
 
 const big = { fontSize: 19, padding: 15, marginTop: 0 } as const;
 
-export function ProgramPricePanel({ slug, loggedIn, member, sellable, payable, programPrice, listTotal, ownedCount, ownedCredit, joinable = false, progress }: Props) {
+export function ProgramPricePanel({ slug, loggedIn, member, sellable, payable, programPrice, listTotal, ownedCount, ownedCredit, joinable = false, draft = false, progress }: Props) {
   const router = useRouter();
   const { items, ready } = useCart();
   const inCart = ready && items.some((i) => i.type === "program" && i.slug === slug);
@@ -62,6 +64,11 @@ export function ProgramPricePanel({ slug, loggedIn, member, sellable, payable, p
             {progress?.certificateCode && (
               <Link href={`/sertifika/${progress.certificateCode}`} className="btn btn-secondary btn-block" style={{ marginTop: 0 }}>Program sertifikamı gör</Link>
             )}
+          </>
+        ) : draft ? (
+          <>
+            <div style={{ fontFamily: "var(--font-heading)", fontSize: 28, lineHeight: 1.1, fontWeight: 700 }}>Taslak — satışa kapalı</div>
+            <p style={{ margin: 0, fontSize: 14, color: "var(--muted-72)" }}>Bu program henüz yayında değil; yalnızca yönetici olarak görebiliyorsun. Yayına alınca satın alma, katılma ve hediye düğmeleri açılır.</p>
           </>
         ) : !sellable ? (
           <>
@@ -107,12 +114,12 @@ export function ProgramPricePanel({ slug, loggedIn, member, sellable, payable, p
           </>
         )}
 
-        {sellable && programPrice > 0 && (
+        {!draft && sellable && programPrice > 0 && (
           <Link href={loggedIn ? giftHref : `/giris?next=${encodeURIComponent(giftHref)}`} className="btn btn-secondary btn-block" style={{ marginTop: 0 }}>
             <Gift size={16} aria-hidden /> Hediye Et
           </Link>
         )}
-        {!member && sellable && !joinable && <div style={{ fontSize: 13, textAlign: "center", color: "var(--muted-55)" }}>14 gün içinde koşulsuz iade</div>}
+        {!member && !draft && sellable && !joinable && <div style={{ fontSize: 13, textAlign: "center", color: "var(--muted-55)" }}>14 gün içinde koşulsuz iade</div>}
         <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12, fontSize: 15 }}>
           {["Tüm kurslara kalıcı erişim", "Her kurs için ayrı sertifika", "Tüm kursları bitirince program sertifikası", "Sahip olduğun kurslar fiyattan düşülür"].map((t) => (
             <div key={t} style={{ display: "flex", gap: 12, alignItems: "center" }}>

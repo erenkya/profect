@@ -7,7 +7,7 @@ import { ProgramPricePanel } from "@/components/ProgramPricePanel";
 import { getCurrentUser } from "@/lib/auth";
 import { coverUrl } from "@/lib/cover-key";
 import { formatPrice } from "@/lib/format";
-import { getCourseStandings, getProgramBySlug, getProgramOffer } from "@/lib/programs";
+import { ensureProgramProgress, getCourseStandings, getProgramBySlug, getProgramOffer, isProgramMember } from "@/lib/programs";
 import pool from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 
@@ -26,7 +26,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ProgramPage({ params }: Props) {
   const { slug } = await params;
   const user = await getCurrentUser();
-  const offer = await getProgramOffer(slug, user?.id ?? null, { includeDraft: user?.role === "admin" });
+  const includeDraft = user?.role === "admin";
+  // Tembel geriye dönük üretim (spec): tüm kursları (ör. Plus ile) bitirmiş ama henüz üye olmayan kullanıcıya üyelik + program
+  // sertifikası burada yazılır; böylece zaten hak ettiği programın ücretli satın alımı önerilmez. Teklif bundan SONRA okunur.
+  if (user) {
+    const target = await getProgramBySlug(slug, { includeDraft });
+    if (target?.is_published && !(await isProgramMember(user.id, target.id))) {
+      try {
+        await ensureProgramProgress(user.id, { programId: target.id });
+      } catch (err) {
+        console.error("ensureProgramProgress failed", err);
+      }
+    }
+  }
+  const offer = await getProgramOffer(slug, user?.id ?? null, { includeDraft });
   if (!offer) notFound();
   const { program, courses, calc } = offer;
 
@@ -86,7 +99,7 @@ export default async function ProgramPage({ params }: Props) {
                 const line = calc.lines[i];
                 const st = standings?.get(c.id);
                 const done = !!st?.certificate_code;
-                const have = !!user && (line.owned || done);
+                const have = !!user && line.owned;
                 return (
                   <li key={c.id} className="road-row">
                     <span className="road-n">{String(i + 1).padStart(2, "0")}</span>
@@ -96,12 +109,11 @@ export default async function ProgramPage({ params }: Props) {
                     </div>
                     <div className="road-side">
                       {have ? (
-                        <span className="road-have">
-                          {line.owned ? "Sende · " : "Plus ile "}
-                          {done ? "tamamlandı" : `%${st?.percentage ?? 0}`}
-                        </span>
+                        <span className="road-have">Sende · {done ? "tamamlandı" : `%${st?.percentage ?? 0}`}</span>
                       ) : (
                         <>
+                          {/* Sertifikası olup kalıcı kaydı olmayan (Plus ile bitirilmiş) kurs "edinilmiş" sayılmaz: fiyat toplamı tutsun diye fiyatı gösterilir. */}
+                          {done && <span className="road-have">Plus ile tamamladın</span>}
                           <span className="road-price">{formatPrice(line.price)}</span>
                           {line.listPrice > line.price && <span className="road-old">{formatPrice(line.listPrice)}</span>}
                         </>
@@ -135,6 +147,7 @@ export default async function ProgramPage({ params }: Props) {
           ownedCount={calc.ownedCount}
           ownedCredit={calc.credit}
           joinable={joinable}
+          draft={!program.is_published}
           progress={offer.member ? { completed, total: courses.length, certificateCode: programCert } : undefined}
         />
       </section>

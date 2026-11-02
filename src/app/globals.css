@@ -245,7 +245,7 @@ button { font: inherit; }
 .road { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--color-divider); }
 .road-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding: 18px 0; border-top: 1px solid var(--color-divider); }
 .road-n { font-family: var(--font-heading); font-size: 28px; line-height: 1; font-weight: 700; color: var(--color-accent); }
-.road-title { font-family: var(--font-heading); font-size: 22px; line-height: 1.15; font-weight: 600; }
+.road-title { font-family: var(--font-heading); font-size: 22px; line-height: 1.15; font-weight: 600; overflow-wrap: anywhere; }
 .road-title a { color: inherit; text-decoration: none; }
 .road-title a:hover { color: var(--color-accent); }
 .road-meta { font-size: 13px; color: var(--muted-55); margin-top: 2px; }
@@ -259,7 +259,7 @@ button { font: inherit; }
 }
 .prog-sum { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--color-divider); padding-top: 16px; }
 .prog-sum-row { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; }
-.prog-sum-total { border-top: 1px solid var(--color-divider); padding-top: 12px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.prog-sum-total { border-top: 1px solid var(--color-divider); padding-top: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px; }
 /* Kurucular: iki yanda fotoğraf, ortada metin */
 .founders-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 64px); align-items: center; }
 .founders-stage .founder-photo-0 { grid-column: 1; grid-row: 1; }

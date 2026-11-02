@@ -605,6 +605,7 @@ try {
   const draftUser = await page(`/programlar/${PREFIX}-draft`, pageU.cookie);
   const draftAdmin = await page(`/programlar/${PREFIX}-draft`, admCookie);
   check("taslak program: girişsiz 404, kullanıcı 404, admin 200", draftGuest.status === 404 && draftUser.status === 404 && draftAdmin.status === 200, JSON.stringify([draftGuest.status, draftUser.status, draftAdmin.status]));
+  check("taslak program, admin: 'Taslak — satışa kapalı' notu var, satın alma/hediye düğmeleri yok", draftAdmin.text.includes("satışa kapalı") && !draftAdmin.text.includes("Hemen Satın Al") && !draftAdmin.text.includes("Hediye Et"));
   check("taslak program listede görünmez", !listPg.text.includes("E2E Taslak Program"));
   check("olmayan program 404", (await page("/programlar/e2e-yok-boyle-program")).status === 404);
 
@@ -636,6 +637,25 @@ try {
   check("Programlarım: program adı, 5/5 kurs ve sertifika bağlantısı", myLazy.status === 200 && myLazy.text.includes(PROGRAM_TITLE_P) && myLazy.text.includes("5/5") && !!lazyCert[0] && myLazy.text.includes(`/sertifika/${lazyCert[0].certificate_code}`), String(myLazy.status));
   const lazyPg = await page(`/programlar/${PROGRAM_SLUG}`, lazy.cookie);
   check("üye için program sayfası: tüm kurslar 'tamamlandı', ödenecek tutar kutusu yok", lazyPg.status === 200 && lazyPg.text.includes("tamamlandı") && !lazyPg.text.includes("Hemen Satın Al"), String(lazyPg.status));
+
+  // Program sayfası da tembel üretim yapar: 5 kursu Plus ile bitirmiş (kalıcı kayıt yok) kullanıcı üye olur, satın alma önerilmez
+  const plusU = await mkUser("pg-plus");
+  for (const [i, cid] of courseIds.slice(0, 5).entries()) {
+    await db.query("INSERT INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'plus')", [plusU.id, cid]);
+    await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [plusU.id, cid, `PRF-M${i}-${stamp % 1e6}`]);
+  }
+  check("Plus ile bitiren: sayfa açılmadan önce üyelik yok", !(await programMember(plusU.id, programId)));
+  const plusPg = await page(`/programlar/${PROGRAM_SLUG}`, plusU.cookie);
+  check("Plus ile bitiren: program sayfası açılınca üyelik (auto) + program sertifikası yazılır", (await programMember(plusU.id, programId))?.source === "auto" && (await db.query("SELECT 1 FROM program_certificates WHERE user_id=? AND program_id=?", [plusU.id, programId]))[0].length === 1);
+  check("Plus ile bitiren: 'Hemen Satın Al' yok, 'Programa git' var", plusPg.status === 200 && !plusPg.text.includes("Hemen Satın Al") && plusPg.text.includes("Programa git"), String(plusPg.status));
+  // Plus ile bitirilmiş ama programa üye OLMAYAN (yalnızca 4/5 sertifika): üye olmaz, Plus ile tamamlanan kursların fiyatı gösterilir
+  const plus4 = await mkUser("pg-plus4");
+  for (const [i, cid] of courseIds.slice(0, 4).entries()) {
+    await db.query("INSERT INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'plus')", [plus4.id, cid]);
+    await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [plus4.id, cid, `PRF-N${i}-${stamp % 1e6}`]);
+  }
+  const plus4Pg = await page(`/programlar/${PROGRAM_SLUG}`, plus4.cookie);
+  check("Plus ile 4/5 bitiren: üye değil, 'Plus ile tamamladın' etiketi + satırlarda fiyat (800), ödenecek 4.000", !(await programMember(plus4.id, programId)) && plus4Pg.text.includes("Plus ile tamamladın") && plus4Pg.text.includes("₺800") && plus4Pg.text.includes("Hemen Satın Al"), String(plus4Pg.status));
 
   // Kısmi ilerleme: 3 kurs sertifikalı üye -> 3/5
   const part = await mkUser("pg-part");
