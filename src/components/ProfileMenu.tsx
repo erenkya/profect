@@ -121,6 +121,12 @@ export function ProfileMenu({ user }: { user: SessionUser }) {
         </div>
 
         <div className="pm-list pm-foot">
+          {user.role === "instructor" && (
+            <Link href="/egitmen/sorular" role="menuitem" className="pm-item" style={{ "--i": ACCOUNT_ITEMS.length } as React.CSSProperties}>
+              <ShieldCheck size={17} aria-hidden="true" />
+              Öğrenci soruları
+            </Link>
+          )}
           {user.role === "admin" && (
             <Link href="/admin" role="menuitem" className="pm-item" style={{ "--i": ACCOUNT_ITEMS.length } as React.CSSProperties}>
               <ShieldCheck size={17} aria-hidden="true" />

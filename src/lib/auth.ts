@@ -12,7 +12,7 @@ export { AUTH_COOKIE_NAME, USER_DATA_COOKIE_NAME };
 
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
-export type Role = "user" | "admin";
+export type Role = "user" | "admin" | "instructor";
 
 export interface JwtPayload {
   userId: number;
@@ -134,6 +134,18 @@ export async function requireAdmin(): Promise<Guard> {
     return { error: NextResponse.json({ success: false, message: "Yönetici yetkisi gerekli." }, { status: 403 }) };
   }
   return { payload: { ...payload, role: "admin" } };
+}
+
+/** Yönetici ya da eğitmen (ders altı soruları yanıtlayabilen personel). */
+export async function requireStaff(): Promise<Guard> {
+  const payload = await getAuthFromCookies();
+  if (!payload) return { error: unauthorized() };
+  const state = await getAccountState(payload.userId);
+  if (state.status === "invalid") return { error: endedSession() };
+  if (state.status !== "active" || (state.role !== "admin" && state.role !== "instructor")) {
+    return { error: NextResponse.json({ success: false, message: "Eğitmen yetkisi gerekli." }, { status: 403 }) };
+  }
+  return { payload: { ...payload, role: state.role } };
 }
 
 /** Server component'ler için: oturumdaki kullanıcı (DB doğrulamalı) ya da null. */

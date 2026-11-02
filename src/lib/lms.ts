@@ -496,7 +496,7 @@ export async function getPlusInfo(userId: number) {
 }
 
 // ── Yönetici görünümü (içerik dahil) ──────────────────────────────────────────
-export type AdminLesson = { id: number; module_id: number; title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null; sort_order: number };
+export type AdminLesson = { id: number; module_id: number; title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null; instructor_id: number | null; sort_order: number };
 export type AdminQuizRef = { id: number; title: string; module_id: number | null; passing_score_percentage: number; question_count: number; pool_count: number };
 export type AdminModule = { id: number; title: string; sort_order: number; lessons: AdminLesson[]; quiz: AdminQuizRef | null };
 
@@ -505,7 +505,7 @@ export async function getCourseAdminTree(courseId: number) {
   if (!course) return null;
   const [modules] = await pool.query<RowDataPacket[]>("SELECT id, title, sort_order FROM modules WHERE course_id = ? ORDER BY sort_order, id", [courseId]);
   const [lessons] = await pool.query<RowDataPacket[]>(
-    `SELECT l.id, l.module_id, l.title, l.lesson_type, l.content, l.duration_minutes, l.sort_order
+    `SELECT l.id, l.module_id, l.title, l.lesson_type, l.content, l.duration_minutes, l.instructor_id, l.sort_order
        FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = ? ORDER BY l.sort_order, l.id`,
     [courseId],
   );

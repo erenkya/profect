@@ -168,3 +168,17 @@ export async function sendPasswordResetEmail(email: string, url: string) {
     text: `${intro}\n\n${url}\n\n${notice}`,
   });
 }
+
+export type LessonQuestionMail = { studentName: string; courseTitle: string; lessonTitle: string; body: string; url: string };
+
+/** Bir öğrenci ders altına soru yazınca dersin eğitmenine (ya da atanmamışsa yöneticilere) giden bildirim. */
+export async function sendLessonQuestionEmail(to: string, q: LessonQuestionMail) {
+  const intro = `${q.studentName}, “${q.courseTitle}” kursundaki “${q.lessonTitle}” dersinin altına bir soru yazdı: “${q.body}”`;
+  const notice = "Cevaplamak için butonla soru ekranına gidin. Cevabınız dersin altında öğrencilere görünür.";
+  await deliver({
+    to,
+    subject: `Yeni soru: ${q.lessonTitle} — Profect`,
+    html: layout("Derste Yeni Soru", intro, "Soruyu Cevapla", q.url, notice),
+    text: `${intro}\n\n${q.url}\n\n${notice}`,
+  });
+}

@@ -6,18 +6,19 @@ import { useState } from "react";
 import { ArrowDown, ArrowUp, CirclePlay, FileText, Pencil, Trash2 } from "lucide-react";
 import { Corners } from "@/components/Corners";
 import { Toast, useFlash } from "./Toast";
+import type { Instructor } from "@/lib/comments";
 import type { AdminLesson, AdminModule, AdminQuizRef, CourseRow } from "@/lib/lms";
 import { adminApi } from "./api";
 import { VideoUploadField } from "./VideoUploadField";
 import { CoverUploadField } from "./CoverUploadField";
 import { CategoryField } from "./CategoryField";
 
-type Props = { course: CourseRow; modules: AdminModule[]; finalQuiz: AdminQuizRef | null; categories: string[] };
+type Props = { course: CourseRow; modules: AdminModule[]; finalQuiz: AdminQuizRef | null; categories: string[]; instructors: Instructor[] };
 
 const input = { background: "#fff", fontSize: 15, minHeight: 38 } as const;
 const iconBtn = { width: 32, height: 32 } as const;
 
-export function CourseBuilder({ course, modules, finalQuiz, categories }: Props) {
+export function CourseBuilder({ course, modules, finalQuiz, categories, instructors }: Props) {
   const router = useRouter();
   const [flash, setFlash] = useFlash();
 
@@ -38,7 +39,7 @@ export function CourseBuilder({ course, modules, finalQuiz, categories }: Props)
         <h2 style={{ fontSize: 36, textTransform: "uppercase", marginBottom: 16 }}>Müfredat</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {modules.map((m, i) => (
-            <ModuleCard key={m.id} mod={m} index={i} courseId={course.id} siblings={modules} run={run} />
+            <ModuleCard key={m.id} mod={m} index={i} courseId={course.id} siblings={modules} instructors={instructors} run={run} />
           ))}
         </div>
         <AddModule courseId={course.id} run={run} />
@@ -153,7 +154,7 @@ function AddModule({ courseId, run }: { courseId: number; run: Run }) {
   );
 }
 
-function ModuleCard({ mod, index, courseId, siblings, run }: { mod: AdminModule; index: number; courseId: number; siblings: AdminModule[]; run: Run }) {
+function ModuleCard({ mod, index, courseId, siblings, instructors, run }: { mod: AdminModule; index: number; courseId: number; siblings: AdminModule[]; instructors: Instructor[]; run: Run }) {
   const [title, setTitle] = useState(mod.title);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
@@ -187,7 +188,7 @@ function ModuleCard({ mod, index, courseId, siblings, run }: { mod: AdminModule;
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {mod.lessons.map((l, i) =>
           editing === l.id ? (
-            <LessonForm key={l.id} moduleId={mod.id} initial={l} submitLabel="Kaydet" onCancel={() => setEditing(null)} onSubmit={async (v) => (await run(adminApi("PATCH", `/api/admin/lessons/${l.id}`, v), "Ders güncellendi.")).ok && setEditing(null)} />
+            <LessonForm key={l.id} moduleId={mod.id} instructors={instructors} initial={l} submitLabel="Kaydet" onCancel={() => setEditing(null)} onSubmit={async (v) => (await run(adminApi("PATCH", `/api/admin/lessons/${l.id}`, v), "Ders güncellendi.")).ok && setEditing(null)} />
           ) : (
             <div key={l.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px", border: "1px solid var(--color-divider)" }}>
               {l.lesson_type === "video" ? <CirclePlay size={16} strokeWidth={1.5} /> : <FileText size={16} strokeWidth={1.5} />}
@@ -200,7 +201,7 @@ function ModuleCard({ mod, index, courseId, siblings, run }: { mod: AdminModule;
           ),
         )}
         {adding ? (
-          <LessonForm moduleId={mod.id} submitLabel="Ders ekle" onCancel={() => setAdding(false)} onSubmit={async (v) => (await run(adminApi("POST", `/api/admin/modules/${mod.id}/lessons`, v), "Ders eklendi.")).ok && setAdding(false)} />
+          <LessonForm moduleId={mod.id} instructors={instructors} submitLabel="Ders ekle" onCancel={() => setAdding(false)} onSubmit={async (v) => (await run(adminApi("POST", `/api/admin/modules/${mod.id}/lessons`, v), "Ders eklendi.")).ok && setAdding(false)} />
         ) : (
           <button className="btn btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => setAdding(true)}>+ Ders ekle</button>
         )}
@@ -214,15 +215,15 @@ function ModuleCard({ mod, index, courseId, siblings, run }: { mod: AdminModule;
   );
 }
 
-function LessonForm({ moduleId, initial, submitLabel, onSubmit, onCancel }: { moduleId: number; initial?: AdminLesson; submitLabel: string; onSubmit: (v: { title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number }) => void; onCancel: () => void }) {
-  const [v, setV] = useState({ title: initial?.title ?? "", lesson_type: initial?.lesson_type ?? ("text" as "video" | "text"), content: initial?.content ?? "", duration: initial?.duration_minutes == null ? "" : String(initial.duration_minutes) });
+function LessonForm({ moduleId, instructors, initial, submitLabel, onSubmit, onCancel }: { moduleId: number; instructors: Instructor[]; initial?: AdminLesson; submitLabel: string; onSubmit: (v: { title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number; instructor_id: number | null }) => void; onCancel: () => void }) {
+  const [v, setV] = useState({ title: initial?.title ?? "", lesson_type: initial?.lesson_type ?? ("text" as "video" | "text"), content: initial?.content ?? "", duration: initial?.duration_minutes == null ? "" : String(initial.duration_minutes), instructor: initial?.instructor_id == null ? "" : String(initial.instructor_id) });
   const [uploading, setUploading] = useState(false);
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         if (v.lesson_type === "video" && !v.content) return;
-        onSubmit({ title: v.title, lesson_type: v.lesson_type, content: v.content, duration_minutes: Number(v.duration) });
+        onSubmit({ title: v.title, lesson_type: v.lesson_type, content: v.content, duration_minutes: Number(v.duration), instructor_id: v.instructor ? Number(v.instructor) : null });
       }}
       style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, background: "var(--color-accent-100)" }}
     >
@@ -234,6 +235,10 @@ function LessonForm({ moduleId, initial, submitLabel, onSubmit, onCancel }: { mo
         </select>
         <input className="input" type="number" required min={1} placeholder="Süre (dk)" value={v.duration} onChange={(e) => setV({ ...v, duration: e.target.value })} style={input} />
       </div>
+      <select className="input" aria-label="Ders eğitmeni" value={v.instructor} onChange={(e) => setV({ ...v, instructor: e.target.value })} style={input}>
+        <option value="">Eğitmen atanmadı (sorular yöneticilere gider)</option>
+        {instructors.map((i) => <option key={i.id} value={i.id}>{i.full_name}{i.role === "admin" ? " (yönetici)" : ""}</option>)}
+      </select>
       {v.lesson_type === "video" ? (
         <VideoUploadField
           moduleId={moduleId}

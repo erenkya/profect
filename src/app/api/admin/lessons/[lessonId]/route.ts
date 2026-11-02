@@ -3,6 +3,7 @@ import pool from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { lessonSchema } from "@/lib/admin-schemas";
+import { isStaffUser } from "@/lib/comments";
 import { listVideoKeys, validateLessonVideo } from "@/lib/lesson-video";
 import { deleteVideo, deleteVideos } from "@/lib/r2";
 import { isVideoKey } from "@/lib/video-key";
@@ -27,9 +28,10 @@ export async function PATCH(request: Request, { params }: Ctx) {
       const problem = await validateLessonVideo(d.content, old.module_id);
       if (problem) return fail(problem, 400);
     }
+    if (d.instructor_id !== null && !(await isStaffUser(d.instructor_id))) return fail("Eğitmen olarak yalnızca eğitmen ya da yönetici seçilebilir.", 400);
     const [res] = await pool.execute<ResultSetHeader>(
-      "UPDATE lessons SET title = ?, lesson_type = ?, content = ?, duration_minutes = ? WHERE id = ?",
-      [d.title, d.lesson_type, d.content, d.duration_minutes, id],
+      "UPDATE lessons SET title = ?, lesson_type = ?, content = ?, duration_minutes = ?, instructor_id = ? WHERE id = ?",
+      [d.title, d.lesson_type, d.content, d.duration_minutes, d.instructor_id, id],
     );
     if (!res.affectedRows) return fail("Ders bulunamadı.", 404);
     // Video değiştiyse (ya da derse metne çevrildiyse) eski nesne R2'de sahipsiz kalmasın.

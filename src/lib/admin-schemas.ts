@@ -45,6 +45,7 @@ export const lessonSchema = z
     lesson_type: z.enum(["video", "text"]),
     content: z.string().min(1, "İçerik boş olamaz."), // video: R2 nesne anahtarı · text: Markdown
     duration_minutes: z.coerce.number({ invalid_type_error: "Ders süresi zorunlu." }).int().min(1, "Ders süresi en az 1 dk olmalı.").max(100000),
+    instructor_id: z.number().int().positive().nullable().default(null), // boşsa soru bildirimi yöneticilere gider
   })
   .superRefine((d, ctx) => {
     if (d.lesson_type === "video" && !isVideoKey(d.content)) {

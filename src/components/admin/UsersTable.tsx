@@ -7,9 +7,11 @@ import { formatDate } from "@/lib/format";
 import { adminApi } from "./api";
 
 export type AdminUser = {
-  id: number; full_name: string; email: string; role: "user" | "admin"; is_active: number; email_verified: number;
+  id: number; full_name: string; email: string; role: "user" | "admin" | "instructor"; is_active: number; email_verified: number;
   plus_until: string | null; last_login_at: string | null; created_at: string; enrollment_count: number;
 };
+
+const ROLE_LABEL = { user: "Kullanıcı", admin: "Yönetici", instructor: "Eğitmen" } as const;
 
 export function UsersTable({ users, currentUserId }: { users: AdminUser[]; currentUserId: number }) {
   const router = useRouter();
@@ -41,7 +43,7 @@ export function UsersTable({ users, currentUserId }: { users: AdminUser[]; curre
                 <tr key={u.id}>
                   <td>{u.full_name}</td>
                   <td>{u.email}{!u.email_verified && <span className="tag tag-neutral" style={{ marginLeft: 8 }}>doğrulanmadı</span>}</td>
-                  <td><span className={`tag ${u.role === "admin" ? "tag-accent-2" : "tag-neutral"}`}>{u.role === "admin" ? "Yönetici" : "Kullanıcı"}</span></td>
+                  <td><span className={`tag ${u.role === "user" ? "tag-neutral" : "tag-accent-2"}`}>{ROLE_LABEL[u.role]}</span></td>
                   <td>{u.is_active ? "Aktif" : "Pasif"}</td>
                   <td>{u.enrollment_count}</td>
                   <td>{plusActive(u) ? `${formatDate(u.plus_until)}'e kadar` : "—"}</td>
@@ -49,6 +51,7 @@ export function UsersTable({ users, currentUserId }: { users: AdminUser[]; curre
                   <td style={{ display: "flex", gap: 6 }}>
                     <button className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: 13 }} disabled={self} onClick={() => act(adminApi("PATCH", `/api/admin/users/${u.id}`, { is_active: !u.is_active }))}>{u.is_active ? "Pasifleştir" : "Aktifleştir"}</button>
                     <button className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: 13 }} disabled={self} onClick={() => act(adminApi("PATCH", `/api/admin/users/${u.id}`, { role: u.role === "admin" ? "user" : "admin" }))}>{u.role === "admin" ? "Yetkiyi al" : "Yönetici yap"}</button>
+                    {u.role !== "admin" && <button className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => act(adminApi("PATCH", `/api/admin/users/${u.id}`, { role: u.role === "instructor" ? "user" : "instructor" }))}>{u.role === "instructor" ? "Eğitmenliği al" : "Eğitmen yap"}</button>}
                     <button className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => act(adminApi("PATCH", `/api/admin/users/${u.id}`, { plus_until: plusActive(u) ? null : new Date(Date.now() + 30 * 864e5).toISOString() }))}>{plusActive(u) ? "Plus kaldır" : "Plus ver (30 gün)"}</button>
                     {!u.email_verified && <button className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => act(adminApi("PATCH", `/api/admin/users/${u.id}`, { email_verified: true }))}>E-postayı onayla</button>}
                     <button className="btn btn-ghost" style={{ padding: "4px 10px", fontSize: 13 }} disabled={self} onClick={() => confirm(`${u.full_name} kalıcı olarak silinsin mi? Kayıtları, ilerlemesi ve sertifikaları da silinir.`) && act(adminApi("DELETE", `/api/admin/users/${u.id}`))}>Sil</button>

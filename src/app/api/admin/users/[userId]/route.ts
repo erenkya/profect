@@ -8,7 +8,7 @@ type Ctx = { params: Promise<{ userId: string }> };
 
 const patchSchema = z.object({
   is_active: z.boolean().optional(),
-  role: z.enum(["user", "admin"]).optional(),
+  role: z.enum(["user", "admin", "instructor"]).optional(),
   email_verified: z.boolean().optional(),
   // Plus erişimini elle ver/kaldır: ISO tarih ya da null
   plus_until: z.string().datetime().nullable().optional(),
@@ -24,7 +24,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
   const d = body.data;
 
   // Yönetici kendini kilitleyemesin (son admin'in erişimini yitirmesini önler).
-  if (id === guard.payload.userId && (d.is_active === false || d.role === "user")) {
+  if (id === guard.payload.userId && (d.is_active === false || d.role !== "admin")) {
     return fail("Kendi hesabınızı pasifleştiremez veya yetkinizi düşüremezsiniz.", 400);
   }
 

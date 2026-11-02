@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { lessonSchema } from "@/lib/admin-schemas";
 import { validateLessonVideo } from "@/lib/lesson-video";
+import { isStaffUser } from "@/lib/comments";
 
 export async function POST(request: Request, { params }: { params: Promise<{ moduleId: string }> }) {
   const guard = await requireAdmin();
@@ -20,10 +21,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ mod
       const problem = await validateLessonVideo(d.content, moduleId);
       if (problem) return fail(problem, 400);
     }
+    if (d.instructor_id !== null && !(await isStaffUser(d.instructor_id))) return fail("Eğitmen olarak yalnızca eğitmen ya da yönetici seçilebilir.", 400);
     const [res] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO lessons (module_id, title, lesson_type, content, duration_minutes, sort_order)
-       SELECT ?, ?, ?, ?, ?, COALESCE(MAX(sort_order) + 1, 0) FROM lessons WHERE module_id = ?`,
-      [moduleId, d.title, d.lesson_type, d.content, d.duration_minutes, moduleId],
+      `INSERT INTO lessons (module_id, title, lesson_type, content, duration_minutes, instructor_id, sort_order)
+       SELECT ?, ?, ?, ?, ?, ?, COALESCE(MAX(sort_order) + 1, 0) FROM lessons WHERE module_id = ?`,
+      [moduleId, d.title, d.lesson_type, d.content, d.duration_minutes, d.instructor_id, moduleId],
     );
     return ok({ lessonId: res.insertId }, 201);
   } catch (err) {
