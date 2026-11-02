@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Corners } from "@/components/Corners";
 import { evaluatePassword } from "@/lib/password-strength";
 import { FormMessage } from "./AuthShell";
@@ -96,27 +97,122 @@ export function ResetPasswordForm({ token }: { token: string }) {
   );
 }
 
-export function VerifyEmail({ token }: { token: string }) {
-  const [state, setState] = useState<{ kind: "loading" | "ok" | "bad"; message: string }>({ kind: "loading", message: "Doğrulanıyor…" });
-  const started = useRef(false); // Strict Mode çift efektinde tek kullanımlık token iki kez harcanmasın
+const CODE_LENGTH = 6;
+const CODE_TTL_MINUTES = 10;
+const RESEND_COOLDOWN_SECONDS = 60;
+
+/** Kayıt/giriş sonrası e-posta doğrulama kodu ekranı. Doğru kodda oturum açılır ve `next`e gidilir. */
+export function VerifyEmail({ email, next }: { email: string; next: string }) {
+  const router = useRouter();
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    if (!token) {
-      setState({ kind: "bad", message: "Doğrulama bağlantısı eksik." });
-      return;
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  async function submit(value: string) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setInfo("");
+    try {
+      const res = await fetch("/api/auth/verify-email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, code: value }) });
+      const json = await res.json();
+      if (res.ok) {
+        router.push(next);
+        router.refresh();
+        return;
+      }
+      setError(json.message ?? "Doğrulama başarısız.");
+      setCode("");
+    } catch {
+      setError("Bağlantı hatası. Lütfen tekrar deneyin.");
+    } finally {
+      setBusy(false);
     }
-    fetch("/api/auth/verify-email", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }) })
-      .then(async (res) => setState({ kind: res.ok ? "ok" : "bad", message: (await res.json()).message }))
-      .catch(() => setState({ kind: "bad", message: "Bağlantı hatası. Lütfen tekrar deneyin." }));
-  }, [token]);
+  }
+
+  async function resend() {
+    setResending(true);
+    setError("");
+    setInfo("");
+    try {
+      const res = await fetch("/api/auth/resend-verification", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
+      const json = await res.json();
+      if (res.ok) {
+        setInfo("Yeni doğrulama kodu e-posta adresinize gönderildi.");
+        setCode("");
+        setCooldown(json.retryAfter ?? RESEND_COOLDOWN_SECONDS);
+      } else {
+        setError(json.message ?? "Kod gönderilemedi.");
+        if (typeof json.retryAfter === "number") setCooldown(json.retryAfter);
+      }
+    } catch {
+      setError("Bağlantı hatası. Lütfen tekrar deneyin.");
+    } finally {
+      setResending(false);
+    }
+  }
+
+  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, CODE_LENGTH);
+    setCode(digits);
+    if (digits.length === CODE_LENGTH) void submit(digits);
+  }
+
+  if (!email) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <FormMessage kind="error">Doğrulanacak e-posta adresi bulunamadı. Lütfen kayıt veya giriş sayfasından devam edin.</FormMessage>
+        <Link href="/giris" className="btn btn-secondary">Girişe dön</Link>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {state.kind === "loading" ? <p style={{ margin: 0 }}>{state.message}</p> : <FormMessage kind={state.kind === "ok" ? "ok" : "error"}>{state.message}</FormMessage>}
-      {state.kind === "ok" && <Link href="/giris" className="btn btn-primary blueprint"><Corners />Giriş yap</Link>}
-      {state.kind === "bad" && <Link href="/giris" className="btn btn-secondary">Girişe dön</Link>}
-    </div>
+    <form onSubmit={(e) => { e.preventDefault(); if (code.length === CODE_LENGTH) void submit(code); }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6 }}>
+        <strong style={{ wordBreak: "break-all" }}>{email}</strong> adresine {CODE_LENGTH} haneli bir doğrulama kodu gönderdik. Kod {CODE_TTL_MINUTES} dakika geçerlidir.
+      </p>
+      <div className="field">
+        <label htmlFor="code">Doğrulama kodu</label>
+        <input
+          id="code"
+          className="input"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="[0-9]*"
+          maxLength={CODE_LENGTH}
+          autoFocus
+          required
+          value={code}
+          onChange={onChange}
+          placeholder="••••••"
+          aria-describedby="code-help"
+          style={{ background: "#fff", minHeight: 56, fontSize: 28, letterSpacing: "0.5em", textAlign: "center", fontFamily: "var(--font-mono, monospace)" }}
+        />
+      </div>
+      <div id="code-help" style={{ fontSize: 13, color: "var(--muted-72)" }}>Kodu girdiğinizde otomatik doğrulanır. Gelmediyse spam klasörünü de kontrol edin.</div>
+      {error && <FormMessage kind="error">{error}</FormMessage>}
+      {info && <FormMessage kind="ok">{info}</FormMessage>}
+      <button type="submit" disabled={busy || code.length !== CODE_LENGTH} className="btn btn-primary blueprint" style={{ fontSize: 17, padding: 13 }}>
+        <Corners />
+        {busy ? "Doğrulanıyor…" : "Doğrula"}
+      </button>
+      <button type="button" className="btn btn-secondary" disabled={resending || cooldown > 0} onClick={resend}>
+        {resending ? "Gönderiliyor…" : cooldown > 0 ? `Kodu tekrar gönder (${cooldown} sn)` : "Kodu tekrar gönder"}
+      </button>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, flexWrap: "wrap", gap: 8 }}>
+        <Link href="/kayit">E-postayı değiştir</Link>
+        <Link href="/giris">Girişe dön</Link>
+      </div>
+    </form>
   );
 }

@@ -12,7 +12,8 @@
     "r2:setup": "node --env-file=.env scripts/r2-setup.mjs",
     "db:seed": "node --env-file=.env scripts/seed.mjs",
     "db:create-admin": "node --env-file=.env scripts/create-admin.mjs",
-    "test:api": "node --env-file=.env scripts/test-api.mjs"
+    "test:api": "node --env-file=.env scripts/test-api.mjs",
+    "test:verify": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-email-verification.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",

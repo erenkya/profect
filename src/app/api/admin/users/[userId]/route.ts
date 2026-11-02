@@ -32,7 +32,12 @@ export async function PATCH(request: Request, { params }: Ctx) {
   const values: unknown[] = [];
   if (d.is_active !== undefined) { sets.push("is_active = ?"); values.push(d.is_active ? 1 : 0); }
   if (d.role !== undefined) { sets.push("role = ?"); values.push(d.role); }
-  if (d.email_verified !== undefined) { sets.push("email_verified = ?"); values.push(d.email_verified ? 1 : 0); }
+  if (d.email_verified !== undefined) {
+    // Elle onay: bekleyen kod geçersiz kılınır; onay kaldırılırsa zaman damgası da silinir.
+    sets.push(d.email_verified
+      ? "email_verified = 1, email_verified_at = COALESCE(email_verified_at, NOW()), verification_token_hash = NULL, verification_token_expiry = NULL, verification_attempts = 0"
+      : "email_verified = 0, email_verified_at = NULL");
+  }
   if (d.plus_until !== undefined) { sets.push("plus_until = ?"); values.push(d.plus_until ? d.plus_until.slice(0, 19).replace("T", " ") : null); }
   if (sets.length === 0) return fail("Güncellenecek alan yok.", 400);
 

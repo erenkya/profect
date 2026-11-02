@@ -38,7 +38,9 @@ export function RegisterForm({ siteKey, next }: { siteKey: string; next: string 
       });
       const json = await res.json();
       if (res.ok) {
-        router.push(next === "/hesabim" ? "/giris" : `/giris?next=${encodeURIComponent(next)}`);
+        const q = new URLSearchParams({ email: json.email ?? form.email.trim().toLowerCase() });
+        if (next !== "/hesabim") q.set("next", next);
+        router.push(`/e-posta-dogrula?${q}`);
         return;
       }
       setError(json.message ?? "Kayıt başarısız.");

@@ -14,15 +14,11 @@ export function LoginForm({ siteKey, next }: { siteKey: string; next: string }) 
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [needsVerification, setNeedsVerification] = useState(false);
-  const [info, setInfo] = useState("");
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
-    setInfo("");
-    setNeedsVerification(false);
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -35,23 +31,18 @@ export function LoginForm({ siteKey, next }: { siteKey: string; next: string }) 
         router.refresh();
         return;
       }
+      if (json.needsVerification) {
+        const q = new URLSearchParams({ email: json.email ?? email.trim().toLowerCase() });
+        if (next !== "/hesabim") q.set("next", next);
+        router.push(`/e-posta-dogrula?${q}`);
+        return;
+      }
       setError(json.message ?? "Giriş başarısız.");
-      setNeedsVerification(!!json.needsVerification);
     } catch {
       setError("Bağlantı hatası. Lütfen tekrar deneyin.");
     } finally {
       setBusy(false);
     }
-  }
-
-  async function resend() {
-    const res = await fetch("/api/auth/resend-verification", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const json = await res.json();
-    setInfo(json.message ?? "Gönderildi.");
   }
 
   return (
@@ -66,10 +57,6 @@ export function LoginForm({ siteKey, next }: { siteKey: string; next: string }) 
       </div>
       {siteKey && <Turnstile siteKey={siteKey} onSuccess={setToken} onExpire={() => setToken("")} options={{ theme: "light" }} />}
       {error && <FormMessage kind="error">{error}</FormMessage>}
-      {info && <FormMessage kind="ok">{info}</FormMessage>}
-      {needsVerification && (
-        <button type="button" className="btn btn-secondary" onClick={resend}>Doğrulama e-postasını tekrar gönder</button>
-      )}
       <button type="submit" disabled={busy || (!!siteKey && !token)} className="btn btn-primary blueprint" style={{ fontSize: 17, padding: 13 }}>
         <Corners />
         {busy ? "Giriş yapılıyor…" : "Giriş Yap"}

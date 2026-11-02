@@ -1,7 +1,11 @@
 import bcrypt from "bcryptjs";
+import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
 import { fail, ok, parseBody, serverError } from "@/lib/http";
+import { issueVerificationCode } from "@/lib/verification";
+import { RESEND_COOLDOWN_SECONDS } from "@/lib/verification-code";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { passwordProblem } from "@/lib/password-strength";
 import { emailSchema, passwordSchema } from "@/lib/validation";
@@ -29,22 +33,56 @@ export async function POST(request: Request) {
 
   try {
     const hash = await bcrypt.hash(password, 10);
+    let userId: number;
     try {
-      await pool.execute(
+      const [res] = await pool.execute<ResultSetHeader>(
         `INSERT INTO users (full_name, email, phone, password_hash, email_verified, kvkk_consent_at)
-         VALUES (?, ?, ?, ?, 1, NOW())`,
+         VALUES (?, ?, ?, ?, 0, NOW())`,
         [full_name, email, phone || null, hash],
       );
+      userId = res.insertId;
     } catch (err) {
-      if ((err as { code?: string }).code === "ER_DUP_ENTRY") {
-        return fail("Bu e-posta adresiyle kayıtlı bir hesap zaten var.", 409);
+      if ((err as { code?: string }).code !== "ER_DUP_ENTRY") throw err;
+      // Doğrulanmış hesap varsa kayıt reddedilir. Doğrulanmamış (yarım kalmış) kayıt varsa, e-posta sahibi
+      // yeniden kaydolabilir: bilgiler yeni kodla birlikte güncellenir (eski kod geçersiz olur).
+      const [rows] = await pool.query<RowDataPacket[]>(
+        "SELECT id FROM users WHERE email = ? AND email_verified = 0 AND is_active = 1 AND role = 'user' LIMIT 1",
+        [email],
+      );
+      if (!rows[0]) return fail("Bu e-posta adresiyle kayıtlı bir hesap zaten var.", 409);
+      userId = rows[0].id;
+      const issued = await issueVerificationCode(userId, email);
+      if (issued.status === "rate_limited") {
+        return NextResponse.json(
+          { success: false, message: `Bu e-posta için kısa süre önce kod gönderildi. ${issued.retryAfter} saniye sonra tekrar deneyin.`, retryAfter: issued.retryAfter },
+          { status: 429 },
+        );
       }
-      throw err;
+      await pool.execute(
+        "UPDATE users SET full_name = ?, phone = ?, password_hash = ?, kvkk_consent_at = NOW() WHERE id = ? AND email_verified = 0",
+        [full_name, phone || null, hash, userId],
+      );
+      return registered(email, issued.status === "sent");
     }
 
-    // Şimdilik e-posta doğrulaması yok (email_verified=1). Oturum açılmaz; kullanıcı giriş sayfasına yönlenir.
-    return ok({ message: "Kayıt oluşturuldu. Şimdi giriş yapabilirsiniz." }, 201);
+    const issued = await issueVerificationCode(userId, email);
+    return registered(email, issued.status === "sent");
   } catch (err) {
     return serverError("[POST /api/auth/register]", err);
   }
+}
+
+/** Hesap açıldı ama e-posta doğrulanana kadar giriş yapılamaz; istemci kod ekranına yönlenir. */
+function registered(email: string, mailSent: boolean) {
+  return ok(
+    {
+      needsVerification: true,
+      email,
+      retryAfter: mailSent ? RESEND_COOLDOWN_SECONDS : 0,
+      message: mailSent
+        ? "Kayıt oluşturuldu. E-posta adresinize 6 haneli bir doğrulama kodu gönderdik."
+        : "Kayıt oluşturuldu ancak doğrulama kodu şu an gönderilemedi. Aşağıdan tekrar göndermeyi deneyin.",
+    },
+    201,
+  );
 }

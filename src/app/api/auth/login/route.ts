@@ -6,6 +6,7 @@ import pool from "@/lib/db";
 import { generateJwt, setAuthCookies } from "@/lib/auth";
 import { fail, ok, parseBody, serverError } from "@/lib/http";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { issueVerificationCode } from "@/lib/verification";
 
 const schema = z.object({
   email: z.string().trim().toLowerCase().min(1).max(190),
@@ -36,11 +37,14 @@ export async function POST(request: Request) {
     if (!user.is_active) return fail("Hesabınız devre dışı. Lütfen destek ile iletişime geçin.", 403);
 
     if (!user.email_verified) {
+      // Şifre doğru ama e-posta onaylı değil: bekleme süresi dolmuşsa yeni kod gider, istemci kod ekranına yönlenir.
+      await issueVerificationCode(user.id, user.email);
       return NextResponse.json(
         {
           success: false,
           needsVerification: true,
-          message: "E-posta adresiniz henüz doğrulanmadı. Gelen kutunuzu kontrol edin veya yeni bir bağlantı isteyin.",
+          email: user.email,
+          message: "E-posta adresiniz henüz doğrulanmadı. Size gönderilen 6 haneli kodu girin.",
         },
         { status: 403 },
       );

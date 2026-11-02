@@ -69,8 +69,8 @@ try {
   r = await api("user", "POST", "/api/auth/register", { full_name: "E2E Test", email, password: "Test1234!", kvkk: true, turnstileToken: T }); check("aynı e-posta 409", r.status === 409);
   r = await api("user", "POST", "/api/auth/login", { email, password: "Test1234!", turnstileToken: T }); check("doğrulanmamış giriş 403 + needsVerification", r.status === 403 && r.json.needsVerification === true);
   const [[u]] = await db.query("SELECT id, verification_token_hash AS h FROM users WHERE email=?", [email]); userId = u.id;
-  check("token DB'de özet olarak (64 hex)", /^[0-9a-f]{64}$/.test(u.h));
-  r = await api("user", "POST", "/api/auth/verify-email", { token: "yanlis" }); check("yanlış doğrulama tokenı reddedildi", r.status === 400);
+  check("kod DB'de özet olarak (64 hex)", /^[0-9a-f]{64}$/.test(u.h));
+  r = await api("user", "POST", "/api/auth/verify-email", { email, code: "000000" }); check("yanlış doğrulama kodu reddedildi", r.status === 400);
   await db.query("UPDATE users SET email_verified=1 WHERE id=?", [userId]);
   r = await api("user", "POST", "/api/auth/login", { email, password: "Test1234!", turnstileToken: T }); check("kullanıcı girişi", r.status === 200 && r.json.user.role === "user");
   r = await api("user", "GET", "/api/admin/courses"); check("kullanıcı admin API'ye giremez (403)", r.status === 403);
