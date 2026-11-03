@@ -348,8 +348,8 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
     await conn.execute("UPDATE orders SET status = 'paid', paid_at = NOW() WHERE id = ?", [orderId]);
     // Hediye siparişinde kurs siparişi verene DEĞİL, alıcıya gider: burada yalnızca hediye aktive edilir (token + mailler).
     const gift = await activateGiftForOrder(conn, orderId);
-    const [items] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id, program_id FROM order_items WHERE order_id = ?", [orderId]);
-    type Line = { item_type: "course" | "plus" | "program"; course_id: number | null; program_id: number | null };
+    const [items] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id, program_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
+    type Line = { item_type: "course" | "plus" | "program" | "seats"; course_id: number | null; program_id: number | null; quantity?: number };
     // Eski (tek kalemli) siparişlerde kalem satırı yoktur: plan/course_id alanlarından türetilir.
     const lines: Line[] = items.length
       ? (items as Line[])
@@ -370,6 +370,9 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
         // Ödeme anındaki tüm program kursları (current program_courses) kalıcı erişimle yazılır; Plus kayıtları yükseltilir.
         await enrollInProgram(conn, o.user_id, line.program_id, "purchase");
         programIds.push(line.program_id);
+      } else if (line.item_type === "seats" && line.course_id && o.company_id) {
+        // Şirket kontenjanı: kurs kaydı AÇILMAZ, şirketin havuzu artar. UNIQUE(order_id) çift yazımı da engeller.
+        await conn.execute("INSERT IGNORE INTO company_allocations (company_id, course_id, quantity, source, order_id, created_by) VALUES (?, ?, ?, 'purchase', ?, ?)", [o.company_id, line.course_id, line.quantity ?? 1, orderId, o.user_id]);
       } else if (line.item_type === "plus") {
         await conn.execute(
           "UPDATE users SET plus_until = DATE_ADD(GREATEST(NOW(), COALESCE(plus_until, NOW())), INTERVAL ? DAY) WHERE id = ?",

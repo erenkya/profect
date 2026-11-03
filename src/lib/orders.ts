@@ -43,9 +43,10 @@ export async function createCartOrder(input: OrderInput): Promise<number> {
     await conn.beginTransaction();
     const wanted = input.lines.map(lineKey).sort().join("|");
 
-    // Program hediyesi de plan='cart' kullanır: hediye siparişi normal sepet siparişi olarak yeniden kullanılmasın (ödenince hediye aktive olurdu).
+    // Program hediyesi ve şirket kontenjan siparişi de plan='cart' kullanır: normal sepet siparişi olarak yeniden kullanılmasınlar
+    // (hediye ödenince aktive olurdu; kontenjan siparişinin kalemi `course:<id>` anahtarıyla sepetteki kursa benzerdi).
     const [pending] = await conn.query<RowDataPacket[]>(
-      "SELECT id FROM orders WHERE user_id = ? AND plan = 'cart' AND status = 'pending' AND NOT EXISTS (SELECT 1 FROM gifts g WHERE g.order_id = orders.id) ORDER BY id DESC LIMIT 20 FOR UPDATE",
+      "SELECT id FROM orders WHERE user_id = ? AND plan = 'cart' AND status = 'pending' AND company_id IS NULL AND NOT EXISTS (SELECT 1 FROM gifts g WHERE g.order_id = orders.id) ORDER BY id DESC LIMIT 20 FOR UPDATE",
       [input.userId],
     );
     let orderId: number | undefined;
@@ -84,5 +85,37 @@ async function insertItems(conn: PoolConnection, orderId: number, lines: QuoteLi
     await conn.execute("INSERT INTO order_items (order_id, item_type, course_id, program_id, title, unit_price) VALUES (?, ?, ?, ?, ?, ?)", [
       orderId, l.item.type, l.courseId, l.item.type === "program" ? l.programId : null, l.title, l.price,
     ]);
+  }
+}
+
+/**
+ * Şirket kontenjan siparişi: tek kalemli (`seats`), `orders.company_id` dolu. `unit_price` SATIR TOPLAMIDIR (fiyat × adet),
+ * böylece makbuz ve sipariş detayı kalemlerin toplamını göstermeye devam eder. Ödenince `fulfillOrder` şirketin kontenjanını artırır.
+ */
+export async function createSeatOrder(i: {
+  userId: number;
+  companyId: number;
+  courseId: number;
+  title: string;
+  quantity: number;
+  total: number;
+  billing: Billing;
+  provider: string;
+  ip: string;
+}): Promise<number> {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [res] = await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, amount, provider, company_id) VALUES (?, 'cart', ?, ?, ?)", [i.userId, i.total, i.provider, i.companyId]);
+    const orderId = res.insertId;
+    await conn.execute(`UPDATE orders SET ${BILLING_COLUMNS} WHERE id = ?`, [...billingValues(i.billing, i.ip), orderId]);
+    await conn.execute("INSERT INTO order_items (order_id, item_type, course_id, title, unit_price, quantity) VALUES (?, 'seats', ?, ?, ?, ?)", [orderId, i.courseId, i.title, i.total, i.quantity]);
+    await conn.commit();
+    return orderId;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
   }
 }

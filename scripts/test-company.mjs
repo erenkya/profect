@@ -350,6 +350,53 @@ try {
   r = await rq(m5c, { course_id: course2 });
   check("reddedildikten sonra aynı kurs için yeni talep açılabilir (200)", r.status === 200, JSON.stringify(r.json));
 
+  // ── D. Şirketin kontenjan satın alması ──────────────────────────────────────
+  const [c3] = await db.query("INSERT INTO courses (slug, code, title, description, price, is_published) VALUES (?, ?, ?, 'e2e', 0, 1)", [`${SLUG}-3`, `E2E3-${stamp}`.slice(0, 30), "E2E Ücretsiz Kurs"]);
+  const KURUMSAL = (email) => ({ invoice_type: "kurumsal", full_name: "Şirket Yetkilisi", email, phone: "5321234567", company_name: NAME("X"), tax_office: "Kadıköy", tax_number: "1234567890", address: "Örnek Mah. Örnek Sok. No:1", city: "İstanbul", district: "Kadıköy", zip_code: "34000" });
+  const seatBody = (email, quantity, slug = SLUG) => ({ slug, quantity, billing: KURUMSAL(email), consents: CONSENTS });
+  const seatsPath = (cid) => `/api/company/${cid}/checkout`;
+  const before = await seat(coX.id, courseId);
+  r = await api(seatsPath(coX.id), { cookie: ax, body: seatBody(adminXEmail, 5) });
+  check("şirket admini kontenjan siparişi verir (201, pending)", r.status === 201 && r.json?.status === "pending", JSON.stringify(r.json));
+  const seatOrderId = r.json?.orderId;
+  const [[so]] = await db.query("SELECT company_id, amount, plan, user_id FROM orders WHERE id=?", [seatOrderId]);
+  const [soItems] = await db.query("SELECT item_type, course_id, quantity, unit_price, title FROM order_items WHERE order_id=?", [seatOrderId]);
+  check("sipariş: company_id dolu, tutar fiyat × adet (500)", so?.company_id === coX.id && Number(so.amount) === 500 && so.plan === "cart", JSON.stringify(so));
+  check("tek kalem: seats, adet 5, unit_price satır toplamı, başlık", soItems.length === 1 && soItems[0].item_type === "seats" && soItems[0].quantity === 5 && Number(soItems[0].unit_price) === 500 && soItems[0].course_id === courseId && soItems[0].title === "E2E Şirket Kursu · 5 kişilik kontenjan", JSON.stringify(soItems));
+  check("ödeme onayından önce kontenjan artmaz", (await seat(coX.id, courseId)).total === before.total);
+  r = await api(`/api/admin/orders/${seatOrderId}`, { method: "PATCH", cookie: platform, body: { action: "approve" } });
+  check("admin siparişi onayladı (200)", r.status === 200, JSON.stringify(r.json));
+  const afterBuy = await seat(coX.id, courseId);
+  const [[alloc1]] = await db.query("SELECT source, order_id, quantity FROM company_allocations WHERE order_id=?", [seatOrderId]);
+  check("onaydan sonra şirket kontenjanı +5 (source purchase, order_id dolu)", afterBuy.total === before.total + 5 && alloc1?.source === "purchase" && alloc1?.quantity === 5, JSON.stringify({ afterBuy, alloc1 }));
+  check("kontenjan siparişi satın alanda kurs kaydı açmaz", !(await enr(adminXId)));
+  await api(`/api/admin/orders/${seatOrderId}`, { method: "PATCH", cookie: platform, body: { action: "approve" } });
+  check("onay tekrarı kontenjanı ikinci kez artırmaz", (await seat(coX.id, courseId)).total === before.total + 5);
+
+  r = await api(seatsPath(coX.id), { cookie: m5c, body: seatBody(m5.email, 1) });
+  check("sıradan üye kontenjan alamaz (403)", r.status === 403, JSON.stringify(r.json));
+  r = await api(seatsPath(coX.id), { cookie: bAdmin, body: seatBody(bAdminEmail, 1) });
+  check("başka şirketin admini 403", r.status === 403);
+  r = await api(seatsPath(coX.id), { cookie: ax, body: seatBody(adminXEmail, 0) });
+  check("adet 0 reddedilir (400)", r.status === 400, JSON.stringify(r.json));
+  r = await api(seatsPath(coX.id), { cookie: ax, body: seatBody(adminXEmail, 1001) });
+  check("adet 1001 reddedilir (400)", r.status === 400, JSON.stringify(r.json));
+  r = await api(seatsPath(coX.id), { cookie: ax, body: seatBody(adminXEmail, 2, `${SLUG}-3`) });
+  check("ücretsiz kurs için kontenjan alınamaz (400)", r.status === 400, JSON.stringify(r.json));
+  r = await api(seatsPath(coX.id), { cookie: ax, body: seatBody(adminXEmail, 2, "yok-" + stamp) });
+  check("olmayan kurs 404", r.status === 404, JSON.stringify(r.json));
+  r = await api(seatsPath(coX.id), { body: seatBody(adminXEmail, 1) });
+  check("oturumsuz 401", r.status === 401);
+
+  // Kontenjan siparişi normal sepet siparişiyle karışmaz (bekleyen sipariş yeniden kullanımı)
+  r = await api(seatsPath(coX.id), { cookie: platform, body: seatBody(ADM, 1) });
+  check("ana admin şirket adına sipariş verebilir (201)", r.status === 201, JSON.stringify(r.json));
+  const platformSeatOrder = r.json?.orderId;
+  r = await api("/api/checkout", { cookie: platform, body: { items: [{ type: "course", slug: SLUG }], billing: BILL(ADM), consents: CONSENTS } });
+  const [[po]] = await db.query("SELECT company_id, amount FROM orders WHERE id=?", [platformSeatOrder]);
+  const [poItems] = await db.query("SELECT item_type FROM order_items WHERE order_id=?", [platformSeatOrder]);
+  check("aynı kullanıcının kurs sepeti kontenjan siparişini yeniden kullanmaz", r.status === 201 && r.json?.orderId !== platformSeatOrder && po?.company_id === coX.id && Number(po.amount) === 100 && poItems[0]?.item_type === "seats", JSON.stringify({ r: r.json, po, poItems }));
+
   // ── SECTION: devam eden görevlerin kontrolleri bu işaretin üstüne eklenir ──
 } catch (e) {
   failN++; console.error("✗ BEKLENMEYEN HATA", e);
@@ -357,8 +404,8 @@ try {
   await db.query("DELETE FROM certificates WHERE certificate_code LIKE ?", [`E2E-CERT-${stamp}-%`]);
   await db.query("DELETE FROM users WHERE email LIKE ?", [`e2e-company-${stamp}-%`]); // siparişler/üyelikler/atamalar cascade
   await db.query("DELETE FROM companies WHERE name LIKE ?", [`E2E Company ${stamp} %`]);
-  await db.query("DELETE FROM courses WHERE slug IN (?, ?)", [SLUG, `${SLUG}-2`]);
-  const [[left]] = await db.query("SELECT (SELECT COUNT(*) FROM users WHERE email LIKE ?) u, (SELECT COUNT(*) FROM courses WHERE slug IN (?, ?)) c, (SELECT COUNT(*) FROM companies WHERE name LIKE ?) co", [`e2e-company-${stamp}-%`, SLUG, `${SLUG}-2`, `E2E Company ${stamp} %`]);
+  await db.query("DELETE FROM courses WHERE slug LIKE ?", [`${SLUG}%`]);
+  const [[left]] = await db.query("SELECT (SELECT COUNT(*) FROM users WHERE email LIKE ?) u, (SELECT COUNT(*) FROM courses WHERE slug LIKE ?) c, (SELECT COUNT(*) FROM companies WHERE name LIKE ?) co", [`e2e-company-${stamp}-%`, `${SLUG}%`, `E2E Company ${stamp} %`]);
   console.log(`temizlik: kalan test kullanıcısı=${left.u}, kurs=${left.c}, şirket=${left.co}`);
   await db.end();
 }

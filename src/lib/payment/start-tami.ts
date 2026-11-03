@@ -18,7 +18,7 @@ export async function startTamiCheckout(a: {
   ip: string;
   userId: number;
   baseUrl: string;
-  basket: { key: string; title: string; subCategory: "Kurs" | "Abonelik" | "Program"; price: number }[];
+  basket: { key: string; title: string; subCategory: "Kurs" | "Abonelik" | "Program" | "Kontenjan"; price: number }[];
 }): Promise<{ ok: true; threeDSHtmlContent: string } | { ok: false; message: string }> {
   const { orderId, total, billing, card, ip, userId } = a;
   const [mm, yy] = card.expiry.split("/").map(Number);
