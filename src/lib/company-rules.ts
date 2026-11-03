@@ -103,6 +103,13 @@ export function assignBlock(i: { free: number; member: "active" | "other"; burne
   return null;
 }
 
+export const ASSIGN_BLOCK_MESSAGES: Record<AssignBlockReason, string> = {
+  not_member: "Bu kullanıcı şirketin onaylı bir üyesi değil.",
+  burned: "Bu kullanıcı için bu eğitimin hakkı yanmış; yeniden verilemez.",
+  already_owned: "Bu kullanıcı bu eğitime zaten sahip.",
+  no_free: "Bu eğitim için boş kontenjan yok.",
+};
+
 /** Bir kullanıcının akış baytı bu eşiği geçince video izlenmiş sayılır (kısa/yanlışlıkla açılan istekler sayılmasın). */
 export const WATCH_MIN_BYTES = 512 * 1024;
 

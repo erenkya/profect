@@ -276,3 +276,52 @@ export async function listCompanyProgress(companyId: number): Promise<ProgressRo
     };
   });
 }
+
+// ── Eğitim talepleri ──────────────────────────────────────────────────────────
+export type CreateRequestResult = { ok: true } | { ok: false; reason: "not_member" | "already_owned" | "duplicate" | "no_course" };
+
+/** Onaylı üyenin şirket adminine "bu kursu alın" talebi. Şirket, üyelikten türetilir (istemciden alınmaz). */
+export async function createCourseRequest(userId: number, courseId: number): Promise<CreateRequestResult> {
+  const [mem] = await pool.query<RowDataPacket[]>("SELECT company_id FROM company_members WHERE user_id = ? AND status = 'active' LIMIT 1", [userId]);
+  if (mem.length === 0) return { ok: false, reason: "not_member" };
+  const [course] = await pool.query<RowDataPacket[]>("SELECT 1 FROM courses WHERE id = ? AND is_published = 1", [courseId]);
+  if (course.length === 0) return { ok: false, reason: "no_course" };
+  const [enr] = await pool.query<RowDataPacket[]>("SELECT 1 FROM enrollments WHERE user_id = ? AND course_id = ? LIMIT 1", [userId, courseId]);
+  if (enr.length > 0) return { ok: false, reason: "already_owned" };
+  try {
+    await pool.execute("INSERT INTO company_course_requests (company_id, course_id, user_id) VALUES (?, ?, ?)", [mem[0].company_id, courseId, userId]);
+    return { ok: true };
+  } catch (err) {
+    if ((err as { code?: string }).code === "ER_DUP_ENTRY") return { ok: false, reason: "duplicate" };
+    throw err;
+  }
+}
+
+export type ResolveRequestResult = { ok: true } | { ok: false; reason: "not_found" | "bad_state" | AssignBlockReason };
+
+/** Talebi çözer: `assign` kontenjandan atar ve talebi karşılar; `reject` reddeder. Talep her zaman `company_id` ile aranır. */
+export async function resolveCourseRequest(i: { companyId: number; requestId: number; action: "assign" | "reject"; actorId: number }): Promise<ResolveRequestResult> {
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT id, user_id, course_id, status FROM company_course_requests WHERE id = ? AND company_id = ?", [i.requestId, i.companyId]);
+  const req = rows[0];
+  if (!req) return { ok: false, reason: "not_found" };
+  if (req.status !== "pending") return { ok: false, reason: "bad_state" };
+  if (i.action === "assign") {
+    const r = await assignSeat({ companyId: i.companyId, courseId: req.course_id, userId: req.user_id, assignedBy: i.actorId });
+    if (!r.ok) return r;
+  }
+  const [res] = await pool.execute<ResultSetHeader>(
+    "UPDATE company_course_requests SET status = ?, resolved_at = NOW(), resolved_by = ? WHERE id = ? AND status = 'pending'",
+    [i.action === "assign" ? "fulfilled" : "rejected", i.actorId, i.requestId],
+  );
+  return res.affectedRows > 0 ? { ok: true } : { ok: false, reason: "bad_state" };
+}
+
+export type MyRequest = { id: number; courseTitle: string; status: "pending" | "fulfilled" | "rejected"; createdAt: string };
+
+export async function listMyRequests(userId: number): Promise<MyRequest[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT r.id, c.title, r.status, r.created_at FROM company_course_requests r JOIN courses c ON c.id = r.course_id WHERE r.user_id = ? ORDER BY r.id DESC LIMIT 50`,
+    [userId],
+  );
+  return rows.map((r) => ({ id: r.id, courseTitle: r.title, status: r.status, createdAt: r.created_at }));
+}

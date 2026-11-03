@@ -1,6 +1,7 @@
 import pool from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
 import { requireUser } from "@/lib/auth";
+import { memberPurchaseBlock } from "@/lib/company";
 import { fail, getBaseUrl, ok, parseBody, serverError } from "@/lib/http";
 import { GIFT_MAX_CREATED_PER_HOUR, giftCheckoutSchema, isSelfGift } from "@/lib/gift-rules";
 import { cancelGiftsForOrder, countRecentGiftsBySender, createGiftOrder, type GiftTarget } from "@/lib/gifts";
@@ -19,6 +20,9 @@ import { getProgramOffer } from "@/lib/programs";
 export async function POST(request: Request) {
   const guard = await requireUser();
   if (guard.error) return guard.error;
+  // Şirkete bağlı (onaylı) üye bireysel satın alamaz; şirket yöneticisinden talep eder.
+  const blocked = await memberPurchaseBlock(guard.payload.userId);
+  if (blocked) return fail(blocked, 403);
   const body = await parseBody(request, giftCheckoutSchema);
   if (body.error) return body.error;
   const userId = guard.payload.userId;
