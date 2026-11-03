@@ -22,15 +22,16 @@ export default async function MyOrdersPage() {
       ) : (
         <div className="admin-table-wrap">
           <table className="table">
-            <thead><tr><th>#</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th></tr></thead>
+            <thead><tr><th>#</th><th>Ürün</th><th>Tutar</th><th>Durum</th><th>Tarih</th><th></th></tr></thead>
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
-                  <td>{o.id}</td>
+                  <td><Link href={`/hesabim/siparislerim/${o.id}`}>{o.id}</Link></td>
                   <td>{orderLabel(o)}</td>
                   <td>{formatPrice(o.amount)}</td>
                   <td>{ORDER_STATUS[o.status]}</td>
                   <td>{formatDate(o.created_at)}</td>
+                  <td><Link href={`/hesabim/siparislerim/${o.id}`}>Detay →</Link></td>
                 </tr>
               ))}
             </tbody>
