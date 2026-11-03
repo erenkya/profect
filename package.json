@@ -20,6 +20,7 @@
     "test:programs": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-programs.mjs",
     "test:gifts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-gifts.mjs",
     "test:posts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-posts.mjs",
+    "test:company": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-company.mjs",
     "test:verify": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-email-verification.mjs"
   },
   "dependencies": {

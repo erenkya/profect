@@ -6,6 +6,7 @@ import pool from "@/lib/db";
 import { generateJwt, setAuthCookies } from "@/lib/auth";
 import { fail, ok, parseBody, serverError } from "@/lib/http";
 import { passwordProblem } from "@/lib/password-strength";
+import { applySignupIntent } from "@/lib/company";
 import { verifyEmailCode } from "@/lib/verification";
 import { normalizeCode } from "@/lib/verification-code";
 import { emailSchema, passwordSchema } from "@/lib/validation";
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
     if (!result.ok) return fail(result.message, result.status);
 
     const { user } = result;
+    await applySignupIntent(user.id); // kayıtta seçilen şirket niyeti (asla fırlatmaz; uygulanamazsa bireysel hesap kalır)
     const token = await generateJwt({ userId: user.id, email: user.email, role: user.role });
     return setAuthCookies(ok({ user, message: "E-posta adresiniz doğrulandı." }), token, user);
   } catch (err) {

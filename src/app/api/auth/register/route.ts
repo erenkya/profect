@@ -10,9 +10,11 @@ import { RESEND_COOLDOWN_SECONDS } from "@/lib/verification-code";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { GIFT_INVALID_MESSAGE, isGiftToken } from "@/lib/gift-rules";
 import { findGiftByToken } from "@/lib/gifts";
+import { corporateEmailBlock, signupFieldsSchema } from "@/lib/company-rules";
+import { domainIsTaken, findCompanyByCode, saveSignupIntent, type SignupIntent } from "@/lib/company";
 import { emailSchema } from "@/lib/validation";
 
-const schema = z.object({
+const baseSchema = z.object({
   full_name: z.string().trim().min(2, "Ad soyad gerekli.").max(150),
   email: emailSchema,
   phone: z.string().trim().max(40).optional().or(z.literal("")),
@@ -20,6 +22,12 @@ const schema = z.object({
   turnstileToken: z.string().optional(),
   giftToken: z.string().max(200).refine(isGiftToken, GIFT_INVALID_MESSAGE).optional(),
 });
+
+// Hesap türü verilmezse bireysel kabul edilir (şirket alanları olmayan eski istemciler bozulmasın).
+const schema = z.preprocess(
+  (v) => (v && typeof v === "object" && !("account_type" in v) ? { ...v, account_type: "bireysel" } : v),
+  baseSchema.and(signupFieldsSchema),
+);
 
 export async function POST(request: Request) {
   const body = await parseBody(request, schema);
@@ -37,6 +45,18 @@ export async function POST(request: Request) {
       if (!gift) return fail(GIFT_INVALID_MESSAGE, 400);
       email = gift.recipientEmail;
     }
+    // Şirket niyeti (kurumsal kayıt ya da şirket koduyla katılma) burada doğrulanır, ama e-posta doğrulanana kadar uygulanmaz.
+    let intent: SignupIntent | null = null;
+    if (body.data.account_type === "kurumsal") {
+      const c = body.data.company;
+      if (corporateEmailBlock(email, c.domain)) return fail(`E-posta adresiniz şirket mail uzantısıyla (@${c.domain}) aynı olmalı.`, 400);
+      if (await domainIsTaken(c.domain)) return fail("Bu mail uzantısı başka bir şirkete kayıtlı. Şirketinizin kodunu girerek bireysel kayıt olabilirsiniz.", 409);
+      intent = { kind: "create", company: { name: c.company_name, taxOffice: c.tax_office, taxNumber: c.tax_number, domain: c.domain } };
+    } else if (body.data.company_code) {
+      const company = await findCompanyByCode(body.data.company_code);
+      if (!company) return fail("Şirket kodu geçersiz.", 400);
+      intent = { kind: "join", code: company.code };
+    }
     // Şifre burada ALINMAZ ve saklanmaz: hesap şifresi, e-posta kodunu giren kişi tarafından doğrulama adımında
     // yazılır. Aksi halde bir başkası aynı adresle kayıt olup hesabın şifresini belirleyebilirdi. Satırda hiçbir
     // girişle eşleşmeyecek rastgele bir bcrypt özeti durur.
@@ -50,6 +70,8 @@ export async function POST(request: Request) {
         [full_name, email, phone || null, hash],
       );
       userId = res.insertId;
+      // Niyet YALNIZCA yeni satırda kaydedilir: aşağıdaki "yarım kalmış kayıt" yolunda dokunulmaz (hesap sahibi henüz kanıtlanmadı).
+      if (intent) await saveSignupIntent(userId, intent);
     } catch (err) {
       if ((err as { code?: string }).code !== "ER_DUP_ENTRY") throw err;
       // Doğrulanmış hesap varsa kayıt reddedilir. Doğrulanmamış (yarım kalmış) kayıt varsa yeni kod gönderilir
