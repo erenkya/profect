@@ -4,7 +4,8 @@ import { requireAdmin } from "@/lib/auth";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { getCourseAdminTree } from "@/lib/lms";
 import { listVideoKeys } from "@/lib/lesson-video";
-import { deleteCover, deleteVideos, headCover } from "@/lib/r2";
+import { listLessonFileKeys } from "@/lib/lesson-files";
+import { deleteCover, deleteFiles, deleteVideos, headCover } from "@/lib/r2";
 import { coverKeyForCourse } from "@/lib/cover-key";
 import { updateCourseSchema } from "@/lib/admin-schemas";
 
@@ -72,11 +73,13 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   try {
     // Modüller, dersler, sınavlar, kayıtlar, ilerleme ve sertifikalar FK CASCADE ile silinir.
     const keys = await listVideoKeys("course", courseId);
+    const fileKeys = await listLessonFileKeys("course", courseId);
     const [cur] = await pool.query<RowDataPacket[]>("SELECT thumbnail_url FROM courses WHERE id = ?", [courseId]);
     const cover = (cur[0]?.thumbnail_url as string | null | undefined) ?? null;
     const [res] = await pool.execute<ResultSetHeader>("DELETE FROM courses WHERE id = ?", [courseId]);
     if (res.affectedRows === 0) return fail("Kurs bulunamadı.", 404);
     await deleteVideos(keys);
+    await deleteFiles(fileKeys);
     if (cover) await deleteCover(cover);
     return ok({ message: "Kurs silindi." });
   } catch (err) {

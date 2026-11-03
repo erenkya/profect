@@ -8,6 +8,7 @@ import { giftOrderLabel } from "@/lib/gift-rules";
 import { sendOrderReceipt } from "@/lib/order-receipt";
 import { enrollInProgram, ensureProgramProgress } from "@/lib/programs";
 import { FREE_PREVIEW_LESSONS } from "@/lib/preview";
+import type { LessonFileItem } from "@/lib/lesson-files";
 
 export type CourseRow = {
   id: number;
@@ -638,7 +639,7 @@ export async function getPlusInfo(userId: number) {
 }
 
 // ── Yönetici görünümü (içerik dahil) ──────────────────────────────────────────
-export type AdminLesson = { id: number; module_id: number; title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null; instructor_id: number | null; sort_order: number };
+export type AdminLesson = { id: number; module_id: number; title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null; instructor_id: number | null; sort_order: number; files: LessonFileItem[] };
 export type AdminQuizRef = { id: number; title: string; module_id: number | null; passing_score_percentage: number; question_count: number; pool_count: number };
 export type AdminModule = { id: number; title: string; sort_order: number; lessons: AdminLesson[]; quiz: AdminQuizRef | null };
 
@@ -651,6 +652,14 @@ export async function getCourseAdminTree(courseId: number) {
        FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = ? ORDER BY l.sort_order, l.id`,
     [courseId],
   );
+  const [fileRows] = lessons.length
+    ? await pool.query<RowDataPacket[]>(
+        "SELECT id, lesson_id, title, file_name, size_bytes FROM lesson_files WHERE lesson_id IN (?) ORDER BY created_at, id",
+        [lessons.map((l) => l.id)],
+      )
+    : [[] as RowDataPacket[]];
+  const filesOf = (lessonId: number): LessonFileItem[] =>
+    fileRows.filter((f) => f.lesson_id === lessonId).map((f) => ({ id: f.id, title: f.title, file_name: f.file_name, size_bytes: Number(f.size_bytes) }));
   const [quizzes] = await pool.query<RowDataPacket[]>(
     `SELECT q.id, q.title, q.module_id, q.passing_score_percentage,
             ${quizShownCountSql("q")} AS question_count,
@@ -665,7 +674,7 @@ export async function getCourseAdminTree(courseId: number) {
       id: m.id,
       title: m.title,
       sort_order: m.sort_order,
-      lessons: lessons.filter((l) => l.module_id === m.id) as AdminLesson[],
+      lessons: lessons.filter((l) => l.module_id === m.id).map((l) => ({ ...l, files: filesOf(l.id) }) as AdminLesson),
       quiz: quizzes.filter((q) => q.module_id === m.id).map(toQuiz)[0] ?? null,
     })),
     finalQuiz: quizzes.filter((q) => q.module_id === null).map(toQuiz)[0] ?? null,

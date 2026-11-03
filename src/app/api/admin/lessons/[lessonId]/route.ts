@@ -5,7 +5,8 @@ import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { lessonSchema } from "@/lib/admin-schemas";
 import { isStaffUser } from "@/lib/comments";
 import { listVideoKeys, validateLessonVideo } from "@/lib/lesson-video";
-import { deleteVideo, deleteVideos } from "@/lib/r2";
+import { listLessonFileKeys } from "@/lib/lesson-files";
+import { deleteFiles, deleteVideo, deleteVideos } from "@/lib/r2";
 import { isVideoKey } from "@/lib/video-key";
 
 type Ctx = { params: Promise<{ lessonId: string }> };
@@ -49,9 +50,11 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   if (!id) return fail("Geçersiz ders.", 400);
   try {
     const keys = await listVideoKeys("lesson", id);
+    const fileKeys = await listLessonFileKeys("lesson", id);
     const [res] = await pool.execute<ResultSetHeader>("DELETE FROM lessons WHERE id = ?", [id]);
     if (!res.affectedRows) return fail("Ders bulunamadı.", 404);
     await deleteVideos(keys);
+    await deleteFiles(fileKeys);
     return ok({});
   } catch (err) {
     return serverError("[DELETE /api/admin/lessons/:id]", err);

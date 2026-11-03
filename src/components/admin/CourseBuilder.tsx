@@ -10,6 +10,7 @@ import type { Instructor } from "@/lib/comments";
 import type { AdminLesson, AdminModule, AdminQuizRef, CourseRow } from "@/lib/lms";
 import { adminApi } from "./api";
 import { VideoUploadField } from "./VideoUploadField";
+import { LessonFilesField } from "./LessonFilesField";
 import { CoverUploadField } from "./CoverUploadField";
 import { CategoryField } from "./CategoryField";
 
@@ -258,6 +259,11 @@ function LessonForm({ moduleId, instructors, initial, submitLabel, onSubmit, onC
           onChange={(e) => setV({ ...v, content: e.target.value })}
           style={{ background: "#fff", fontSize: 14, fontFamily: "ui-monospace, monospace" }}
         />
+      )}
+      {initial ? (
+        <LessonFilesField lessonId={initial.id} files={initial.files} />
+      ) : (
+        <p style={{ margin: 0, fontSize: 13, color: "var(--muted-55)" }}>Dosyaları ders kaydedildikten sonra ekleyebilirsiniz.</p>
       )}
       <div style={{ display: "flex", gap: 10 }}>
         <button type="submit" className="btn btn-primary" disabled={uploading || (v.lesson_type === "video" && !v.content)}>{submitLabel}</button>

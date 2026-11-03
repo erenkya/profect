@@ -43,6 +43,25 @@ export async function presignVideoUpload(key: string, size: number): Promise<{ u
   return { url, headers: { "Content-Type": "video/mp4" } };
 }
 
+/** Ders dosyası yüklemesi için tek anahtara yazan, 10 dk geçerli imzalı PUT. İçerik türü hep octet-stream (istemci MIME'ına güvenilmez). */
+export async function presignFileUpload(key: string, size: number): Promise<{ url: string; headers: Record<string, string> }> {
+  const url = await getSignedUrl(
+    s3(),
+    new PutObjectCommand({ Bucket: bucket(), Key: key, ContentType: "application/octet-stream", ContentLength: size }),
+    { expiresIn: 600 },
+  );
+  return { url, headers: { "Content-Type": "application/octet-stream" } };
+}
+
+/** Ders dosyası indirmesi için 60 sn geçerli imzalı GET; her zaman `attachment` + octet-stream (tarayıcıda satır içi açılmaz). */
+export function presignFileDownload(key: string, contentDisposition: string): Promise<string> {
+  return getSignedUrl(
+    s3(),
+    new GetObjectCommand({ Bucket: bucket(), Key: key, ResponseContentDisposition: contentDisposition, ResponseContentType: "application/octet-stream" }),
+    { expiresIn: 60 },
+  );
+}
+
 /** Kapak resmi için tek anahtara yazan, 10 dk geçerli imzalı PUT. İstemci `headers`'ı aynen göndermeli. */
 export async function presignCoverUpload(key: string, size: number, contentType: string): Promise<{ url: string; headers: Record<string, string> }> {
   const url = await getSignedUrl(
@@ -142,3 +161,7 @@ export async function deleteVideos(keys: string[]): Promise<void> {
 // Kapak resimleri aynı bucket'ta durur; nesne işlemleri anahtardan bağımsızdır.
 export const headCover = headVideo;
 export const deleteCover = deleteVideo;
+// Ders dosyaları da aynı bucket'ta durur.
+export const headFile = headVideo;
+export const deleteFile = deleteVideo;
+export const deleteFiles = deleteVideos;
