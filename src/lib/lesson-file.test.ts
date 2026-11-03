@@ -10,6 +10,7 @@ import {
   isBlockedFileName,
   isLessonFileKey,
   lessonFileKeyForLesson,
+  registerOrCleanup,
 } from "./lesson-file.ts";
 
 const KEY = "dosyalar/7/a1b2c3d4-sunum.pptx";
@@ -80,4 +81,40 @@ test("formatFileSize Türkçe ondalık virgülle biçimler", () => {
   assert.equal(formatFileSize(850), "850 B");
   assert.equal(formatFileSize(1536), "1,5 KB");
   assert.equal(formatFileSize(2_516_582), "2,4 MB");
+});
+
+test("cleanFileName eşleşmeyen (yalnız) surrogate'ları atar, geçerli emoji çiftini korur", () => {
+  assert.equal(cleanFileName("a\ud800b.pdf"), "ab.pdf");
+  assert.equal(cleanFileName("a\udc00b.pdf"), "ab.pdf");
+  assert.equal(cleanFileName("not-😀.pdf"), "not-😀.pdf");
+});
+
+test("contentDispositionAttachment bozuk surrogate içeren adda hata fırlatmaz", () => {
+  const h = contentDispositionAttachment("a\ud800b.pdf");
+  assert.match(h, /filename\*=UTF-8''ab\.pdf$/);
+});
+
+test("registerOrCleanup: başarıda değeri döner, nesneyi silmez", async () => {
+  let cleaned = 0;
+  assert.equal(await registerOrCleanup(async () => 42, async () => { cleaned++; }, () => false), 42);
+  assert.equal(cleaned, 0);
+});
+
+test("registerOrCleanup: kayıt başarısızsa nesne silinir ve asıl hata yine fırlar", async () => {
+  let cleaned = 0;
+  const boom = new Error("db");
+  await assert.rejects(registerOrCleanup(async () => { throw boom; }, async () => { cleaned++; }, () => false), (e) => e === boom);
+  assert.equal(cleaned, 1);
+});
+
+test("registerOrCleanup: çift kayıtta nesne silinmez (başka satıra ait)", async () => {
+  let cleaned = 0;
+  const dup = Object.assign(new Error("dup"), { code: "ER_DUP_ENTRY" });
+  await assert.rejects(registerOrCleanup(async () => { throw dup; }, async () => { cleaned++; }, (e) => (e as { code?: string }).code === "ER_DUP_ENTRY"));
+  assert.equal(cleaned, 0);
+});
+
+test("registerOrCleanup: temizlik de başarısız olsa asıl hata maskelenmez", async () => {
+  const boom = new Error("db");
+  await assert.rejects(registerOrCleanup(async () => { throw boom; }, async () => { throw new Error("r2"); }, () => false), (e) => e === boom);
 });
