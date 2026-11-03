@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check } from "lucide-react";
 import { Corners } from "@/components/Corners";
+import { useHandsFree } from "./useHandsFree";
 
 type Props = {
   lessonId: number;
@@ -20,6 +21,7 @@ type Props = {
 };
 
 const COMPLETE_RATIO = 0.95;
+const ADVANCE_SECONDS = 5; // eller serbest modda video bittikten sonra sıradakine geçmeden önceki bekleme
 
 export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCompleted, canTrack, nextHref, nextLabel }: Props) {
   const router = useRouter();
@@ -27,7 +29,31 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
   const [videoError, setVideoError] = useState<string | null>(null);
   const sent = useRef(initiallyCompleted);
   const sentinel = useRef<HTMLDivElement>(null);
+  const videoEl = useRef<HTMLVideoElement>(null);
   const videoSrc = `/api/client/lessons/${lessonId}/video`;
+  const [handsFree, setHandsFree] = useHandsFree();
+  const [countdown, setCountdown] = useState<number | null>(null); // null: geri sayım yok
+  const [needsTap, setNeedsTap] = useState(false); // tarayıcı otomatik oynatmayı engelledi
+  const canAdvance = type === "video" && !!nextHref;
+
+  // Eller serbest: ders açılır açılmaz oynat. Tarayıcı izin vermezse (kullanıcı etkileşimi yok) dokunma ipucu göster.
+  useEffect(() => {
+    const v = videoEl.current;
+    if (!handsFree || type !== "video" || !v) return;
+    v.play().catch(() => setNeedsTap(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonId]);
+
+  // Video bitince geri sayım başlar; süre dolunca sıradaki ders/sınav sayfasına geçilir (sınav otomatik başlamaz).
+  useEffect(() => {
+    if (countdown === null || !nextHref) return;
+    if (countdown <= 0) {
+      router.push(nextHref);
+      return;
+    }
+    const t = setTimeout(() => setCountdown(countdown - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown, nextHref, router]);
 
   async function markComplete() {
     if (sent.current) return;
@@ -83,6 +109,7 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
         videoReady ? (
           <div className="lesson-video" style={{ position: "relative", aspectRatio: "16/9", background: "#0b0b14", maxWidth: 960 }}>
             <video
+              ref={videoEl}
               key={lessonId}
               src={videoSrc}
               controls
@@ -91,7 +118,14 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
               playsInline
               preload="metadata"
               onContextMenu={(e) => e.preventDefault()}
-              onEnded={markComplete}
+              onPlay={() => {
+                setNeedsTap(false);
+                setCountdown(null); // geri sayım sırasında tekrar izlemeye başlandı
+              }}
+              onEnded={() => {
+                markComplete();
+                if (handsFree && canAdvance) setCountdown(ADVANCE_SECONDS);
+              }}
               onTimeUpdate={(e) => {
                 const v = e.currentTarget;
                 if (v.duration > 0 && v.currentTime / v.duration >= COMPLETE_RATIO) markComplete();
@@ -99,6 +133,24 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
               onError={explainVideoError}
               style={{ width: "100%", height: "100%", display: "block" }}
             />
+            {needsTap && !videoError && (
+              <button
+                type="button"
+                onClick={() => videoEl.current?.play().catch(() => {})}
+                style={{ position: "absolute", inset: 0, width: "100%", background: "rgba(11,11,20,0.6)", color: "#fff", border: 0, fontSize: 18, cursor: "pointer" }}
+              >
+                Eller serbest mod: başlatmak için dokun
+              </button>
+            )}
+            {countdown !== null && nextHref && (
+              <div role="status" aria-live="polite" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", alignContent: "center", gap: 16, background: "rgba(11,11,20,0.85)", color: "#fff", padding: 24, textAlign: "center" }}>
+                <div style={{ fontSize: 20 }}>{nextLabel ?? "Sonraki"}: {countdown} sn</div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+                  <button type="button" className="btn btn-primary" onClick={() => router.push(nextHref)}>Şimdi geç</button>
+                  <button type="button" className="btn" onClick={() => setCountdown(null)}>İptal</button>
+                </div>
+              </div>
+            )}
             {videoError && (
               <div role="alert" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(11,11,20,0.92)", color: "#fff", padding: 24, textAlign: "center" }}>
                 {videoError}
@@ -122,6 +174,12 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
           <span className="lesson-done" style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 14, color: "var(--color-accent-700)" }}>
             <Check size={18} strokeWidth={1.5} /> Ders tamamlandı
           </span>
+        )}
+        {type === "video" && videoReady && nextHref && (
+          <label style={{ display: "inline-flex", gap: 8, alignItems: "center", fontSize: 14, cursor: "pointer" }}>
+            <input type="checkbox" checked={handsFree} onChange={(e) => setHandsFree(e.target.checked)} />
+            Eller serbest mod (video bitince otomatik sıradakine geç)
+          </label>
         )}
         {nextHref && (
           <Link href={nextHref} className="btn btn-primary blueprint lesson-next" style={{ fontSize: 16, padding: "10px 22px", marginLeft: "auto" }}>
