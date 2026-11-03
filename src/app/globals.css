@@ -596,3 +596,23 @@ a:hover > .acc-stat { transform: translateY(-4px); border-color: var(--color-acc
 
 /* — yönetici: kupon formu — */
 .coupon-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+
+/* — Sipariş detayı (/hesabim/siparislerim/[id]) — */
+.order-status { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 14px 16px; margin-bottom: 20px; border: 1px solid var(--color-divider); background: #fff; }
+.order-status[data-status="paid"] { border-color: color-mix(in srgb, #2e7d32 55%, transparent); }
+.order-status[data-status="rejected"] { border-color: color-mix(in srgb, #c62828 55%, transparent); }
+.order-box { border: 1px solid var(--color-divider); background: #fff; padding: 20px; margin-bottom: 20px; }
+.order-box h2 { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 14px; color: var(--muted-72); }
+.order-items { list-style: none; margin: 0; padding: 0; }
+.order-items li { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--color-divider); }
+.order-items li > div { min-width: 0; overflow-wrap: anywhere; }
+.order-items li > span { white-space: nowrap; }
+.order-tag { margin-left: 8px; font-size: 11px; color: var(--muted-55); text-transform: uppercase; letter-spacing: 0.06em; }
+.order-sum, .order-kv { margin: 0; }
+.order-sum > div { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0 0; }
+.order-sum dd, .order-sum dt, .order-kv dd, .order-kv dt { margin: 0; }
+.order-total { font-weight: 600; font-size: 17px; }
+.order-kv > div { display: grid; grid-template-columns: minmax(120px, 200px) 1fr; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--color-divider); }
+.order-kv dt { color: var(--muted-72); }
+.order-kv dd { overflow-wrap: anywhere; }
+@media (max-width: 560px) { .order-kv > div { grid-template-columns: 1fr; gap: 2px; } }

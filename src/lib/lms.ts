@@ -549,6 +549,71 @@ export function orderLabel(o: { plan: "single" | "plus" | "cart"; course_title: 
   return giftOrderLabel(o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—"), o.gift_to);
 }
 
+export type MyOrderItem = { type: "course" | "plus" | "program"; title: string; price: number; href: string | null };
+export type MyOrderDetail = {
+  id: number;
+  status: "pending" | "paid" | "rejected";
+  provider: string;
+  created_at: string;
+  paid_at: string | null;
+  items: MyOrderItem[];
+  subtotal: number;
+  coupon_code: string | null;
+  discount: number;
+  total: number;
+  masked_card: string | null;
+  error_message: string | null;
+  invoice: { type: "bireysel" | "kurumsal" | null; full_name: string | null; email: string | null; phone: string | null; tckn: string | null; company_name: string | null; tax_office: string | null; tax_number: string | null; address: string | null; city: string | null; district: string | null; zip_code: string | null };
+  gift: { recipient_email: string; status: "awaiting_payment" | "pending" | "claimed" | "expired" | "cancelled" } | null;
+};
+
+/** Kullanıcının kendi siparişinin tam dökümü (başkasının siparişi için null → 404). Kalem satırı olmayan eski siparişler tek kalem olarak türetilir. */
+export async function getMyOrderDetail(userId: number, orderId: number): Promise<MyOrderDetail | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT o.id, o.plan, o.amount, o.status, o.provider, o.created_at, o.paid_at, o.masked_card, o.error_message, o.coupon_code, o.discount_amount,
+            o.invoice_type, o.full_name, o.email, o.phone, o.tckn, o.company_name, o.tax_office, o.tax_number, o.address, o.city, o.district, o.zip_code,
+            c.title AS course_title, c.slug AS course_slug
+       FROM orders o LEFT JOIN courses c ON c.id = o.course_id WHERE o.id = ? AND o.user_id = ?`,
+    [orderId, userId],
+  );
+  const o = rows[0];
+  if (!o) return null;
+  const [itemRows] = await pool.query<RowDataPacket[]>(
+    `SELECT oi.item_type, oi.title, oi.unit_price, c.slug AS course_slug, p.slug AS program_slug
+       FROM order_items oi LEFT JOIN courses c ON c.id = oi.course_id LEFT JOIN programs p ON p.id = oi.program_id
+      WHERE oi.order_id = ? ORDER BY oi.id`,
+    [orderId],
+  );
+  const discount = Number(o.discount_amount ?? 0);
+  let items: MyOrderItem[] = itemRows.map((i) => ({
+    type: i.item_type,
+    title: i.title,
+    price: Number(i.unit_price),
+    href: i.item_type === "course" && i.course_slug ? `/kurslar/${i.course_slug}` : i.item_type === "program" && i.program_slug ? `/programlar/${i.program_slug}` : i.item_type === "plus" ? "/hesabim/abonelik" : null,
+  }));
+  if (items.length === 0) {
+    const plus = o.plan === "plus";
+    items = [{ type: plus ? "plus" : "course", title: plus ? "Profect Plus (aylık)" : (o.course_title ?? "Kurs"), price: Number(o.amount) + discount, href: plus ? "/hesabim/abonelik" : o.course_slug ? `/kurslar/${o.course_slug}` : null }];
+  }
+  const [giftRows] = await pool.query<RowDataPacket[]>("SELECT recipient_email, status FROM gifts WHERE order_id = ?", [orderId]);
+  return {
+    id: o.id,
+    status: o.status,
+    provider: o.provider,
+    created_at: o.created_at,
+    paid_at: o.paid_at,
+    items,
+    subtotal: items.reduce((s, i) => s + i.price, 0),
+    coupon_code: o.coupon_code,
+    discount,
+    total: Number(o.amount),
+    masked_card: o.masked_card,
+    error_message: o.error_message,
+    invoice: { type: o.invoice_type, full_name: o.full_name, email: o.email, phone: o.phone, tckn: o.tckn, company_name: o.company_name, tax_office: o.tax_office, tax_number: o.tax_number, address: o.address, city: o.city, district: o.district, zip_code: o.zip_code },
+    gift: giftRows[0] ? { recipient_email: giftRows[0].recipient_email, status: giftRows[0].status } : null,
+  };
+}
+
 export type AccountProfile = { full_name: string; email: string; phone: string | null; email_verified: boolean; created_at: string };
 
 export async function getAccountProfile(userId: number): Promise<AccountProfile | null> {
