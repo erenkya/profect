@@ -179,7 +179,7 @@ export async function getCourseTree(courseId: number, userId?: number): Promise<
 }
 
 // ── Erişim ────────────────────────────────────────────────────────────────────
-export type EnrollmentSource = "admin" | "purchase" | "plus" | "gift";
+export type EnrollmentSource = "admin" | "purchase" | "plus" | "gift" | "company";
 
 export async function grantEnrollment(userId: number, courseId: number, source: EnrollmentSource): Promise<boolean> {
   const [res] = await pool.execute<ResultSetHeader>(
