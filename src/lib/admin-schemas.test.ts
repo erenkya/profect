@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createPostSchema, createProgramSchema, lessonSchema, postImageUploadSchema, quizSchema, updatePostSchema, updateProgramSchema, videoUploadSchema } from "./admin-schemas.ts";
+import { createPostSchema, createProgramSchema, lessonFileRegisterSchema, lessonFileRenameSchema, lessonFileUploadSchema, lessonSchema, postImageUploadSchema, quizSchema, updatePostSchema, updateProgramSchema, videoUploadSchema } from "./admin-schemas.ts";
 
 const KEY = "kurslar/web-tasarim/34-giris/a1b2c3d4-html-temelleri.mp4";
 const lesson = (over: Record<string, unknown>) => lessonSchema.safeParse({ title: "Ders", lesson_type: "video", content: KEY, duration_minutes: 10, ...over });
@@ -188,4 +188,28 @@ test("postImageUploadSchema: tür ve 8 MB sınırı", () => {
   for (const bad of [{ content_type: "image/svg+xml", size: 10 }, { content_type: "image/png", size: 8_388_609 }, { content_type: "image/png", size: 0 }]) {
     assert.ok(!postImageUploadSchema.safeParse(bad).success, JSON.stringify(bad));
   }
+});
+
+const FILE_KEY = "dosyalar/7/a1b2c3d4-sunum.pptx";
+
+test("lessonFileUploadSchema: boyut 1 B – 150 MiB, çalıştırılabilir uzantılar reddedilir", () => {
+  assert.ok(lessonFileUploadSchema.safeParse({ file_name: "sunum.pptx", size: 1024 }).success);
+  assert.ok(lessonFileUploadSchema.safeParse({ file_name: "kod.zip", size: 157_286_400 }).success);
+  for (const bad of [{ file_name: "sunum.pptx", size: 0 }, { file_name: "sunum.pptx", size: 157_286_401 }, { file_name: "setup.exe", size: 10 }, { file_name: "rapor.pdf.exe", size: 10 }, { file_name: "", size: 10 }, { file_name: "a".repeat(256), size: 10 }]) {
+    assert.ok(!lessonFileUploadSchema.safeParse(bad).success, JSON.stringify(bad));
+  }
+});
+
+test("lessonFileRegisterSchema: yalnızca ders dosyası anahtarı ve dolu başlık kabul edilir", () => {
+  const ok = { key: FILE_KEY, title: "Hafta 1 sunumu", file_name: "sunum.pptx", content_type: "application/vnd.ms-powerpoint" };
+  assert.ok(lessonFileRegisterSchema.safeParse(ok).success);
+  for (const bad of [{ key: KEY }, { key: "dosyalar/../x" }, { key: "dosyalar/7/a1b2c3d4-a.pdf/extra" }, { title: "   " }, { title: "x".repeat(121) }, { file_name: "setup.exe" }, { content_type: "x".repeat(128) }]) {
+    assert.ok(!lessonFileRegisterSchema.safeParse({ ...ok, ...bad }).success, JSON.stringify(bad));
+  }
+});
+
+test("lessonFileRenameSchema: başlık 1–120 karakter", () => {
+  assert.ok(lessonFileRenameSchema.safeParse({ title: "Yeni ad" }).success);
+  assert.ok(!lessonFileRenameSchema.safeParse({ title: "" }).success);
+  assert.ok(!lessonFileRenameSchema.safeParse({ title: "x".repeat(121) }).success);
 });

@@ -3,6 +3,7 @@ import { MAX_VIDEO_BYTES, isVideoKey } from "./video-key.ts";
 import { MAX_COVER_BYTES, isCoverKey, isCoverType } from "./cover-key.ts";
 import { MAX_POST_IMAGE_BYTES, isPostImageKey, isPostImageType } from "./post-key.ts";
 import { validatePool } from "./quiz-pool.ts";
+import { MAX_LESSON_FILE_BYTES, cleanFileName, isBlockedFileName, isLessonFileKey } from "./lesson-file.ts";
 
 const money = z.coerce.number().min(0).max(1_000_000);
 
@@ -94,6 +95,26 @@ export const videoUploadSchema = z.object({
   content_type: z.literal("video/mp4", { errorMap: () => ({ message: "Yalnızca MP4 yüklenebilir." }) }),
   size: z.number().int().min(1).max(MAX_VIDEO_BYTES, "Video en çok 2 GB olabilir."),
 });
+
+// — Ders dosyaları (indirilebilir ekler) —
+const lessonFileName = z.string().min(1, "Dosya adı boş olamaz.").max(255, "Dosya adı en çok 255 karakter olabilir.");
+const lessonFileTitle = z.string().trim().min(1, "Görünen ad boş olamaz.").max(120, "Görünen ad en çok 120 karakter olabilir.");
+
+/** Dosya yüklemesini başlatırken gönderilir (dosyanın kendisi değil, meta bilgisi). */
+export const lessonFileUploadSchema = z.object({
+  file_name: lessonFileName.refine((n) => !isBlockedFileName(n), "Bu dosya türü yüklenemez."),
+  size: z.number().int().min(1, "Dosya boş olamaz.").max(MAX_LESSON_FILE_BYTES, "Dosya en çok 150 MB olabilir."),
+});
+
+/** R2'ye yükleme bittikten sonra dosyayı derse kaydeder (boyut sunucuda R2'den okunur). */
+export const lessonFileRegisterSchema = z.object({
+  key: z.string().refine(isLessonFileKey, "Geçersiz dosya."),
+  title: lessonFileTitle,
+  file_name: lessonFileName.refine((n) => !isBlockedFileName(cleanFileName(n)), "Bu dosya türü yüklenemez."),
+  content_type: z.string().max(127),
+});
+
+export const lessonFileRenameSchema = z.object({ title: lessonFileTitle });
 
 // — Sınav soruları: tek cevaplı, çok cevaplı, sürükle-bırak (categorize) ve senaryo —
 const questionText = z.string().trim().min(1, "Soru metni boş olamaz.");
