@@ -15,6 +15,7 @@
     "db:seed-posts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/seed-posts.mjs",
     "db:create-admin": "node --env-file=.env scripts/create-admin.mjs",
     "test:api": "node --env-file=.env scripts/test-api.mjs",
+    "test:lesson-files": "node --env-file=.env scripts/test-lesson-files.mjs",
     "test:programs": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-programs.mjs",
     "test:gifts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-gifts.mjs",
     "test:posts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-posts.mjs",
