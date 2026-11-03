@@ -12,6 +12,7 @@
     "r2:setup": "node --env-file=.env scripts/r2-setup.mjs",
     "r2:blog-setup": "node --env-file=.env scripts/r2-blog-setup.mjs",
     "db:seed": "node --env-file=.env scripts/seed.mjs",
+    "videos:upload": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/upload-lesson-videos.mjs",
     "db:seed-posts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/seed-posts.mjs",
     "db:create-admin": "node --env-file=.env scripts/create-admin.mjs",
     "test:api": "node --env-file=.env scripts/test-api.mjs",
