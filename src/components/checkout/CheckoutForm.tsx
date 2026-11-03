@@ -12,6 +12,7 @@ import { CheckoutPrivacyContent, DeliveryReturnContent, DistanceSalesContent } f
 import { CARD_BRAND_ICON, CARD_BRAND_LABEL, cvcLength, detectCardBrand, formatCardNumber, formatExpiry, isValidExpiry } from "@/lib/card-brand";
 import { CONSENT_KEYS, billingSchema, cardSchema, type ConsentKey } from "@/lib/checkout-schema";
 import { giftCheckoutSchema } from "@/lib/gift-rules";
+import { SEAT_MAX_QUANTITY, seatQuantitySchema } from "@/lib/seat-quantity";
 import { useCart } from "@/lib/cart";
 import { formatPrice } from "@/lib/format";
 import { CartLines } from "./CartLines";
@@ -24,22 +25,26 @@ import { useQuote } from "./useQuote";
 type Defaults = { full_name: string; email: string; phone: string };
 /** Hediye modu: tek kurs ya da program, sepet/kupon yok; sipariş /api/gifts/checkout'a gider. */
 type GiftCheckout = { kind: "course" | "program"; slug: string; title: string; price: number; provider: "manual" | "mock" | "tami" };
+/** Şirket kontenjanı modu: tek kurs × adet, kupon/sepet yok; sipariş /api/company/<id>/checkout'a gider. */
+type SeatsCheckout = { companyId: number; slug: string; title: string; unitPrice: number; provider: "manual" | "mock" | "tami"; company?: { name: string; tax_office: string; tax_number: string } };
 type Errors = Record<string, string>;
 
 const input = { background: "#fff", minHeight: 44, fontSize: 16 } as const;
 const BUTTON_LABEL = { manual: "Siparişi oluştur", mock: "Öde (test modu)", tami: "Öde" } as const;
 
-export function CheckoutForm({ defaults, gift }: { defaults: Defaults; gift?: GiftCheckout }) {
+export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gift?: GiftCheckout; seats?: SeatsCheckout }) {
   const router = useRouter();
   const cart = useCart();
-  const items = gift ? [] : cart.items; // hediye modunda sepet kullanılmaz
-  const ready = gift ? true : cart.ready;
+  const solo = !!(gift || seats); // hediye ve kontenjan modunda sepet kullanılmaz
+  const items = solo ? [] : cart.items;
+  const ready = solo ? true : cart.ready;
   const q = useQuote(items, ready);
-  const provider = gift ? gift.provider : q.provider;
+  const provider = gift ? gift.provider : seats ? seats.provider : q.provider;
+  const [quantity, setQuantity] = useState("1");
   const [recipient, setRecipient] = useState({ email: "", message: "" });
 
-  const [invoiceType, setInvoiceType] = useState<"bireysel" | "kurumsal">("bireysel");
-  const [f, setF] = useState({ ...defaults, company_name: "", tax_office: "", tax_number: "", address: "", city: "", district: "", zip_code: "" });
+  const [invoiceType, setInvoiceType] = useState<"bireysel" | "kurumsal">(seats ? "kurumsal" : "bireysel");
+  const [f, setF] = useState({ ...defaults, company_name: seats?.company?.name ?? "", tax_office: seats?.company?.tax_office ?? "", tax_number: seats?.company?.tax_number ?? "", address: "", city: "", district: "", zip_code: "" });
   const [card, setCard] = useState({ holder_name: "", number: "", expiry: "", cvv: "" });
   const [consents, setConsents] = useState<Record<ConsentKey, boolean>>({ distance_sales: false, privacy: false, delivery_return: false, kvkk: false });
   const [cardFocus, setCardFocus] = useState<CardField | null>(null);
@@ -54,14 +59,17 @@ export function CheckoutForm({ defaults, gift }: { defaults: Defaults; gift?: Gi
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((s) => ({ ...s, [k]: e.target.value }));
   const setConsent = (k: ConsentKey) => (v: boolean) => setConsents((c) => ({ ...c, [k]: v }));
   const allConsents = CONSENT_KEYS.every((k) => consents[k]);
-  const effTotal = gift ? gift.price : coupon ? coupon.total : q.total;
+  const qty = Number(quantity);
+  const qtyOk = seatQuantitySchema.safeParse(qty).success;
+  const seatsTotal = seats && qtyOk ? Math.round(seats.unitPrice * qty * 100) / 100 : 0;
+  const effTotal = gift ? gift.price : seats ? seatsTotal : coupon ? coupon.total : q.total;
   const needsCard = provider === "tami" && effTotal > 0;
   const brand = detectCardBrand(card.number);
   const expiryProblem = card.expiry.length === 5 && !isValidExpiry(card.expiry) ? "Kartın son kullanma tarihi geçmiş ya da geçersiz." : "";
   const fp = (f: CardField) => ({ onFocus: () => setCardFocus(f), onBlur: () => setCardFocus(null) });
 
   if (!ready || q.loading) return <p style={{ color: "var(--muted-72)" }} aria-live="polite">Sipariş özetin yükleniyor…</p>;
-  if (!gift && (items.length === 0 || q.payable.length === 0)) {
+  if (!solo && (items.length === 0 || q.payable.length === 0)) {
     return (
       <div className="card blueprint" style={{ background: "#fff", padding: 32, gap: 14, alignItems: "flex-start" }}>
         <Corners />
@@ -111,6 +119,10 @@ export function CheckoutForm({ defaults, gift }: { defaults: Defaults; gift?: Gi
       const me = g.message.safeParse(recipient.message);
       if (!me.success) errs.message = me.error.issues[0].message;
     }
+    if (seats) {
+      const qe = seatQuantitySchema.safeParse(qty);
+      if (!qe.success) errs.quantity = qe.error.issues[0].message;
+    }
     setErrors(errs);
     if (Object.keys(errs).length) {
       document.getElementById("checkout-form")?.querySelector<HTMLElement>("[aria-invalid='true']")?.focus();
@@ -119,12 +131,14 @@ export function CheckoutForm({ defaults, gift }: { defaults: Defaults; gift?: Gi
 
     setBusy(true);
     try {
-      const res = await fetch(gift ? "/api/gifts/checkout" : "/api/checkout", {
+      const res = await fetch(gift ? "/api/gifts/checkout" : seats ? `/api/company/${seats.companyId}/checkout` : "/api/checkout", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
           gift
             ? { kind: gift.kind, slug: gift.slug, recipient_email: recipient.email, message: recipient.message, billing, consents, ...(needsCard && { card }) }
+            : seats
+            ? { slug: seats.slug, quantity: qty, billing, consents, ...(needsCard && { card }) }
             : { items, billing, consents, ...(needsCard && { card }), ...(coupon && { coupon_code: coupon.code }) },
         ),
       });
@@ -156,6 +170,16 @@ export function CheckoutForm({ defaults, gift }: { defaults: Defaults; gift?: Gi
   return (
     <form id="checkout-form" onSubmit={onSubmit} noValidate className="checkout-grid">
       <div style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+        {seats && (
+          <section className="card blueprint" style={{ background: "#fff", padding: 24, gap: 10 }}>
+            <div className="field">
+              <label htmlFor="co-quantity">Kaç kişilik kontenjan?</label>
+              <input id="co-quantity" className="input" type="number" inputMode="numeric" min={1} max={SEAT_MAX_QUANTITY} step={1} value={quantity} onChange={(e) => { setQuantity(e.target.value); setErrors((s) => ({ ...s, quantity: "" })); }} aria-invalid={!!errors.quantity} aria-describedby="co-quantity-hint" style={{ ...input, maxWidth: 160 }} />
+              {errors.quantity && <div role="alert" className="field-err">{errors.quantity}</div>}
+              <div id="co-quantity-hint" style={{ fontSize: 13, color: "var(--muted-55)" }}>Satın aldığınız kontenjanı şirket panelinden çalışanlarınıza atarsınız. Birim fiyat: {formatPrice(seats.unitPrice)}</div>
+            </div>
+          </section>
+        )}
         {gift && <GiftRecipientFields email={recipient.email} message={recipient.message} onEmail={(v) => setRecipient((r) => ({ ...r, email: v }))} onMessage={(v) => setRecipient((r) => ({ ...r, message: v }))} errors={errors} />}
         <section className="card blueprint" style={{ background: "#fff", padding: 24, gap: 14 }}>
           <Corners />
@@ -244,8 +268,8 @@ export function CheckoutForm({ defaults, gift }: { defaults: Defaults; gift?: Gi
       <aside className="card blueprint elev-md checkout-summary" style={{ background: "#fff", padding: 24, gap: 14 }}>
         <Corners />
         <div className="dialog-title" style={{ fontSize: 24, textTransform: "uppercase" }}>Sipariş özeti</div>
-        {gift ? <div className="sum-row"><span>{gift.title}</span><span>{formatPrice(gift.price)}</span></div> : <CartLines lines={q.lines} />}
-        {!gift && <div className="co-coupon">
+        {gift ? <div className="sum-row"><span>{gift.title}</span><span>{formatPrice(gift.price)}</span></div> : seats ? <div className="sum-row"><span>{seats.title} × {qtyOk ? qty : "—"} kişilik kontenjan</span><span>{formatPrice(seatsTotal)}</span></div> : <CartLines lines={q.lines} />}
+        {!solo && <div className="co-coupon">
           {coupon ? (
             <div className="co-coupon-applied" role="status">
               <span><strong>{coupon.code}</strong> uygulandı · {coupon.label}</span>
@@ -298,11 +322,11 @@ export function CheckoutForm({ defaults, gift }: { defaults: Defaults; gift?: Gi
         {error && <FormMessage kind="error">{error}</FormMessage>}
         <button type="submit" disabled={busy || !allConsents} className="btn btn-primary blueprint btn-block" style={{ fontSize: 18, padding: 14 }}>
           <Corners />
-          {busy ? "İşleniyor…" : effTotal <= 0 ? "Siparişi tamamla (ücretsiz)" : provider === "tami" ? `${formatPrice(effTotal)} öde` : gift ? "Hediyeyi satın al" : BUTTON_LABEL[provider]}
+          {busy ? "İşleniyor…" : effTotal <= 0 ? "Siparişi tamamla (ücretsiz)" : provider === "tami" ? `${formatPrice(effTotal)} öde` : gift ? "Hediyeyi satın al" : seats ? "Kontenjanı satın al" : BUTTON_LABEL[provider]}
         </button>
         {!allConsents && <div style={{ fontSize: 13, color: "var(--muted-55)", textAlign: "center" }}>Devam etmek için dört onayın tümünü işaretle.</div>}
         <PaymentBadges secured={needsCard} />
-        {gift ? <Link href={gift.kind === "program" ? `/programlar/${gift.slug}` : `/kurslar/${gift.slug}`} style={{ fontSize: 14, textAlign: "center" }}>{gift.kind === "program" ? "← Programa dön" : "← Kursa dön"}</Link> : <Link href="/sepet" style={{ fontSize: 14, textAlign: "center" }}>← Sepete dön</Link>}
+        {seats ? <Link href="/sirket" style={{ fontSize: 14, textAlign: "center" }}>← Şirket paneline dön</Link> : gift ? <Link href={gift.kind === "program" ? `/programlar/${gift.slug}` : `/kurslar/${gift.slug}`} style={{ fontSize: 14, textAlign: "center" }}>{gift.kind === "program" ? "← Programa dön" : "← Kursa dön"}</Link> : <Link href="/sepet" style={{ fontSize: 14, textAlign: "center" }}>← Sepete dön</Link>}
       </aside>
     </form>
   );

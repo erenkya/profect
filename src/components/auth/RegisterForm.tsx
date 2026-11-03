@@ -39,10 +39,10 @@ export function RegisterForm({ siteKey, next, lockedEmail, giftToken }: { siteKe
   const kurumsal = showTypes && accountType === "kurumsal";
 
   // E-postanın uzantısı bir şirketinkiyle eşleşiyorsa "bu şirkete mi bağlısınız?" sorulur (yalnızca bireysel kayıtta).
-  async function lookupDomain() {
-    if (kurumsal || lockedEmail || !form.email.includes("@")) return;
+  async function lookupDomain(email: string) {
+    if (kurumsal || lockedEmail || !email.includes("@")) return;
     try {
-      const res = await fetch("/api/company/domain-lookup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: form.email }) });
+      const res = await fetch("/api/company/domain-lookup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) });
       const json = await res.json();
       const match = res.ok && json.found ? { name: json.name as string, code: json.code as string } : null;
       setDomainMatch(match);
@@ -119,7 +119,7 @@ export function RegisterForm({ siteKey, next, lockedEmail, giftToken }: { siteKe
         </div>
       )}
       <div className="field"><label htmlFor="full_name">Ad Soyad</label><input id="full_name" className="input" required minLength={2} autoComplete="name" value={form.full_name} onChange={set("full_name")} style={input} /></div>
-      <div className="field"><label htmlFor="email">E-posta</label><input id="email" className="input" type="email" required autoComplete="email" value={form.email} onChange={set("email")} onBlur={lookupDomain} readOnly={!!lockedEmail} style={input} />{lockedEmail && <div style={{ fontSize: 13, color: "var(--muted-55)" }}>Hediye bu adrese gönderildi; kayıt yalnızca bu adresle yapılabilir.</div>}</div>
+      <div className="field"><label htmlFor="email">E-posta</label><input id="email" className="input" type="email" required autoComplete="email" value={form.email} onChange={set("email")} onBlur={(e) => lookupDomain(e.target.value)} readOnly={!!lockedEmail} style={input} />{lockedEmail && <div style={{ fontSize: 13, color: "var(--muted-55)" }}>Hediye bu adrese gönderildi; kayıt yalnızca bu adresle yapılabilir.</div>}</div>
       <div className="field"><label htmlFor="phone">Telefon (isteğe bağlı)</label><input id="phone" className="input" type="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} style={input} /></div>
       {kurumsal && (
         <>

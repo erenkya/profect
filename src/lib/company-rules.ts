@@ -4,6 +4,9 @@
 import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { billingSchema, cardSchema, consentsSchema } from "./checkout-schema.ts";
+import { SEAT_MAX_QUANTITY, seatQuantitySchema } from "./seat-quantity.ts";
+
+export { SEAT_MAX_QUANTITY };
 
 export const MEMBER_PURCHASE_BLOCK_MESSAGE = "Şirket hesabına bağlı olduğunuz için bireysel satın alma yapılamaz. Şirket yöneticinizden talep edebilirsiniz.";
 
@@ -139,11 +142,9 @@ export function progressStatus(i: { completed: number; total: number; certificat
 }
 
 // ── Kontenjan satın alma ──────────────────────────────────────────────────────
-export const SEAT_MAX_QUANTITY = 1000;
-
 export const seatCheckoutSchema = z.object({
   slug: z.string().min(1).max(120),
-  quantity: z.number().int("Adet tam sayı olmalı.").min(1, "En az 1 kişilik kontenjan alınabilir.").max(SEAT_MAX_QUANTITY, `En fazla ${SEAT_MAX_QUANTITY} kişilik kontenjan alınabilir.`),
+  quantity: seatQuantitySchema,
   billing: billingSchema,
   consents: consentsSchema,
   card: cardSchema.optional(),
