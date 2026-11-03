@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import { getCurrentUser } from "@/lib/auth";
+import { isActiveMember } from "@/lib/company";
 import { getAccountProfile, getCourseBySlug } from "@/lib/lms";
 import { paymentProvider } from "@/lib/payment";
 
@@ -12,6 +13,8 @@ export default async function GiftCoursePage({ params }: { params: Promise<{ slu
   // /hediye-et proxy.ts'in korumasında değil: oturum kontrolü burada yapılır.
   const user = await getCurrentUser();
   if (!user) redirect(`/giris?next=${encodeURIComponent(`/hediye-et/${slug}`)}`);
+  // Şirkete bağlı üye bireysel satın alamaz (API de 403 verir); sayfayı göstermek yerine kurs sayfasına döner.
+  if (await isActiveMember(user.id)) redirect(`/kurslar/${encodeURIComponent(slug)}`);
   const course = await getCourseBySlug(slug);
   if (!course || course.price <= 0) notFound();
   const profile = await getAccountProfile(user.id);

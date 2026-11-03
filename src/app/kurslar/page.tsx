@@ -4,6 +4,7 @@ import { CourseCard } from "@/components/CourseCard";
 import { Cta } from "@/components/Cta";
 import { courseColor, courseDelay } from "@/data/courses";
 import { getCurrentUser } from "@/lib/auth";
+import { isActiveMember } from "@/lib/company";
 import { listAccessibleCourseIds, listPublishedCourses } from "@/lib/lms";
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default async function CoursesPage({ searchParams }: { searchParams: Prom
   const courses = await listPublishedCourses();
   const user = await getCurrentUser();
   const owned = user ? await listAccessibleCourseIds(user.id) : new Set<number>();
+  const companyMember = user ? await isActiveMember(user.id) : false;
   const CATEGORIES = ["Tümü", ...Array.from(new Set(courses.map((c) => c.category).filter(Boolean)))];
   const cat = kategori && CATEGORIES.includes(kategori) ? kategori : "Tümü";
   const list = courses.map((course, index) => ({ course, index })).filter(({ course }) => cat === "Tümü" || course.category === cat);
@@ -55,7 +57,7 @@ export default async function CoursesPage({ searchParams }: { searchParams: Prom
           <div style={{ fontSize: 13, color: "var(--muted-55)", marginBottom: 28 }}>{list.length} kurs listeleniyor</div>
           <div className="course-grid">
             {list.map(({ course, index }, i) => (
-              <CourseCard key={course.id} course={course} color={courseColor(index)} delay={courseDelay(i)} loggedIn={!!user} hasAccess={owned.has(course.id)} />
+              <CourseCard key={course.id} course={course} color={courseColor(index)} delay={courseDelay(i)} loggedIn={!!user} hasAccess={owned.has(course.id)} companyMember={companyMember} />
             ))}
           </div>
         </section>

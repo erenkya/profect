@@ -8,6 +8,7 @@ import { PurchasePanel } from "@/components/PurchasePanel";
 import { Corners } from "@/components/Corners";
 import { BLUE, PURP } from "@/data/courses";
 import { getCurrentUser } from "@/lib/auth";
+import { isActiveMember } from "@/lib/company";
 import { formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 import { previewLessonIds } from "@/lib/preview";
@@ -29,6 +30,7 @@ export default async function CoursePage({ params }: Props) {
 
   const user = await getCurrentUser();
   const hasAccess = user ? await canAccessCourse(user.id, course.id) : false;
+  const companyMember = user ? await isActiveMember(user.id) : false;
   const tree = await getCourseTree(course.id);
   const programs = await listProgramsForCourse(course.id);
 
@@ -170,6 +172,7 @@ export default async function CoursePage({ params }: Props) {
 
         <PurchasePanel
           slug={course.slug}
+          courseId={course.id}
           priceLabel={formatPrice(course.price)}
           oldPriceLabel={course.old_price ? formatPrice(course.old_price) : null}
           plusPriceLabel={formatPrice(PLUS_PRICE)}
@@ -177,6 +180,7 @@ export default async function CoursePage({ params }: Props) {
           loggedIn={!!user}
           hasAccess={hasAccess}
           giftable={course.price > 0}
+          companyMember={companyMember}
         />
       </section>
     </main>

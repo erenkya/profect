@@ -5,6 +5,7 @@ import { CourseCard } from "@/components/CourseCard";
 import { CertVerify } from "@/components/CertVerify";
 import { DEMO_CERT, FOUNDERS, MARQUEE, STEPS, BLUE, PURP, courseColor, courseDelay } from "@/data/courses";
 import { getCurrentUser } from "@/lib/auth";
+import { isActiveMember } from "@/lib/company";
 import { listAccessibleCourseIds, listPublishedCourses } from "@/lib/lms";
 import Image from "next/image";
 import { HomePosts } from "@/components/posts/HomePosts";
@@ -37,6 +38,7 @@ export default async function HomePage() {
   const [blog, news] = await Promise.all([latestPosts("blog", 3), latestPosts("news", 4)]);
   const user = await getCurrentUser();
   const owned = user ? await listAccessibleCourseIds(user.id) : new Set<number>();
+  const companyMember = user ? await isActiveMember(user.id) : false;
   const marquee = [...MARQUEE, ...MARQUEE].map((t, i) => ({ t, c: i % 2 ? PURP : BLUE }));
   const qr = qrCells();
 
@@ -225,7 +227,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="course-grid">
-            {courses.map((c, i) => <CourseCard key={c.id} course={c} color={courseColor(i)} delay={courseDelay(i)} loggedIn={!!user} hasAccess={owned.has(c.id)} />)}
+            {courses.map((c, i) => <CourseCard key={c.id} course={c} color={courseColor(i)} delay={courseDelay(i)} loggedIn={!!user} hasAccess={owned.has(c.id)} companyMember={companyMember} />)}
           </div>
         </section>
 

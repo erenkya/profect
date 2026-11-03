@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Gift, ShoppingCart } from "lucide-react";
 import { addToCart, useCart } from "@/lib/cart";
+import { RequestCourseButton } from "@/components/company/RequestCourseButton";
 
-type Props = { slug: string; loggedIn: boolean; hasAccess: boolean; giftable?: boolean };
+type Props = { slug: string; courseId: number; loggedIn: boolean; hasAccess: boolean; giftable?: boolean; companyMember?: boolean };
 
 const btn = { fontSize: 15, padding: "10px 8px", marginTop: 0, whiteSpace: "nowrap" } as const;
 
-export function CourseCardActions({ slug, loggedIn, hasAccess, giftable = true }: Props) {
+export function CourseCardActions({ slug, courseId, loggedIn, hasAccess, giftable = true, companyMember = false }: Props) {
   const router = useRouter();
   const { items, ready } = useCart();
   const inCart = ready && items.some((i) => i.type === "course" && i.slug === slug);
@@ -18,6 +19,9 @@ export function CourseCardActions({ slug, loggedIn, hasAccess, giftable = true }
     addToCart({ type: "course", slug });
     router.push(loggedIn ? "/odeme" : `/giris?next=${encodeURIComponent("/odeme")}`);
   }
+
+  // Şirkete bağlı üye kendi parasıyla kurs alamaz: satın alma, sepet ve hediye yerine şirketten talep eder.
+  if (companyMember && !hasAccess) return <RequestCourseButton courseId={courseId} style={btn} />;
 
   const giftHref = `/hediye-et/${slug}`;
   const giftLink = giftable && (

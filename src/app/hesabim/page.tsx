@@ -3,8 +3,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { MyCourseCard } from "@/components/account/MyCourseCard";
 import { PageTitle } from "@/components/account/PageTitle";
+import { CompanyCard } from "@/components/company/CompanyCard";
 import { Corners } from "@/components/Corners";
 import { getCurrentUser } from "@/lib/auth";
+import { isActiveMember } from "@/lib/company";
 import { formatDate } from "@/lib/format";
 import { getPlusInfo, listMyCertificates, listMyCourses, listMyOrders } from "@/lib/lms";
 
@@ -45,7 +47,7 @@ export default async function AccountHome() {
         <p style={{ color: "var(--muted-72)", marginBottom: 40 }}>Devam eden bir kursun yok. <Link href="/kurslar">Kursları keşfet →</Link></p>
       )}
 
-      {!plus.active && (
+      {!plus.active && !(await isActiveMember(user.id)) && (
         <div className="card blueprint" style={{ background: "var(--color-accent-2-100)", padding: 22, gap: 8, maxWidth: 560 }}>
           <Corners />
           <div className="card-title" style={{ fontSize: 24 }}>Profect Plus ile tüm kurslar açık</div>
@@ -53,6 +55,7 @@ export default async function AccountHome() {
           <div><Link href="/hesabim/abonelik" className="btn btn-secondary" style={{ padding: "8px 18px" }}>Ayrıntılar</Link></div>
         </div>
       )}
+      <CompanyCard userId={user.id} />
       {plus.active && plus.until && <p style={{ color: "var(--muted-72)" }}>Profect Plus erişimin {formatDate(plus.until)} tarihine kadar açık.</p>}
     </>
   );

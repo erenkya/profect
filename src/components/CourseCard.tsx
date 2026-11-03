@@ -5,7 +5,7 @@ import type { CourseRow } from "@/lib/lms";
 import { formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 
-export function CourseCard({ course, color, delay, loggedIn, hasAccess }: { course: CourseRow; color: string; delay: number; loggedIn: boolean; hasAccess: boolean }) {
+export function CourseCard({ course, color, delay, loggedIn, hasAccess, companyMember = false }: { course: CourseRow; color: string; delay: number; loggedIn: boolean; hasAccess: boolean; companyMember?: boolean }) {
   const cover = coverUrl(course.thumbnail_url);
   return (
     <div data-reveal="1" data-delay={delay}>
@@ -45,7 +45,7 @@ export function CourseCard({ course, color, delay, loggedIn, hasAccess }: { cour
             </div>
           </div>
         </Link>
-        <CourseCardActions slug={course.slug} loggedIn={loggedIn} hasAccess={hasAccess} giftable={course.price > 0} />
+        <CourseCardActions slug={course.slug} courseId={course.id} loggedIn={loggedIn} hasAccess={hasAccess} giftable={course.price > 0} companyMember={companyMember} />
       </div>
     </div>
   );
