@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { LessonComments } from "@/components/learn/LessonComments";
+import { LessonFiles } from "@/components/learn/LessonFiles";
 import { LessonPlayer } from "@/components/learn/LessonPlayer";
 import { getCurrentUser } from "@/lib/auth";
 import { canAnswerLesson, listLessonComments } from "@/lib/comments";
+import { listLessonFiles } from "@/lib/lesson-files";
 import { parseId } from "@/lib/http";
 import { isVideoKey } from "@/lib/video-key";
 import { previewLessonIds } from "@/lib/preview";
@@ -43,6 +45,8 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
   // Soru yazabilenler: kursa erişimi olanlar ve dersin personeli. Önizleyenler akışı okuyamaz bile (kayıtlı öğrencilere ait).
   const canPost = enrolled || (user ? await canAnswerLesson(user, id) : false);
   const threads = canPost ? await listLessonComments(id, user?.id) : [];
+  // Dosyalar yalnızca kayıtlı öğrenci/yönetici içindir; önizlemede sorgu bile yapılmaz.
+  const files = previewing ? [] : await listLessonFiles(id);
 
   return (
     <div>
@@ -61,6 +65,7 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
         nextHref={next && nextOpen ? `/ogrenim/${slug}/${next.kind === "lesson" ? "ders" : "sinav"}/${next.id}` : null}
         nextLabel={next && nextOpen ? (next.kind === "quiz" ? "Sınava geç" : "Sonraki ders") : null}
       />
+      {!previewing && <LessonFiles lessonId={lesson.id} files={files} />}
       {!previewing && <LessonComments lessonId={lesson.id} threads={threads} canPost={canPost} />}
       {previewing && !nextOpen && (
         <div className="card blueprint lesson-card" style={{ background: "#fff", padding: 24, gap: 12, marginTop: 32, maxWidth: 560 }}>
