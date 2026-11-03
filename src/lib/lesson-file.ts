@@ -11,7 +11,12 @@ const MAX_NAME = 255;
 /** Yol ayırıcıları, kontrol karakterleri ve baştaki/sondaki boşluk-nokta atılır; en çok 255 karakter (uzantı korunur); boşsa "dosya". */
 export function cleanFileName(name: string): string {
   const last = name.split(/[\\/]/).pop() ?? "";
-  const cleaned = last.replace(/[\u0000-\u001f\u007f]/g, "").replace(/^\s+/, "").replace(/[\s.]+$/, "");
+  // Eşleşmeyen surrogate'lar atılır: `encodeURIComponent` onlarda URIError fırlatır (indirme kalıcı 500 olurdu). Geçerli çiftler (emoji) korunur.
+  const cleaned = last
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g, "")
+    .replace(/^\s+/, "")
+    .replace(/[\s.]+$/, "");
   if (!cleaned) return "dosya";
   if (cleaned.length <= MAX_NAME) return cleaned;
   const ext = /\.[A-Za-z0-9]{1,10}$/.exec(cleaned)?.[0] ?? "";
@@ -60,4 +65,17 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const one = (n: number) => n.toFixed(1).replace(".", ",");
   return bytes < 1_048_576 ? `${one(bytes / 1024)} KB` : `${one(bytes / 1_048_576)} MB`;
+}
+
+/**
+ * R2'ye yüklenmiş nesneyi DB'ye kaydeder; kayıt başarısız olursa sahipsiz kalmasın diye `cleanup` ile siler ve asıl hatayı yeniden fırlatır.
+ * Çift kayıt (`isDuplicate`) hâlinde silmez: nesne zaten başka bir satıra aittir. Temizlik hatası asıl hatayı maskelemez.
+ */
+export async function registerOrCleanup<T>(add: () => Promise<T>, cleanup: () => Promise<void>, isDuplicate: (err: unknown) => boolean): Promise<T> {
+  try {
+    return await add();
+  } catch (err) {
+    if (!isDuplicate(err)) await cleanup().catch(() => {});
+    throw err;
+  }
 }
