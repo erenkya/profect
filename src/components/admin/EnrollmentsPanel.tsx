@@ -7,10 +7,10 @@ import { Toast, useFlash } from "./Toast";
 import { formatDate } from "@/lib/format";
 import { adminApi } from "./api";
 
-export type EnrollmentRow = { id: number; user_id: number; course_id: number; user_name: string; user_email: string; course_title: string; status: string; source: string; enrolled_at: string; completed_lessons: number; total_lessons: number; certificate_code: string | null };
+export type EnrollmentRow = { id: number; user_id: number; course_id: number; user_name: string; user_email: string; course_title: string; status: string; source: string; enrolled_at: string; completed_lessons: number; total_lessons: number; certificate_code: string | null; company_name: string | null; company_id: number | null };
 type Opt = { id: number; label: string };
 
-const SOURCE: Record<string, string> = { admin: "Yönetici", purchase: "Satın alma", plus: "Plus", gift: "Hediye" };
+const SOURCE: Record<string, string> = { admin: "Yönetici", purchase: "Satın alma", plus: "Plus", gift: "Hediye", company: "Şirket" };
 
 export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow[]; users: Opt[]; courses: Opt[] }) {
   const router = useRouter();
@@ -18,6 +18,7 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
   const [courseIds, setCourseIds] = useState<number[]>([]);
   const [flash, setFlash] = useFlash();
   const [filter, setFilter] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("");
 
   const toggle = (arr: number[], set: (v: number[]) => void, id: number) => set(arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]);
 
@@ -43,7 +44,8 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
   const availableCourses = courses.filter((c) => users.some((u) => !enrolled.has(`${u.id}:${c.id}`)));
 
   const box = { border: "1px solid var(--color-divider)", background: "#fff", maxHeight: 220, overflowY: "auto", padding: 8 } as const;
-  const shown = rows.filter((r) => (r.user_name + r.user_email + r.course_title).toLocaleLowerCase("tr-TR").includes(filter.toLocaleLowerCase("tr-TR")));
+  const companies = Array.from(new Map(rows.filter((r) => r.company_id).map((r) => [r.company_id!, r.company_name!])).entries());
+  const shown = rows.filter((r) => (r.user_name + r.user_email + r.course_title).toLocaleLowerCase("tr-TR").includes(filter.toLocaleLowerCase("tr-TR")) && (!companyFilter || String(r.company_id) === companyFilter));
 
   return (
     <>
@@ -76,14 +78,21 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
       </div>
 
       <Toast flash={flash} onClose={() => setFlash(null)} />
-      <input className="input" placeholder="Kullanıcı veya kurs ara…" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ background: "#fff", maxWidth: 320, marginBottom: 16 }} aria-label="Kayıt ara" />
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        <input className="input" placeholder="Kullanıcı veya kurs ara…" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ background: "#fff", maxWidth: 320 }} aria-label="Kayıt ara" />
+        <select className="input" value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} style={{ background: "#fff", maxWidth: 260 }} aria-label="Şirkete göre süz">
+          <option value="">Tüm şirketler</option>
+          {companies.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+      </div>
       <div className="admin-table-wrap">
         <table className="table">
-          <thead><tr><th>Kullanıcı</th><th>Kurs</th><th>Kaynak</th><th>İlerleme</th><th>Durum</th><th>Tarih</th><th /></tr></thead>
+          <thead><tr><th>Kullanıcı</th><th>Şirket</th><th>Kurs</th><th>Kaynak</th><th>İlerleme</th><th>Durum</th><th>Tarih</th><th /></tr></thead>
           <tbody>
             {shown.map((r) => (
               <tr key={r.id}>
                 <td>{r.user_name}<div style={{ fontSize: 12, color: "var(--muted-55)" }}>{r.user_email}</div></td>
+                <td>{r.company_name ?? "—"}</td>
                 <td>{r.course_title}</td>
                 <td>{SOURCE[r.source] ?? r.source}</td>
                 <td>{r.completed_lessons} / {r.total_lessons}</td>
@@ -92,7 +101,7 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
                 <td><button className="btn btn-ghost" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => remove(r.id)}>Kaldır</button></td>
               </tr>
             ))}
-            {shown.length === 0 && <tr><td colSpan={7} style={{ color: "var(--muted-55)" }}>Kayıt yok.</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={8} style={{ color: "var(--muted-55)" }}>Kayıt yok.</td></tr>}
           </tbody>
         </table>
       </div>

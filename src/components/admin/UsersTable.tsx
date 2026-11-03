@@ -9,6 +9,7 @@ import { adminApi } from "./api";
 export type AdminUser = {
   id: number; full_name: string; email: string; role: "user" | "admin" | "instructor"; is_active: number; email_verified: number;
   plus_until: string | null; last_login_at: string | null; created_at: string; enrollment_count: number;
+  company_name: string | null; company_status: "pending" | "active" | null;
 };
 
 const ROLE_LABEL = { user: "Kullanıcı", admin: "Yönetici", instructor: "Eğitmen" } as const;
@@ -35,7 +36,7 @@ export function UsersTable({ users, currentUserId }: { users: AdminUser[]; curre
       <Toast flash={flash} onClose={() => setFlash(null)} />
       <div className="admin-table-wrap">
         <table className="table">
-          <thead><tr><th>Ad</th><th>E-posta</th><th>Rol</th><th>Durum</th><th>Kayıt</th><th>Plus</th><th>Son giriş</th><th>İşlemler</th></tr></thead>
+          <thead><tr><th>Ad</th><th>E-posta</th><th>Rol</th><th>Durum</th><th>Şirket</th><th>Kayıt</th><th>Plus</th><th>Son giriş</th><th>İşlemler</th></tr></thead>
           <tbody>
             {shown.map((u) => {
               const self = u.id === currentUserId;
@@ -45,6 +46,7 @@ export function UsersTable({ users, currentUserId }: { users: AdminUser[]; curre
                   <td>{u.email}{!u.email_verified && <span className="tag tag-neutral" style={{ marginLeft: 8 }}>doğrulanmadı</span>}</td>
                   <td><span className={`tag ${u.role === "user" ? "tag-neutral" : "tag-accent-2"}`}>{ROLE_LABEL[u.role]}</span></td>
                   <td>{u.is_active ? "Aktif" : "Pasif"}</td>
+                  <td>{u.company_name ? <>{u.company_name}{u.company_status === "pending" && <span className="tag tag-neutral" style={{ marginLeft: 8 }}>onay bekliyor</span>}</> : "—"}</td>
                   <td>{u.enrollment_count}</td>
                   <td>{plusActive(u) ? `${formatDate(u.plus_until)}'e kadar` : "—"}</td>
                   <td>{formatDate(u.last_login_at) || "—"}</td>

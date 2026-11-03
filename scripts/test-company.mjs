@@ -397,6 +397,53 @@ try {
   const [poItems] = await db.query("SELECT item_type FROM order_items WHERE order_id=?", [platformSeatOrder]);
   check("aynı kullanıcının kurs sepeti kontenjan siparişini yeniden kullanmaz", r.status === 201 && r.json?.orderId !== platformSeatOrder && po?.company_id === coX.id && Number(po.amount) === 100 && poItems[0]?.item_type === "seats", JSON.stringify({ r: r.json, po, poItems }));
 
+  // ── E. Ana admin: şirket yönetimi ve raporlar ───────────────────────────────
+  const ycAdmin = await addUser(mail("admin-y"));
+  const coY = await addCompanyDb(NAME("Y"), DOM("y"), ycAdmin);
+  const patchCo = (id, cookie, body) => api(`/api/admin/companies/${id}`, { method: "PATCH", cookie, body });
+  r = await patchCo(coY.id, m5c, { is_active: false });
+  check("sıradan kullanıcı şirketi pasifleştiremez (403)", r.status === 403, JSON.stringify(r.json));
+  r = await patchCo(coY.id, ax, { is_active: false });
+  check("şirket admini de ana admin ucunu kullanamaz (403)", r.status === 403, JSON.stringify(r.json));
+  r = await patchCo(coY.id, "", { is_active: false });
+  check("oturumsuz 401", r.status === 401);
+  r = await patchCo(999999999, platform, { is_active: false });
+  check("olmayan şirket 404", r.status === 404, JSON.stringify(r.json));
+  r = await patchCo(coY.id, platform, {});
+  check("boş gövde 400", r.status === 400, JSON.stringify(r.json));
+  r = await patchCo(coY.id, platform, { is_active: false });
+  check("ana admin şirketi pasifleştirir (200)", r.status === 200 && (await db.query("SELECT is_active FROM companies WHERE id=?", [coY.id]))[0][0].is_active === 0, JSON.stringify(r.json));
+  await addUser(mail("yeni-uye"));
+  r = await api("/api/company/join", { cookie: await cookieFor(mail("yeni-uye")), body: { code: coY.code } });
+  check("pasif şirkete kod ile katılım 400", r.status === 400, JSON.stringify(r.json));
+  r = await api("/api/company/domain-lookup", { body: { email: `biri@${DOM("y")}` } });
+  check("pasif şirketin uzantısı eşleşme vermez", r.status === 200 && r.json?.found === false, JSON.stringify(r.json));
+  r = await register({ full_name: "Pasif Şirket", email: mail("pasif-kayit"), account_type: "bireysel", company_code: coY.code });
+  check("pasif şirket koduyla kayıt reddedilir (400)", r.status === 400, JSON.stringify(r.json));
+  r = await patchCo(coY.id, platform, { is_active: true });
+  check("şirket yeniden aktifleştirilir", r.status === 200 && (await db.query("SELECT is_active FROM companies WHERE id=?", [coY.id]))[0][0].is_active === 1);
+  r = await api("/api/company/join", { cookie: await cookieFor(mail("yeni-uye")), body: { code: coY.code } });
+  check("aktifleşince kod ile katılım yeniden çalışır (200)", r.status === 200, JSON.stringify(r.json));
+
+  r = await patchCo(coY.id, platform, { add_domain: "gmail.com" });
+  check("genel posta uzantısı eklenemez (400)", r.status === 400, JSON.stringify(r.json));
+  r = await patchCo(coY.id, platform, { add_domain: "gecersiz uzanti" });
+  check("geçersiz uzantı 400", r.status === 400, JSON.stringify(r.json));
+  r = await patchCo(coY.id, platform, { add_domain: DOM("x") });
+  check("başka şirketin uzantısı 409", r.status === 409, JSON.stringify(r.json));
+  r = await patchCo(coY.id, platform, { add_domain: `@${DOM("y2").toUpperCase()}` });
+  check("yeni uzantı normalize edilip eklenir (200)", r.status === 200 && (await db.query("SELECT 1 FROM company_domains WHERE company_id=? AND domain=?", [coY.id, DOM("y2")]))[0].length === 1, JSON.stringify(r.json));
+  r = await patchCo(coY.id, platform, { add_domain: DOM("y2") });
+  check("aynı şirkete aynı uzantı tekrar eklenemez (409)", r.status === 409, JSON.stringify(r.json));
+
+  // Kayıtlar raporu: şirket adı
+  const plain = await addUser(mail("sirketsiz"));
+  await db.query("INSERT INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'admin')", [plain, courseId]);
+  r = await api("/api/admin/enrollments", { method: "GET", cookie: platform });
+  const rowOf = (uid) => (r.json?.data ?? []).find((x) => x.user_id === uid && x.course_id === courseId);
+  check("kayıt satırında atanan çalışan için company_name dolu", rowOf(m5.uid)?.company_name === NAME("X"), JSON.stringify(rowOf(m5.uid)));
+  check("şirketsiz kullanıcı için company_name null", rowOf(plain) && rowOf(plain).company_name === null, JSON.stringify(rowOf(plain)));
+
   // ── SECTION: devam eden görevlerin kontrolleri bu işaretin üstüne eklenir ──
 } catch (e) {
   failN++; console.error("✗ BEKLENMEYEN HATA", e);

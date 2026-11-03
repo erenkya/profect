@@ -9,8 +9,12 @@ export default async function AdminUsers() {
   const me = await requireAdminPage();
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT u.id, u.full_name, u.email, u.role, u.is_active, u.email_verified, u.plus_until, u.last_login_at, u.created_at,
-            (SELECT COUNT(*) FROM enrollments e WHERE e.user_id = u.id) AS enrollment_count
-       FROM users u ORDER BY u.created_at DESC LIMIT 1000`,
+            (SELECT COUNT(*) FROM enrollments e WHERE e.user_id = u.id) AS enrollment_count,
+            co.name AS company_name, cm.status AS company_status
+       FROM users u
+       LEFT JOIN company_members cm ON cm.user_id = u.id
+       LEFT JOIN companies co ON co.id = cm.company_id
+      ORDER BY u.created_at DESC LIMIT 1000`,
   );
   return (
     <>

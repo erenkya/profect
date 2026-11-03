@@ -8,6 +8,7 @@ const TABS = [
   { href: "/admin/kurslar", label: "Kurslar" },
   { href: "/admin/programlar", label: "Programlar" },
   { href: "/admin/kullanicilar", label: "Kullanıcılar" },
+  { href: "/admin/sirketler", label: "Şirketler" },
   { href: "/admin/kayitlar", label: "Kayıtlar" },
   { href: "/admin/siparisler", label: "Siparişler" },
   { href: "/admin/kuponlar", label: "Kuponlar" },

@@ -11,7 +11,7 @@ export async function GET() {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT e.id, e.user_id, e.course_id, e.status, e.source, e.enrolled_at,
               u.full_name AS user_name, u.email AS user_email,
-              c.title AS course_title, cert.certificate_code,
+              c.title AS course_title, cert.certificate_code, co.name AS company_name, co.id AS company_id,
               (SELECT COUNT(*) FROM lesson_progress lp JOIN lessons l ON l.id = lp.lesson_id
                  JOIN modules m ON m.id = l.module_id WHERE lp.user_id = e.user_id AND m.course_id = e.course_id) AS completed_lessons,
               (SELECT COUNT(*) FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = e.course_id) AS total_lessons
@@ -19,6 +19,8 @@ export async function GET() {
          JOIN users u ON u.id = e.user_id
          JOIN courses c ON c.id = e.course_id
          LEFT JOIN certificates cert ON cert.user_id = e.user_id AND cert.course_id = e.course_id
+         LEFT JOIN company_members cm ON cm.user_id = e.user_id AND cm.status = 'active'
+         LEFT JOIN companies co ON co.id = cm.company_id
         ORDER BY e.enrolled_at DESC`,
     );
     return ok({ data: rows });
