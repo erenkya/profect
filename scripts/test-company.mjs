@@ -364,8 +364,17 @@ try {
   check("sipariş: company_id dolu, tutar fiyat × adet (500)", so?.company_id === coX.id && Number(so.amount) === 500 && so.plan === "cart", JSON.stringify(so));
   check("tek kalem: seats, adet 5, unit_price satır toplamı, başlık", soItems.length === 1 && soItems[0].item_type === "seats" && soItems[0].quantity === 5 && Number(soItems[0].unit_price) === 500 && soItems[0].course_id === courseId && soItems[0].title === "E2E Şirket Kursu · 5 kişilik kontenjan", JSON.stringify(soItems));
   check("ödeme onayından önce kontenjan artmaz", (await seat(coX.id, courseId)).total === before.total);
+  const resultPage = async () => {
+    const res = await fetch(`${B}/odeme/sonuc?orderId=${seatOrderId}`, { headers: { cookie: ax }, redirect: "manual" });
+    const html = (await res.text()).replace(/<!-- -->/g, "");
+    return Object.assign(html, {}) && { status: res.status, location: res.headers.get("location"), text: html };
+  };
+  let pg = await resultPage(); let page = pg.text;
+  check("sonuç sayfası (bekliyor): kontenjan metni, 'erişimin hesabında açılacak' yok", page.includes("kontenjan şirketinin havuzuna eklenecek") && !page.includes("erişimin hesabında açılacak"), `${pg.status} ${pg.location ?? ""} ${(pg.text.match(/(?:Error|digest)[^<]{0,300}/)?.[0] ?? "")}`);
   r = await api(`/api/admin/orders/${seatOrderId}`, { method: "PATCH", cookie: platform, body: { action: "approve" } });
   check("admin siparişi onayladı (200)", r.status === 200, JSON.stringify(r.json));
+  pg = await resultPage(); page = pg.text;
+  check("sonuç sayfası (ödendi): kontenjan eklendi, 'Erişimin açıldı' yok, şirket paneline yönlendirir", page.includes("Kontenjan şirketinin havuzuna eklendi") && !page.includes("Erişimin açıldı") && page.includes('href="/sirket"'));
   const afterBuy = await seat(coX.id, courseId);
   const [[alloc1]] = await db.query("SELECT source, order_id, quantity FROM company_allocations WHERE order_id=?", [seatOrderId]);
   check("onaydan sonra şirket kontenjanı +5 (source purchase, order_id dolu)", afterBuy.total === before.total + 5 && alloc1?.source === "purchase" && alloc1?.quantity === 5, JSON.stringify({ afterBuy, alloc1 }));

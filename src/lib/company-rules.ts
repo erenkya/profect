@@ -152,3 +152,13 @@ export const seatCheckoutSchema = z.object({
 export type SeatCheckoutInput = z.infer<typeof seatCheckoutSchema>;
 
 export const seatOrderTitle = (courseTitle: string, quantity: number): string => `${courseTitle} · ${quantity} kişilik kontenjan`;
+
+// ── Kontenjan siparişinin sonuç sayfası ───────────────────────────────────────
+export type OrderResultView = { title: string; body: string; cta: { href: string; label: string } };
+
+/** Kontenjan siparişi erişim açmaz, şirketin havuzunu artırır: sonuç metni ve yönlendirme buna göre (normal sipariş metni yanıltırdı). */
+export function seatOrderResultView(status: "pending" | "paid" | "rejected", errorMessage: string | null): OrderResultView {
+  if (status === "paid") return { title: "Ödemen alındı", body: "Kontenjan şirketinin havuzuna eklendi. Şirket panelinden çalışanlarına atayabilirsin.", cta: { href: "/sirket", label: "Şirket paneli" } };
+  if (status === "pending") return { title: "Siparişin alındı", body: "Siparişin onay bekliyor. Ödemen doğrulandığında kontenjan şirketinin havuzuna eklenecek.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } };
+  return { title: "Ödeme tamamlanamadı", body: errorMessage ? `Banka yanıtı: ${errorMessage}` : "Ödeme onaylanmadı.", cta: { href: "/sirket", label: "Şirket paneline dön" } };
+}

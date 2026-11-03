@@ -14,6 +14,7 @@ import {
   normalizeCompanyCode,
   normalizeDomain,
   progressStatus,
+  seatOrderResultView,
   reclaimOutcome,
   seatCheckoutSchema,
   seatOrderTitle,
@@ -127,4 +128,21 @@ test("seatCheckoutSchema: adet 1..1000; seatOrderTitle", () => {
   assert.equal(seatCheckoutSchema.safeParse({ ...base, quantity: 1001 }).success, false);
   assert.equal(seatCheckoutSchema.safeParse({ ...base, quantity: 25 }).success, true);
   assert.equal(seatOrderTitle("Excel", 25), "Excel · 25 kişilik kontenjan");
+});
+
+test("seatOrderResultView: kontenjan siparişi erişim açıldı demez, şirket paneline yönlendirir", () => {
+  const paid = seatOrderResultView("paid", null);
+  assert.match(paid.body, /kontenjan/i);
+  assert.doesNotMatch(paid.body, /Erişimin açıldı/);
+  assert.equal(paid.cta.href, "/sirket");
+
+  const pending = seatOrderResultView("pending", null);
+  assert.match(pending.body, /kontenjan/i);
+  assert.doesNotMatch(pending.body, /erişimin hesabında açılacak/);
+  assert.equal(pending.cta.href, "/hesabim/siparislerim");
+
+  const rejected = seatOrderResultView("rejected", "Yetersiz bakiye");
+  assert.match(rejected.body, /Yetersiz bakiye/);
+  assert.notEqual(rejected.cta.href, "/sepet"); // kontenjan siparişi sepetten verilmez
+  assert.equal(seatOrderResultView("rejected", null).body, "Ödeme onaylanmadı.");
 });

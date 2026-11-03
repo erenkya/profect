@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Sipariş detayı" };
 const ORDER_STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi" } as const;
 const GIFT_STATUS = { awaiting_payment: "Ödeme bekliyor", pending: "Alıcının almasını bekliyor", claimed: "Alıcı aldı", expired: "Süresi doldu", cancelled: "İptal edildi" } as const;
 const PROVIDER = { manual: "Havale / elle onay", mock: "Test ödemesi", tami: "Kredi / banka kartı" } as Record<string, string>;
-const ITEM_TYPE = { course: "Kurs", program: "Uzmanlık Programı", plus: "Abonelik" } as const;
+const ITEM_TYPE = { course: "Kurs", program: "Uzmanlık Programı", plus: "Abonelik", seats: "Kontenjan" } as const;
 
 /** T.C. kimlik no'yu tamamen göstermeyiz: ilk iki ve son iki hane. */
 const maskTckn = (v: string) => (v.length === 11 ? `${v.slice(0, 2)}*******${v.slice(-2)}` : "***");

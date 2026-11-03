@@ -553,7 +553,7 @@ export function orderLabel(o: { plan: "single" | "plus" | "cart"; course_title: 
   return giftOrderLabel(o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—"), o.gift_to);
 }
 
-export type MyOrderItem = { type: "course" | "plus" | "program"; title: string; price: number; href: string | null };
+export type MyOrderItem = { type: "course" | "plus" | "program" | "seats"; title: string; price: number; href: string | null };
 export type MyOrderDetail = {
   id: number;
   status: "pending" | "paid" | "rejected";
