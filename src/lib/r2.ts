@@ -1,7 +1,6 @@
 // Cloudflare R2 (S3 uyumlu) istemcisi. Yalnızca sunucuda kullanılır; gizli anahtarlar tarayıcıya gitmez.
 import "server-only";
 import {
-  DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -85,17 +84,31 @@ export async function presignPostImageUpload(key: string, size: number, contentT
 /** Blog/haber görselini (en çok MAX_POST_IMAGE_BYTES) bütün olarak okur; yoksa null. */
 export const getPostImage = (key: string) => readWhole(blogBucket(), key);
 
-/** Silme çağıranı bozmaz: hata loglanır (DB kaydı zaten silinmiştir). */
-export async function deletePostImages(keys: string[]): Promise<void> {
+const DELETE_ATTEMPTS = 3;
+
+/**
+ * Silme çağıranı bozmaz (DB kaydı zaten silinmiştir) ama sessiz de kalmaz: `DeleteObjects` tek tek anahtar hatalarını
+ * yanıtın `Errors` listesinde döner (istek başarılı görünür); yalnızca başarısız anahtarlar artan beklemeyle yeniden denenir.
+ * Yine de kalanlar loglanır — bunlar R2'de yetim kalır, `npm run r2:orphans` toplar.
+ */
+async function deleteKeys(Bucket: string, keys: string[], tag: string): Promise<void> {
   for (let i = 0; i < keys.length; i += 1000) {
-    const batch = keys.slice(i, i + 1000);
-    try {
-      await s3().send(new DeleteObjectsCommand({ Bucket: blogBucket(), Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true } }));
-    } catch (err) {
-      console.error("[r2.deletePostImages]", batch.length, err);
+    let pending = keys.slice(i, i + 1000);
+    for (let attempt = 1; pending.length > 0 && attempt <= DELETE_ATTEMPTS; attempt++) {
+      if (attempt > 1) await new Promise((r) => setTimeout(r, 250 * 2 ** (attempt - 2)));
+      try {
+        const res = await s3().send(new DeleteObjectsCommand({ Bucket, Delete: { Objects: pending.map((Key) => ({ Key })), Quiet: true } }));
+        const failed = new Set((res.Errors ?? []).map((e) => e.Key));
+        pending = pending.filter((k) => failed.has(k));
+      } catch (err) {
+        console.error(`[${tag}] deneme ${attempt}/${DELETE_ATTEMPTS}`, pending.length, err);
+      }
     }
+    if (pending.length > 0) console.error(`[${tag}] silinemedi, R2'de yetim kaldı:`, pending);
   }
 }
+
+export const deletePostImages = (keys: string[]) => deleteKeys(blogBucket(), keys, "r2.deletePostImages");
 
 /** Kapak resmini (en çok MAX_COVER_BYTES) bütün olarak okur; yoksa null. */
 export const getCover = (key: string) => readWhole(bucket(), key);
@@ -138,25 +151,10 @@ export async function getVideoRange(key: string, range: ByteRange) {
   };
 }
 
-// Silme işlemleri çağıranı bozmaz: hata loglanır (DB kaydı zaten silinmiştir).
-export async function deleteVideo(key: string): Promise<void> {
-  try {
-    await s3().send(new DeleteObjectCommand({ Bucket: bucket(), Key: key }));
-  } catch (err) {
-    console.error("[r2.deleteVideo]", key, err);
-  }
-}
+// Silme işlemleri çağıranı bozmaz: hata tekrar denenir, olmazsa loglanır (DB kaydı zaten silinmiştir).
+export const deleteVideo = (key: string) => deleteKeys(bucket(), [key], "r2.deleteVideo");
 
-export async function deleteVideos(keys: string[]): Promise<void> {
-  for (let i = 0; i < keys.length; i += 1000) {
-    const batch = keys.slice(i, i + 1000);
-    try {
-      await s3().send(new DeleteObjectsCommand({ Bucket: bucket(), Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true } }));
-    } catch (err) {
-      console.error("[r2.deleteVideos]", batch.length, err);
-    }
-  }
-}
+export const deleteVideos = (keys: string[]) => deleteKeys(bucket(), keys, "r2.deleteVideos");
 
 // Kapak resimleri aynı bucket'ta durur; nesne işlemleri anahtardan bağımsızdır.
 export const headCover = headVideo;

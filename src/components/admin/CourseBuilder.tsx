@@ -60,7 +60,7 @@ type Run = (p: ReturnType<typeof adminApi>, okText?: string) => Promise<{ ok: bo
 function CourseForm({ course, categories, run, onDeleted }: { course: CourseRow; categories: string[]; run: Run; onDeleted: () => void }) {
   const [f, setF] = useState({
     title: course.title, category: course.category, level: course.level, instructor: course.instructor,
-    hours: String(course.hours), rating: course.rating ?? "", price: String(course.price), old_price: course.old_price == null ? "" : String(course.old_price),
+    rating: course.rating ?? "", price: String(course.price), old_price: course.old_price == null ? "" : String(course.old_price),
     description: course.description, outcomes: course.outcomes.join("\n"), is_published: course.is_published,
   });
   const [thumbnail, setThumbnail] = useState<string | null>(course.thumbnail_url);
@@ -75,7 +75,7 @@ function CourseForm({ course, categories, run, onDeleted }: { course: CourseRow;
     run(
       adminApi("PATCH", `/api/admin/courses/${course.id}`, {
         title: f.title, category: f.category, level: f.level, instructor: f.instructor,
-        hours: Number(f.hours) || 0, rating: f.rating === "" ? null : Number(f.rating), price: Number(f.price) || 0,
+        rating: f.rating === "" ? null : Number(f.rating), price: Number(f.price) || 0,
         old_price: f.old_price === "" ? null : Number(f.old_price), description: f.description,
         outcomes: f.outcomes.split("\n").map((s) => s.trim()).filter(Boolean), is_published: published,
         thumbnail_url: thumbnail,
@@ -111,7 +111,7 @@ function CourseForm({ course, categories, run, onDeleted }: { course: CourseRow;
         <div className="field"><label htmlFor="cb-cat">Kategori</label><CategoryField id="cb-cat" categories={categories} value={f.category} onChange={(category) => setF({ ...f, category })} style={input} /></div>
         <div className="field"><label>Seviye</label><input className="input" value={f.level} onChange={set("level")} style={input} /></div>
         <div className="field"><label>Eğitmen</label><input className="input" value={f.instructor} onChange={set("instructor")} style={input} /></div>
-        <div className="field"><label>Süre (saat)</label><input className="input" type="number" min={0} value={f.hours} onChange={set("hours")} style={input} /></div>
+        <div className="field"><label>Süre (saat)</label><input className="input" value={`${course.hours} (videolardan otomatik)`} disabled style={input} /></div>
         <div className="field"><label>Puan (0–9.9)</label><input className="input" type="number" step="0.1" min={0} max={9.9} value={f.rating} onChange={set("rating")} style={input} /></div>
         <div className="field"><label>Fiyat (₺)</label><input className="input" type="number" min={0} value={f.price} onChange={set("price")} style={input} /></div>
         <div className="field"><label>Eski fiyat (₺)</label><input className="input" type="number" min={0} value={f.old_price} onChange={set("old_price")} style={input} /></div>

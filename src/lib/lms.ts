@@ -19,7 +19,8 @@ export type CourseRow = {
   category: string;
   level: string;
   instructor: string;
-  hours: number;
+  /** Toplam eğitim süresi (dk): video derslerin süreleri toplamı. */
+  minutes: number;
   rating: string | null;
   price: number;
   old_price: number | null;
@@ -30,7 +31,14 @@ export type CourseRow = {
   lesson_count: number;
 };
 
-const COURSE_COLUMNS = `c.id, c.slug, c.code, c.title, c.description, c.category, c.level, c.instructor, c.hours,
+/** Kursun toplam eğitim süresi (dk): video derslerin süreleri toplamı. `alias` = courses takma adı. */
+export const courseVideoMinutesSql = (alias: string) => `(
+  SELECT COALESCE(SUM(l.duration_minutes), 0)
+    FROM lessons l JOIN modules m ON m.id = l.module_id
+   WHERE m.course_id = ${alias}.id AND l.lesson_type = 'video'
+)`;
+
+const COURSE_COLUMNS = `c.id, c.slug, c.code, c.title, c.description, c.category, c.level, c.instructor, ${courseVideoMinutesSql("c")} AS minutes,
   c.rating, c.price, c.old_price, c.outcomes, c.thumbnail_url, c.is_published,
   (SELECT COUNT(*) FROM modules m WHERE m.course_id = c.id) AS module_count,
   (SELECT COUNT(*) FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = c.id) AS lesson_count`;
@@ -52,7 +60,7 @@ function mapCourse(r: RowDataPacket): CourseRow {
     category: r.category,
     level: r.level,
     instructor: r.instructor,
-    hours: r.hours,
+    minutes: Number(r.minutes),
     rating: r.rating,
     price: Number(r.price),
     old_price: r.old_price == null ? null : Number(r.old_price),

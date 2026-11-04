@@ -35,9 +35,9 @@ export async function POST(request: Request) {
     const code = d.code ?? randomCourseCode();
     try {
       const [res] = await pool.execute<ResultSetHeader>(
-        `INSERT INTO courses (slug, code, title, description, category, level, instructor, hours, price, old_price, outcomes, is_published)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,0)`,
-        [slug, code, d.title, d.description, d.category ?? "", d.level ?? "Başlangıç", d.instructor ?? "", d.hours ?? 0, d.price ?? 0, d.old_price ?? null, JSON.stringify(d.outcomes ?? [])],
+        `INSERT INTO courses (slug, code, title, description, category, level, instructor, price, old_price, outcomes, is_published)
+         VALUES (?,?,?,?,?,?,?,?,?,?,0)`,
+        [slug, code, d.title, d.description, d.category ?? "", d.level ?? "Başlangıç", d.instructor ?? "", d.price ?? 0, d.old_price ?? null, JSON.stringify(d.outcomes ?? [])],
       );
       return ok({ courseId: res.insertId, slug }, 201);
     } catch (err) {

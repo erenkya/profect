@@ -43,7 +43,6 @@ export function Footer() {
       <div className="footer-col">
         <div className="footer-title">Şirket</div>
         <Link href="/hakkimizda">Hakkımızda</Link>
-        <a href="#">Eğitmen ol</a>
         <a href="#">İletişim</a>
         <a href="https://www.linkedin.com/company/profect-academy/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
         <Link href="/kvkk">KVKK Aydınlatma Metni</Link>

@@ -47,7 +47,7 @@ Video dersler yönetici panelinden **doğrudan R2'ye** yüklenir (tarayıcı →
 **Kapalı bucket kontrol listesi** (Cloudflare paneli)
 - *Public Development URL (r2.dev)* **kapalı**, bucket'a bağlı herkese açık özel alan adı **yok**.
 - R2 API token'ı yalnızca bu bucket'a ve *Object Read & Write* yetkisine sahip.
-- Önerilen: bucket'ta tamamlanmamış çok parçalı yüklemeleri otomatik silen bir *Object lifecycle* kuralı. Yönetici bir videoyu yükleyip dersi kaydetmeden çıkarsa dosya R2'de kalır; periyodik olarak `kurslar/` altındaki, DB'de karşılığı olmayan nesneler elle temizlenebilir.
+- Önerilen: bucket'ta tamamlanmamış çok parçalı yüklemeleri otomatik silen bir *Object lifecycle* kuralı. Yönetici bir videoyu (ya da kapağı/ders dosyasını) yükleyip kaydetmeden çıkarsa ya da R2 silmesi hata verirse nesne R2'de yetim kalır. `npm run r2:orphans` DB'de karşılığı olmayan nesneleri raporlar (varsayılan kuru çalıştırma); `-- --apply` ile siler. Yalnızca uygulamanın ürettiği anahtar biçimlerine bakar, 24 saatten genç nesneye dokunmaz, yetim oranı aşırıysa durur. Haftada bir çalıştırılması önerilir.
 
 **Klasör düzeni:** `kurslar/{kurs-slug}/{modül-id}-{modül-adı}/{rastgele}-{ders-adı}.mp4`. Yol DB'de saklanır; kurs/modül yeniden adlandırılırsa dosya taşınmaz.
 

@@ -11,6 +11,7 @@
     "db:migrate": "node --env-file=.env scripts/migrate.mjs",
     "r2:setup": "node --env-file=.env scripts/r2-setup.mjs",
     "r2:blog-setup": "node --env-file=.env scripts/r2-blog-setup.mjs",
+    "r2:orphans": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/r2-orphans.mjs",
     "db:seed": "node --env-file=.env scripts/seed.mjs",
     "videos:upload": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/upload-lesson-videos.mjs",
     "db:seed-posts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/seed-posts.mjs",
