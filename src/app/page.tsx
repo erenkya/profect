@@ -40,6 +40,7 @@ export default async function HomePage() {
   const owned = user ? await listAccessibleCourseIds(user.id) : new Set<number>();
   const companyMember = user ? await isActiveMember(user.id) : false;
   const titles = published.map((c) => c.title);
+  const demoCourse = titles[0] ?? "Profect Kursu"; // hero kartı ve örnek sertifika gerçek bir kurs adı gösterir
   const marquee = [...titles, ...titles].map((t, i) => ({ t, c: i % 2 ? PURP : BLUE }));
   const qr = qrCells();
 
@@ -94,12 +95,12 @@ export default async function HomePage() {
                 <div className="card blueprint elev-md" style={{ background: "#ffffff", padding: 18, gap: 10 }}>
                   <Corners />
                   <div className="card-kicker" style={{ fontSize: 11 }}>Modül 3 / 6</div>
-                  <div className="card-title" style={{ fontSize: 20 }}>Veri Analitiğine Giriş</div>
+                  <div className="card-title" style={{ fontSize: 20 }}>{demoCourse}</div>
                   <div style={{ height: 6, background: "var(--color-accent-100)", position: "relative" }}>
                     <div style={{ position: "absolute", inset: "0 36% 0 0", background: "var(--color-accent)" }} />
                   </div>
                   <div className="card-meta" style={{ fontSize: 12, justifyContent: "space-between" }}>
-                    <span>%64 tamamlandı</span><span>Sıradaki: Pivot tablolar</span>
+                    <span>%64 tamamlandı</span><span>Sıradaki: Modül 4</span>
                   </div>
                 </div>
               </div>
@@ -264,7 +265,7 @@ export default async function HomePage() {
                     <div style={{ fontSize: 12, letterSpacing: ".2em", textTransform: "uppercase", color: "var(--color-accent-2)", fontWeight: 600, marginBottom: 8 }}>Başarı Sertifikası</div>
                     <div style={{ fontFamily: "var(--font-heading)", fontSize: 46, lineHeight: 1, fontWeight: 600, marginBottom: 14 }}>{DEMO_CERT.holder}</div>
                     <p style={{ fontSize: 14, color: "var(--muted-72)", marginBottom: 26, textWrap: "pretty" }}>
-                      {DEMO_CERT.course} programını tamamlamış ve final sınavını %92 başarıyla geçmiştir.
+                      {demoCourse} programını tamamlamış ve final sınavını %92 başarıyla geçmiştir.
                     </p>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16 }}>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,auto)", gap: "6px 28px", fontSize: 12 }}>

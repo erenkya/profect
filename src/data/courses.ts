@@ -27,6 +27,5 @@ export const FOUNDERS = [
 export const DEMO_CERT = {
   number: "PRF-2026-000000",
   holder: "Elif Yılmaz",
-  course: "Veri Analitiğine Giriş",
   date: "12.09.2026",
 };
