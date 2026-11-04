@@ -1,14 +1,13 @@
 export const BLUE = "#3a5fdc";
 export const PURP = "#4a2a9e";
-
-export const MARQUEE = ["Veri Bilimi", "Yazılım", "Proje Yönetimi", "Tasarım", "Pazarlama", "Finans", "Yapay Zekâ", "Liderlik"];
+export const INDIGO = "#4244bd"; // BLUE ile PURP arası: adım renk geçişinin ortası
 
 export const courseColor = (i: number) => (i % 2 ? PURP : BLUE);
 export const courseDelay = (i: number) => (i % 3) * 120;
 
 export const STEPS = [
   { n: "01", title: "Kursa kaydol", color: BLUE, delay: 0, body: "Video dersler, okumalar ve uygulamalı ödevlerle konuyu kendi hızında çalış. İlerlemen her cihazda kaldığın yerden devam eder.", tags: ["Video", "Okuma", "Proje"] },
-  { n: "02", title: "Sınavlara gir", color: BLUE, delay: 150, body: "Kursun sonunda kapsamlı bir final sınavı seni bekler. Sonuçlarını anında görürsün.", tags: ["Final sınavı", "Anında sonuç", "Sertifika"] },
+  { n: "02", title: "Sınavlara gir", color: INDIGO, delay: 150, body: "Kursun sonunda kapsamlı bir final sınavı seni bekler. Sonuçlarını anında görürsün.", tags: ["Final sınavı", "Anında sonuç", "Sertifika"] },
   { n: "03", title: "Sertifikanı al", color: PURP, delay: 300, body: "Final sınavını geçtiğinde benzersiz numaralı, QR kodla doğrulanabilir sertifikan hesabına eklenir ve LinkedIn’de paylaşılabilir.", tags: ["QR doğrulama", "LinkedIn", "PDF"] },
 ];
 

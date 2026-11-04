@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Award } from "lucide-react";
 import { Corners } from "@/components/Corners";
 import { CourseCard } from "@/components/CourseCard";
-import { DEMO_CERT, FOUNDERS, MARQUEE, STEPS, BLUE, PURP, courseColor, courseDelay } from "@/data/courses";
+import { DEMO_CERT, FOUNDERS, STEPS, BLUE, PURP, courseColor, courseDelay } from "@/data/courses";
 import { getCurrentUser } from "@/lib/auth";
 import { isActiveMember } from "@/lib/company";
 import { listAccessibleCourseIds, listPublishedCourses } from "@/lib/lms";
@@ -33,12 +33,14 @@ async function latestPosts(type: "blog" | "news", limit: number): Promise<PostLi
 }
 
 export default async function HomePage() {
-  const courses = (await listPublishedCourses()).slice(0, 6);
+  const published = await listPublishedCourses();
+  const courses = published.slice(0, 6);
   const [blog, news] = await Promise.all([latestPosts("blog", 3), latestPosts("news", 4)]);
   const user = await getCurrentUser();
   const owned = user ? await listAccessibleCourseIds(user.id) : new Set<number>();
   const companyMember = user ? await isActiveMember(user.id) : false;
-  const marquee = [...MARQUEE, ...MARQUEE].map((t, i) => ({ t, c: i % 2 ? PURP : BLUE }));
+  const titles = published.map((c) => c.title);
+  const marquee = [...titles, ...titles].map((t, i) => ({ t, c: i % 2 ? PURP : BLUE }));
   const qr = qrCells();
 
   return (
@@ -129,7 +131,7 @@ export default async function HomePage() {
         </section>
 
         {/* MARQUEE */}
-        <section aria-hidden style={{ overflow: "hidden", borderBottom: "1px solid var(--color-divider)", padding: "18px 0", background: "#ffffff" }}>
+        {marquee.length > 0 && <section aria-hidden style={{ overflow: "hidden", borderBottom: "1px solid var(--color-divider)", padding: "18px 0", background: "#ffffff" }}>
           <div data-marquee="1" style={{ display: "flex", width: "max-content", gap: 40, alignItems: "center", fontFamily: "var(--font-heading)", fontSize: 22, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--color-accent-800)" }}>
             {[...marquee, ...marquee].map((m, i) => (
               <span key={i} style={{ display: "flex", alignItems: "center", gap: 40, whiteSpace: "nowrap" }}>
@@ -138,7 +140,7 @@ export default async function HomePage() {
               </span>
             ))}
           </div>
-        </section>
+        </section>}
 
         {/* HOW IT WORKS */}
         <section id="nasil" className="wrap section-pad anchor">
@@ -153,17 +155,25 @@ export default async function HomePage() {
           </div>
           <div style={{ position: "relative" }}>
             <svg aria-hidden viewBox="0 0 1000 20" preserveAspectRatio="none" style={{ position: "absolute", left: 0, right: 0, top: 0, width: "100%", height: 20, overflow: "visible" }}>
-              <path data-draw="1" d="M0 10 H1000" pathLength="1" fill="none" stroke="#3a5fdc" strokeWidth="1.5" strokeDasharray="1" strokeDashoffset="0" vectorEffect="non-scaling-stroke" />
+              <defs>
+                <linearGradient id="steps-line" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0" stopColor={BLUE} />
+                  <stop offset="1" stopColor={PURP} />
+                </linearGradient>
+              </defs>
+              <path data-draw="1" d="M0 10 H1000" pathLength="1" fill="none" stroke="url(#steps-line)" strokeWidth="2" strokeDasharray="1" strokeDashoffset="0" vectorEffect="non-scaling-stroke" />
             </svg>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,280px),1fr))", gap: 32 }}>
               {STEPS.map((s) => (
                 <div key={s.n} data-reveal="1" data-delay={s.delay} style={{ paddingTop: 44, position: "relative" }}>
-                  <span className="diamond" style={{ position: "absolute", top: 3, left: 0, width: 14, height: 14, background: "#ffffff", border: `1.5px solid ${s.color}` }} />
-                  <div style={{ fontFamily: "var(--font-heading)", fontSize: 88, lineHeight: 0.85, fontWeight: 700, color: "transparent", WebkitTextStroke: `1px ${s.color}`, marginBottom: 18 }}>{s.n}</div>
-                  <h3 style={{ fontSize: 30, textTransform: "uppercase", marginBottom: 12 }}>{s.title}</h3>
-                  <p style={{ fontSize: 16, color: "color-mix(in srgb,var(--color-text) 72%,transparent)", textWrap: "pretty", marginBottom: 18 }}>{s.body}</p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {s.tags.map((t) => <span key={t} className="tag tag-outline" style={{ fontSize: 12 }}>{t}</span>)}
+                  <span className="diamond" style={{ position: "absolute", top: 3, left: 0, width: 14, height: 14, background: s.color }} />
+                  <div style={{ height: "100%", padding: "26px 26px 28px", background: `color-mix(in srgb, ${s.color} 9%, #ffffff)`, border: `1px solid color-mix(in srgb, ${s.color} 28%, transparent)`, borderTop: `4px solid ${s.color}` }}>
+                    <div style={{ fontFamily: "var(--font-heading)", fontSize: 88, lineHeight: 0.85, fontWeight: 700, color: s.color, marginBottom: 18 }}>{s.n}</div>
+                    <h3 style={{ fontSize: 30, textTransform: "uppercase", marginBottom: 12, color: `color-mix(in srgb, ${s.color} 55%, var(--color-text))` }}>{s.title}</h3>
+                    <p style={{ fontSize: 16, color: "color-mix(in srgb,var(--color-text) 72%,transparent)", textWrap: "pretty", marginBottom: 18 }}>{s.body}</p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {s.tags.map((t) => <span key={t} className="tag" style={{ fontSize: 12, background: `color-mix(in srgb, ${s.color} 16%, #ffffff)`, color: `color-mix(in srgb, ${s.color} 80%, #000000)`, border: "none" }}>{t}</span>)}
+                    </div>
                   </div>
                 </div>
               ))}
