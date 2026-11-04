@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_COVER_BYTES, buildCoverKey, coverContentType, coverKeyForCourse, coverKeyFromName, coverUrl, isCoverKey, isCoverType } from "./cover-key.ts";
+import { MAX_COVER_BYTES, buildCoverKey, buildProgramCoverKey, coverContentType, coverKeyForCourse, coverKeyForProgram, coverKeyFromName, coverUrl, isCoverKey, isCoverType } from "./cover-key.ts";
 
 const KEY = "kapaklar/12-a1b2c3d4.jpg";
 
@@ -27,6 +27,18 @@ test("coverKeyForCourse anahtarın kursa ait olduğunu denetler", () => {
   assert.ok(!coverKeyForCourse(KEY, 1)); // 12 ≠ 1 (önek eşleşmesi değil, tam sayı eşleşmesi)
   assert.ok(!coverKeyForCourse(KEY, 13));
   assert.ok(!coverKeyForCourse("kapaklar/evil.jpg", 12));
+});
+
+test("program kapak anahtarı p önekli; kurs ve program id uzayları çakışmaz", () => {
+  const pk = buildProgramCoverKey(12, "image/webp", "a1b2c3d4");
+  assert.equal(pk, "kapaklar/p12-a1b2c3d4.webp");
+  assert.ok(isCoverKey(pk));
+  assert.ok(coverKeyForProgram(pk, 12));
+  assert.ok(!coverKeyForProgram(pk, 1) && !coverKeyForProgram(KEY, 12));
+  assert.ok(!coverKeyForCourse(pk, 12)); // program 12'nin kapağı kurs 12'ninkiyle karışmaz
+  assert.equal(coverContentType(pk), "image/webp");
+  assert.equal(coverUrl(pk), "/api/kapak/p12-a1b2c3d4.webp");
+  assert.equal(coverKeyFromName("p12-a1b2c3d4.webp"), pk);
 });
 
 test("coverContentType uzantıdan türü bulur", () => {

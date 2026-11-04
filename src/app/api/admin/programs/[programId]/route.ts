@@ -5,6 +5,8 @@ import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { updateProgramSchema } from "@/lib/admin-schemas";
 import { countProgramMembers, getCourseEligibility, getProgramById, listProgramCourses } from "@/lib/programs";
 import { courseProblems, priceProblem } from "@/lib/program-rules";
+import { coverKeyForProgram } from "@/lib/cover-key";
+import { deleteCover, headCover } from "@/lib/r2";
 
 type Ctx = { params: Promise<{ programId: string }> };
 
@@ -37,9 +39,6 @@ export async function PATCH(request: Request, { params }: Ctx) {
   if (body.error) return body.error;
   const { course_ids: courseIds, ...fields } = body.data;
 
-  // v1'de program kapağı yüklenmez; yalnızca mevcut kapak kaldırılabilir.
-  if (fields.thumbnail_url) return fail("Program kapağı henüz desteklenmiyor.", 400);
-
   const sets: string[] = [];
   const values: unknown[] = [];
   for (const [key, value] of Object.entries(fields)) {
@@ -52,6 +51,13 @@ export async function PATCH(request: Request, { params }: Ctx) {
   try {
     const current = await getProgramById(programId);
     if (!current) return fail("Program bulunamadı.", 404);
+
+    // Kapak değişiyorsa: yeni anahtar bu programa ait ve R2'de var olmalı; eski dosya güncellemeden sonra silinir.
+    const newCover = fields.thumbnail_url;
+    if (newCover) {
+      if (!coverKeyForProgram(newCover, programId)) return fail("Geçersiz kapak resmi.", 400);
+      if (!(await headCover(newCover))) return fail("Kapak resmi R2'de bulunamadı; yeniden yükleyin.", 400);
+    }
 
     // Kaydedildikten sonraki durum üzerinden doğrula.
     const publishing = fields.is_published === true;
@@ -86,6 +92,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
     } finally {
       conn.release();
     }
+    if (newCover !== undefined && current.thumbnail_url && current.thumbnail_url !== newCover) await deleteCover(current.thumbnail_url);
     return ok({ message: "Program güncellendi." });
   } catch (err) {
     const code = (err as { code?: string }).code;

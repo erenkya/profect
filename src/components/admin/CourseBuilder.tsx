@@ -117,7 +117,7 @@ function CourseForm({ course, categories, run, onDeleted }: { course: CourseRow;
         <div className="field"><label>Fiyat (₺)</label><input className="input" type="number" min={0} value={f.price} onChange={set("price")} style={input} /></div>
         <div className="field"><label>Eski fiyat (₺)</label><input className="input" type="number" min={0} value={f.old_price} onChange={set("old_price")} style={input} /></div>
       </div>
-      <CoverUploadField courseId={course.id} value={thumbnail} onChange={setThumbnail} onBusyChange={setCoverBusy} />
+      <CoverUploadField target={{ course_id: course.id }} value={thumbnail} onChange={setThumbnail} onBusyChange={setCoverBusy} />
       <div className="field"><label>Açıklama</label><textarea className="input" required rows={3} value={f.description} onChange={set("description")} style={{ background: "#fff", fontSize: 15 }} /></div>
       <div className="field"><label>Neler öğrenilecek (her satır bir madde)</label><textarea className="input" rows={4} value={f.outcomes} onChange={set("outcomes")} style={{ background: "#fff", fontSize: 15 }} /></div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

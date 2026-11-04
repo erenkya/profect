@@ -191,12 +191,15 @@ export const quizSchema = quizBaseSchema.superRefine((d, ctx) => {
 
 export const reorderSchema = z.object({ ids: z.array(z.coerce.number().int().positive()).min(1).max(500) });
 
-/** Yönetici kapak resmi yüklemesi başlatırken gönderilir (dosyanın kendisi değil, meta bilgisi). */
-export const coverUploadSchema = z.object({
-  course_id: z.coerce.number().int().positive(),
-  content_type: z.string().refine(isCoverType, "Yalnızca JPG, PNG veya WebP yüklenebilir."),
-  size: z.number().int().min(1).max(MAX_COVER_BYTES, "Kapak resmi en çok 5 MB olabilir."),
-});
+/** Yönetici kapak resmi yüklemesi başlatırken gönderilir (dosyanın kendisi değil, meta bilgisi). Tam biri: kurs ya da program. */
+export const coverUploadSchema = z
+  .object({
+    course_id: z.coerce.number().int().positive().optional(),
+    program_id: z.coerce.number().int().positive().optional(),
+    content_type: z.string().refine(isCoverType, "Yalnızca JPG, PNG veya WebP yüklenebilir."),
+    size: z.number().int().min(1).max(MAX_COVER_BYTES, "Kapak resmi en çok 5 MB olabilir."),
+  })
+  .refine((d) => (d.course_id === undefined) !== (d.program_id === undefined), "Kurs ya da program belirtilmeli.");
 
 /** Yönetici blog/haber görseli yüklemesi başlatırken gönderilir (dosyanın kendisi değil, meta bilgisi). */
 export const postImageUploadSchema = z.object({

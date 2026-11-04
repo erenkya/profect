@@ -8,6 +8,7 @@ import { Corners } from "@/components/Corners";
 import { Toast, useFlash } from "./Toast";
 import { adminApi } from "./api";
 import { CategoryField } from "./CategoryField";
+import { CoverUploadField } from "./CoverUploadField";
 import { formatPrice } from "@/lib/format";
 import { courseProblems, priceProblem, type CourseEligibility } from "@/lib/program-rules";
 import type { ProgramRow } from "@/lib/programs";
@@ -32,6 +33,8 @@ export function ProgramBuilder({ program, courses = [], memberCount = 0, options
   const [open, setOpen] = useState(!!program);
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ title: program?.title ?? "", description: program?.description ?? "", category: program?.category ?? "", price: program ? String(program.price) : "" });
+  const [thumbnail, setThumbnail] = useState<string | null>(program?.thumbnail_url ?? null);
+  const [coverBusy, setCoverBusy] = useState(false); // kapak yüklenirken kaydetme kapalı
   const [rows, setRows] = useState<CourseEligibility[]>(courses);
   const [pick, setPick] = useState("");
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
@@ -87,6 +90,7 @@ export function ProgramBuilder({ program, courses = [], memberCount = 0, options
       ...(f.title !== program.title && { title: f.title }),
       ...(f.description !== program.description && { description: f.description }),
       ...(f.category !== program.category && { category: f.category }),
+      ...(thumbnail !== program.thumbnail_url && { thumbnail_url: thumbnail }),
       ...(price !== program.price && { price }),
       ...(coursesChanged && { course_ids }),
       ...(published !== program.is_published && { is_published: published }),
@@ -113,12 +117,12 @@ export function ProgramBuilder({ program, courses = [], memberCount = 0, options
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <span className={`tag ${program.is_published ? "tag-accent" : "tag-neutral"}`}>{program.is_published ? "Yayında" : "Taslak"}</span>
             {program.is_published ? (
-              <button type="button" className="btn btn-secondary" disabled={busy} onClick={(e) => save(e, false)}>Yayından kaldır</button>
+              <button type="button" className="btn btn-secondary" disabled={busy || coverBusy} onClick={(e) => save(e, false)}>Yayından kaldır</button>
             ) : (
               <button
                 type="button"
                 className="btn btn-primary blueprint"
-                disabled={busy || !!overPrice || problems.length > 0}
+                disabled={busy || coverBusy || !!overPrice || problems.length > 0}
                 onClick={(e) => save(e, true)}
                 style={{ fontSize: 18, padding: "14px 28px", background: "var(--color-accent-2)", borderColor: "var(--color-accent-2)", boxShadow: "0 6px 18px color-mix(in srgb, var(--color-accent-2) 35%, transparent)" }}
               >
@@ -135,6 +139,12 @@ export function ProgramBuilder({ program, courses = [], memberCount = 0, options
         <div className="field"><label htmlFor="pb-price">Program fiyatı (₺)</label><input id="pb-price" className="input" type="number" required min={0} step="0.01" value={f.price} onChange={set("price")} style={input} /></div>
       </div>
       <div className="field"><label>Açıklama</label><textarea className="input" required rows={3} value={f.description} onChange={set("description")} style={{ background: "#fff", fontSize: 15 }} /></div>
+
+      {program ? (
+        <CoverUploadField target={{ program_id: program.id }} value={thumbnail} onChange={setThumbnail} onBusyChange={setCoverBusy} />
+      ) : (
+        <p style={{ fontSize: 13, color: "var(--muted-55)", margin: 0 }}>Kapak resmi, program oluşturulduktan sonra düzenleme ekranından eklenir.</p>
+      )}
 
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div className="card-kicker">Kurslar · yol haritası sırası</div>
@@ -178,7 +188,7 @@ export function ProgramBuilder({ program, courses = [], memberCount = 0, options
       )}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button type="submit" className="btn btn-primary blueprint" disabled={busy || (!!overPrice && priceTouched)}><Corners />{busy ? "Kaydediliyor…" : program ? "Kaydet" : "Oluştur ve düzenle"}</button>
+        <button type="submit" className="btn btn-primary blueprint" disabled={busy || coverBusy || (!!overPrice && priceTouched)}><Corners />{busy ? "Kaydediliyor…" : program ? "Kaydet" : "Oluştur ve düzenle"}</button>
         {!program && <button type="button" className="btn btn-secondary" onClick={() => setOpen(false)}>Vazgeç</button>}
         {program && <Link href={`/programlar/${program.slug}`} className="btn btn-secondary">{program.is_published ? "Sayfayı gör" : "Önizle"}</Link>}
       </div>

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createPostSchema, createProgramSchema, lessonFileRegisterSchema, lessonFileRenameSchema, lessonFileUploadSchema, lessonSchema, postImageUploadSchema, quizSchema, updatePostSchema, updateProgramSchema, videoUploadSchema } from "./admin-schemas.ts";
+import { createPostSchema, createProgramSchema, lessonFileRegisterSchema, lessonFileRenameSchema, lessonFileUploadSchema, lessonSchema, coverUploadSchema, postImageUploadSchema, quizSchema, updatePostSchema, updateProgramSchema, videoUploadSchema } from "./admin-schemas.ts";
 
 const KEY = "kurslar/web-tasarim/34-giris/a1b2c3d4-html-temelleri.mp4";
 const lesson = (over: Record<string, unknown>) => lessonSchema.safeParse({ title: "Ders", lesson_type: "video", content: KEY, duration_minutes: 10, ...over });
@@ -212,4 +212,12 @@ test("lessonFileRenameSchema: başlık 1–120 karakter", () => {
   assert.ok(lessonFileRenameSchema.safeParse({ title: "Yeni ad" }).success);
   assert.ok(!lessonFileRenameSchema.safeParse({ title: "" }).success);
   assert.ok(!lessonFileRenameSchema.safeParse({ title: "x".repeat(121) }).success);
+});
+
+test("coverUploadSchema: tam biri kurs ya da program olmalı", () => {
+  const cover = (over: Record<string, unknown>) => coverUploadSchema.safeParse({ content_type: "image/png", size: 1000, ...over });
+  assert.equal(cover({ course_id: 3 }).success, true);
+  assert.equal(cover({ program_id: 3 }).success, true);
+  assert.equal(cover({}).success, false);
+  assert.equal(cover({ course_id: 3, program_id: 3 }).success, false);
 });

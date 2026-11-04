@@ -6,14 +6,14 @@ import { COVER_TYPES, MAX_COVER_BYTES, coverUrl, isCoverType } from "@/lib/cover
 import { adminApi } from "./api";
 
 type Props = {
-  courseId: number;
+  target: { course_id: number } | { program_id: number }; // kapağın ait olduğu kurs ya da program
   value: string | null; // yüklenmiş kapağın R2 anahtarı (null = yok)
   onChange: (key: string | null) => void;
   onBusyChange: (busy: boolean) => void; // yükleme sürerken formun "Kaydet"i kapatılır
 };
 
-/** Kurs kapak resmi: JPG/PNG/WebP seçilir, doğrudan R2'ye yüklenir. Kurs kaydedilince kalıcı olur. */
-export function CoverUploadField({ courseId, value, onChange, onBusyChange }: Props) {
+/** Kurs/program kapak resmi: JPG/PNG/WebP seçilir, doğrudan R2'ye yüklenir. Kurs kaydedilince kalıcı olur. */
+export function CoverUploadField({ target, value, onChange, onBusyChange }: Props) {
   const [progress, setProgress] = useState<number | null>(null); // null = yüklenmiyor
   const [error, setError] = useState<string | null>(null);
   const xhr = useRef<XMLHttpRequest | null>(null);
@@ -27,7 +27,7 @@ export function CoverUploadField({ courseId, value, onChange, onBusyChange }: Pr
     setProgress(0);
     onBusyChange(true);
     try {
-      const init = await adminApi("POST", "/api/admin/uploads/cover", { course_id: courseId, content_type: f.type, size: f.size });
+      const init = await adminApi("POST", "/api/admin/uploads/cover", { ...target, content_type: f.type, size: f.size });
       if (!init.ok) throw new Error(init.message);
       const { key, upload: u } = init.json as { key: string; upload: { url: string; headers: Record<string, string> } };
 
@@ -81,7 +81,7 @@ export function CoverUploadField({ courseId, value, onChange, onBusyChange }: Pr
                 </label>
                 {value && <button type="button" className="btn btn-ghost" onClick={() => onChange(null)}>Kaldır</button>}
               </div>
-              {value && <span style={{ color: "var(--muted-55)" }}>Değişiklik, kurs kaydedilince geçerli olur.</span>}
+              {value && <span style={{ color: "var(--muted-55)" }}>Değişiklik, kaydedilince geçerli olur.</span>}
             </>
           )}
           {error && <div role="alert" style={{ color: "#b00020" }}>{error}</div>}

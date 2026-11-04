@@ -761,7 +761,7 @@ try {
   const pc404 = await adm(`${AP}/2147483000`, "PATCH", { price: 1 });
   check("PATCH olmayan program: 404", pc404.status === 404, String(pc404.status));
   check("PATCH boş gövde: 400", (await adm(`${AP}/${aId}`, "PATCH", {})).status === 400);
-  check("PATCH thumbnail_url null kabul; dolu kapak anahtarı (v1'de kapak yok) 400", (await adm(`${AP}/${aId}`, "PATCH", { thumbnail_url: null })).status === 200 && (await adm(`${AP}/${aId}`, "PATCH", { thumbnail_url: "kapaklar/1-a1b2c3d4.jpg" })).status === 400);
+  check("PATCH thumbnail_url null kabul; başka bir varlığa (kurs) ait kapak anahtarı 400", (await adm(`${AP}/${aId}`, "PATCH", { thumbnail_url: null })).status === 200 && (await adm(`${AP}/${aId}`, "PATCH", { thumbnail_url: "kapaklar/1-a1b2c3d4.jpg" })).status === 400);
 
   // yönetim sayfaları (sunucuda oluşturulur; tarayıcı etkileşimi burada sınanmaz)
   const listAdm = await page("/admin/programlar", admCookie);
