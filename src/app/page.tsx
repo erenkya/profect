@@ -219,7 +219,7 @@ export default async function HomePage() {
           <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 56 }}>
             <div>
               <div className="eyebrow">03 — Öne çıkan kurslar</div>
-              <h2 className="h-section">Kariyerine iş katan programlar</h2>
+              <h2 className="h-section">Kariyerine değer katan kurslar</h2>
             </div>
             <Link href="/kurslar" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px" }}>
               Tüm kurslar
