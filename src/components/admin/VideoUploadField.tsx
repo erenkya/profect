@@ -33,6 +33,7 @@ export function VideoUploadField({ moduleId, lessonTitle, value, onChange, onDur
   const [progress, setProgress] = useState<number | null>(null); // null = yüklenmiyor
   const [error, setError] = useState<string | null>(null);
   const [replacing, setReplacing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const xhr = useRef<XMLHttpRequest | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
@@ -85,8 +86,20 @@ export function VideoUploadField({ moduleId, lessonTitle, value, onChange, onDur
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", fontSize: 14 }}>
           <CirclePlay size={16} strokeWidth={1.5} />
           <span>Video yüklendi ✓ <span style={{ color: "var(--muted-55)" }}>· {value.split("/").pop()}</span></span>
-          <button type="button" className="btn btn-ghost" onClick={() => setReplacing(true)}>Değiştir</button>
+          <button type="button" className="btn btn-ghost" onClick={() => setPreviewing((p) => !p)}>{previewing ? "Önizlemeyi kapat" : "İzle"}</button>
+          <button type="button" className="btn btn-ghost" onClick={() => { setPreviewing(false); setReplacing(true); }}>Değiştir</button>
         </div>
+      )}
+
+      {!showPicker && !uploading && previewing && (
+        <video
+          key={value}
+          src={`/api/admin/uploads/video/preview?key=${encodeURIComponent(value)}`}
+          controls
+          playsInline
+          preload="metadata"
+          style={{ width: "100%", maxWidth: 640, aspectRatio: "16/9", background: "#0b0b14" }}
+        />
       )}
 
       {showPicker && !uploading && (

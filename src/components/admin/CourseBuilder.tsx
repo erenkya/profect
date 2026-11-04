@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowDown, ArrowUp, CirclePlay, FileText, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, CirclePlay, FileText, Pencil, Play, Trash2, X } from "lucide-react";
 import { Corners } from "@/components/Corners";
 import { Toast, useFlash } from "./Toast";
 import type { Instructor } from "@/lib/comments";
@@ -14,6 +14,7 @@ import { LessonFilesField } from "./LessonFilesField";
 import { CoverUploadField } from "./CoverUploadField";
 import { CategoryField } from "./CategoryField";
 import { formatDuration } from "@/lib/format";
+import { isVideoKey } from "@/lib/video-key";
 
 type Props = { course: CourseRow; modules: AdminModule[]; finalQuiz: AdminQuizRef | null; categories: string[]; instructors: Instructor[] };
 
@@ -160,6 +161,7 @@ function ModuleCard({ mod, index, courseId, siblings, instructors, run }: { mod:
   const [title, setTitle] = useState(mod.title);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
+  const [watching, setWatching] = useState<number | null>(null);
 
   const moveModule = (dir: -1 | 1) => {
     const ids = siblings.map((m) => m.id);
@@ -192,13 +194,23 @@ function ModuleCard({ mod, index, courseId, siblings, instructors, run }: { mod:
           editing === l.id ? (
             <LessonForm key={l.id} moduleId={mod.id} instructors={instructors} initial={l} submitLabel="Kaydet" onCancel={() => setEditing(null)} onSubmit={async (v) => (await run(adminApi("PATCH", `/api/admin/lessons/${l.id}`, v), "Ders güncellendi.")).ok && setEditing(null)} />
           ) : (
-            <div key={l.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 8px", border: "1px solid var(--color-divider)" }}>
+            <div key={l.id} style={{ display: "flex", flexDirection: "column", gap: 8, padding: "6px 8px", border: "1px solid var(--color-divider)" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {l.lesson_type === "video" ? <CirclePlay size={16} strokeWidth={1.5} /> : <FileText size={16} strokeWidth={1.5} />}
               <span style={{ flex: 1, fontSize: 15 }}>{l.title}{l.duration_minutes ? <span style={{ color: "var(--muted-55)" }}> · {l.duration_minutes} dk</span> : null}</span>
+              {l.lesson_type === "video" && isVideoKey(l.content) && (
+                <button className="btn btn-icon btn-ghost" style={iconBtn} aria-label={watching === l.id ? "Videoyu kapat" : "Videoyu izle"} title={watching === l.id ? "Videoyu kapat" : "Videoyu izle"} onClick={() => setWatching(watching === l.id ? null : l.id)}>
+                  {watching === l.id ? <X size={15} strokeWidth={1.5} /> : <Play size={15} strokeWidth={1.5} />}
+                </button>
+              )}
               <button className="btn btn-icon btn-ghost" style={iconBtn} aria-label="Düzenle" onClick={() => setEditing(l.id)}><Pencil size={15} strokeWidth={1.5} /></button>
               <button className="btn btn-icon btn-ghost" style={iconBtn} aria-label="Yukarı" onClick={() => moveLesson(i, -1)} disabled={i === 0}><ArrowUp size={15} strokeWidth={1.5} /></button>
               <button className="btn btn-icon btn-ghost" style={iconBtn} aria-label="Aşağı" onClick={() => moveLesson(i, 1)} disabled={i === mod.lessons.length - 1}><ArrowDown size={15} strokeWidth={1.5} /></button>
               <button className="btn btn-icon btn-ghost" style={iconBtn} aria-label="Sil" onClick={() => confirm("Bu ders silinsin mi?") && run(adminApi("DELETE", `/api/admin/lessons/${l.id}`), "Ders silindi.")}><Trash2 size={15} strokeWidth={1.5} /></button>
+              </div>
+              {watching === l.id && (
+                <video key={l.content} src={`/api/admin/uploads/video/preview?key=${encodeURIComponent(l.content)}`} controls playsInline preload="metadata" style={{ width: "100%", maxWidth: 640, aspectRatio: "16/9", background: "#0b0b14" }} />
+              )}
             </div>
           ),
         )}
