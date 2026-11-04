@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Image from "next/image";
-import Link from "next/link";
 import { Download } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Corners } from "@/components/Corners";
@@ -97,7 +96,7 @@ export default async function CertificatePage({ params }: Props) {
           />
         </div>
         <p style={{ textAlign: "center", marginTop: 32, fontSize: 14, color: "var(--muted-55)" }}>
-          Bu sayfa, sertifikanın Profect kayıtlarında bulunduğunu doğrular. <Link href="/#sertifika">Başka bir sertifika doğrula</Link>
+          Bu sayfa, sertifikanın Profect kayıtlarında bulunduğunu doğrular.
         </p>
       </div>
     </main>

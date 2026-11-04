@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowRight, Award } from "lucide-react";
 import { Corners } from "@/components/Corners";
 import { CourseCard } from "@/components/CourseCard";
-import { CertVerify } from "@/components/CertVerify";
 import { DEMO_CERT, FOUNDERS, MARQUEE, STEPS, BLUE, PURP, courseColor, courseDelay } from "@/data/courses";
 import { getCurrentUser } from "@/lib/auth";
 import { isActiveMember } from "@/lib/company";
@@ -236,11 +235,10 @@ export default async function HomePage() {
           <div className="wrap section-pad" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,440px),1fr))", gap: 64, alignItems: "center" }}>
             <div data-reveal="1">
               <div className="eyebrow" style={{ color: "var(--color-accent-2-700)" }}>04 — Sertifikasyon</div>
-              <h2 className="h-section" style={{ margin: "0 0 22px" }}>Sınavla kazanılır, tek tıkla doğrulanır</h2>
+              <h2 className="h-section" style={{ margin: "0 0 22px" }}>Sınavla kazanılır, numarayla belgelenir</h2>
               <p style={{ fontSize: 17, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", maxWidth: 480, textWrap: "pretty", marginBottom: 32 }}>
-                Final sınavını geçen her öğrenciye benzersiz numaralı bir sertifika verilir. İşverenler sertifika numarasıyla ya da QR kodla belgenin geçerliliğini anında kontrol edebilir.
+                Final sınavını geçen her öğrenciye benzersiz numaralı bir sertifika verilir.
               </p>
-              <CertVerify />
             </div>
 
             <div aria-hidden style={{ position: "relative", minHeight: 440, display: "grid", placeItems: "center" }}>

@@ -240,20 +240,14 @@ try {
   const drAgain = await gen(dr.cookie, first5[0]);
   check("program yayına alınınca bir sonraki çağrıda sertifika verilir", drAgain.json?.program_certificate_codes?.length === 1 && (await progCerts(dr.id)).length === 1, JSON.stringify(drAgain.json));
 
-  // Okuma: sayfa, PDF, JSON, hesabım listesi
+  // Okuma: sayfa, PDF, hesabım listesi
   const cpage = await page(`/sertifika/${PCODE}`);
   check("GET /sertifika/<program kodu> 200 ve program adını içerir", cpage.status === 200 && cpage.text.includes(PROGRAM_TITLE), String(cpage.status));
   check("sertifika sayfası dahil edilen kursları listeler ve final puanı iddia etmez", first5.every((_, i) => cpage.text.includes(`E2E Program Kursu ${i + 1}`)) && !cpage.text.includes("final sınavını"));
   const ppdf = await fetch(`${B}/api/public/certificates/${PCODE}/pdf`);
   const pdfBytes = Buffer.from(await ppdf.arrayBuffer());
   check("program PDF: 200, application/pdf, %PDF ile başlar", ppdf.status === 200 && (ppdf.headers.get("content-type") ?? "").includes("application/pdf") && pdfBytes.subarray(0, 4).toString() === "%PDF", `${ppdf.status} ${ppdf.headers.get("content-type")}`);
-  const pj = await api(`/api/public/certificates/${PCODE}`, { method: "GET" });
-  check("program JSON: data.course_title program adı, kind=program", pj.status === 200 && pj.json?.data?.course_title === PROGRAM_TITLE && pj.json.data.kind === "program", JSON.stringify(pj.json));
-  const OLD_KEYS = ["certificate_code", "course_minutes", "course_title", "issued_at", "kind", "score", "student_name"];
-  check("program JSON yalnızca eski alanlar + kind (sızıntı yok), score null", JSON.stringify(Object.keys(pj.json?.data ?? {}).sort()) === JSON.stringify(OLD_KEYS) && pj.json.data.score === null && pj.json.data.course_minutes >= 0, JSON.stringify(pj.json?.data));
   const [[cc1]] = await db.query("SELECT certificate_code FROM certificates WHERE user_id = ? AND course_id = ?", [g4.id, first5[0]]);
-  const cj = await api(`/api/public/certificates/${cc1.certificate_code}`, { method: "GET" });
-  check("kurs sertifikası JSON: aynı alanlar, kind=course, score dolu", cj.status === 200 && JSON.stringify(Object.keys(cj.json?.data ?? {}).sort()) === JSON.stringify(OLD_KEYS) && cj.json.data.kind === "course" && cj.json.data.course_title === "E2E Program Kursu 1" && cj.json.data.score === 90, JSON.stringify(cj.json?.data));
   const cpdf = await fetch(`${B}/api/public/certificates/${cc1.certificate_code}/pdf`);
   check("kurs PDF'i hâlâ çalışır (%PDF)", cpdf.status === 200 && Buffer.from(await cpdf.arrayBuffer()).subarray(0, 4).toString() === "%PDF");
   const cpage2 = await page(`/sertifika/${cc1.certificate_code}`);

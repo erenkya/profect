@@ -4,18 +4,6 @@ export function formatPrice(value: number | string | null | undefined): string {
   return "₺" + new Intl.NumberFormat("tr-TR", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 }).format(n);
 }
 
-/** Kutuya sertifika numarası ya da sertifika linki (…/sertifika/PRF-2026-000001) girilebilir; numarayı ayıklar. */
-export function extractCertCode(input: string): string {
-  const text = input.trim();
-  const m = text.match(/(?:^|\/)sertifika\/([^/?#\s]+)/i);
-  if (!m) return text;
-  try {
-    return decodeURIComponent(m[1]).trim();
-  } catch {
-    return m[1];
-  }
-}
-
 /** 135 → "2 saat 15 dk", 60 → "1 saat", 45 → "45 dk" */
 export function formatDuration(totalMinutes: number | null | undefined): string {
   const m = Math.max(0, Math.round(Number(totalMinutes ?? 0)));

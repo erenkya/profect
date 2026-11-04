@@ -35,7 +35,6 @@ export function Footer() {
       <div className="footer-col">
         <div className="footer-title">Platform</div>
         <Link href="/kurslar">Kurslar</Link>
-        <Link href="/#sertifika">Sertifika doğrula</Link>
         <Link href="/blog">Blog</Link>
         <Link href="/haberler">Haberler</Link>
       </div>

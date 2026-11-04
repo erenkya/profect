@@ -242,7 +242,7 @@ try {
   // Review Focus 5: ilerleme ve sertifika korunur, yanmış hak kimseye verilemez
   await db.query("INSERT INTO certificates (user_id, course_id, certificate_code, score) VALUES (?, ?, ?, 90)", [m1.uid, courseId, `E2E-CERT-${stamp}-1`]);
   check("yanan atamada ilerleme silinmedi", (await db.query("SELECT 1 FROM lesson_progress WHERE user_id=?", [m1.uid]))[0].length === 1);
-  r = await api(`/api/public/certificates/E2E-CERT-${stamp}-1`, { method: "GET" });
+  r = await fetch(`${B}/sertifika/E2E-CERT-${stamp}-1`);
   check("yanan atamada sertifika doğrulama linki çalışır (200)", r.status === 200, String(r.status));
   r = await assign(ax, m1.uid);
   check("yanmış hak aynı kişiye bile verilemez (409)", r.status === 409, JSON.stringify(r.json));
