@@ -46,10 +46,7 @@ export default function AboutPage() {
               <div aria-hidden style={{ fontFamily: "var(--font-heading)", fontSize: 96, lineHeight: 0.8, fontWeight: 700, color: "transparent", WebkitTextStroke: `1px ${f.color}`, marginBottom: 20 }}>{f.n}</div>
               <div className="card-kicker" style={{ fontSize: 12, color: f.color, marginBottom: 8 }}>{f.role}</div>
               <h2 style={{ fontSize: "clamp(40px,4.6vw,60px)", lineHeight: 1, textTransform: "uppercase", marginBottom: 20 }}>{f.name}</h2>
-              <p style={{ fontSize: 17, color: "var(--muted-72)", textWrap: "pretty", marginBottom: 24 }}>{f.bio}</p>
-              <blockquote style={{ margin: 0, padding: "4px 0 4px 20px", borderLeft: `1px solid ${f.color}`, fontFamily: "var(--font-heading)", fontSize: 24, lineHeight: 1.25, fontWeight: 500 }}>
-                “{f.quote}”
-              </blockquote>
+              <p style={{ fontSize: 17, color: "var(--muted-72)", textWrap: "pretty" }}>{f.bio}</p>
               <a href={f.linkedin} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 15, marginTop: 24 }} aria-label={`${f.name} LinkedIn profili`}>LinkedIn →</a>
             </div>
           </div>
