@@ -196,36 +196,21 @@ export async function grantEnrollment(userId: number, courseId: number, source: 
   return res.affectedRows > 0;
 }
 
-export async function hasPlus(userId: number): Promise<boolean> {
-  const [rows] = await pool.query<RowDataPacket[]>("SELECT 1 FROM users WHERE id = ? AND plus_until > NOW()", [userId]);
-  return rows.length > 0;
-}
-
 /**
  * Kullanıcının kursa erişimi var mı? (BOLA koruması)
- *  1) kayıt satırı (aktif ya da tamamlanmış — tamamlanan kurs salt-okunur incelenebilsin)
- *  2) aktif Profect Plus → yayınlanmış her kursa erişim; kayıt satırı o an oluşturulur
+ * Kayıt satırı (aktif ya da tamamlanmış — tamamlanan kurs salt-okunur incelenebilsin).
  */
 export async function canAccessCourse(userId: number, courseId: number): Promise<boolean> {
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT 1 FROM enrollments WHERE user_id = ? AND course_id = ? LIMIT 1",
     [userId, courseId],
   );
-  if (rows.length > 0) return true;
-  if (!(await hasPlus(userId))) return false;
-  const [c] = await pool.query<RowDataPacket[]>("SELECT 1 FROM courses WHERE id = ? AND is_published = 1", [courseId]);
-  if (c.length === 0) return false;
-  await grantEnrollment(userId, courseId, "plus");
-  return true;
+  return rows.length > 0;
 }
 
-/** Kullanıcının erişimi olan kurs id'leri (liste sayfalarında tek sorguyla; Plus ise yayınlanmış her kurs). */
+/** Kullanıcının erişimi olan kurs id'leri (liste sayfalarında tek sorguyla). */
 export async function listAccessibleCourseIds(userId: number): Promise<Set<number>> {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT course_id AS id FROM enrollments WHERE user_id = ?
-     ${(await hasPlus(userId)) ? "UNION SELECT id FROM courses WHERE is_published = 1" : ""}`,
-    [userId],
-  );
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT course_id AS id FROM enrollments WHERE user_id = ?", [userId]);
   return new Set(rows.map((r) => Number(r.id)));
 }
 
@@ -283,8 +268,6 @@ function myPercentage(done: number, total: number) {
 }
 
 export async function listMyCourses(userId: number): Promise<MyCourse[]> {
-  // Plus abonesi için yayınlanmış her kurs "açık"; kayıt satırı yoksa listede aktif görünür.
-  const plus = await hasPlus(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT ${COURSE_COLUMNS},
             e.status AS e_status, e.enrolled_at AS e_enrolled_at, e.source AS e_source,
@@ -296,7 +279,7 @@ export async function listMyCourses(userId: number): Promise<MyCourse[]> {
        FROM courses c
        LEFT JOIN enrollments e ON e.course_id = c.id AND e.user_id = ?
        LEFT JOIN certificates cert ON cert.course_id = c.id AND cert.user_id = ?
-      WHERE (e.id IS NOT NULL ${plus ? "OR c.is_published = 1" : ""})
+      WHERE e.id IS NOT NULL
       ORDER BY (e.status = 'completed'), e.enrolled_at DESC, c.sort_order`,
     [userId, userId, userId, userId],
   );
@@ -305,9 +288,9 @@ export async function listMyCourses(userId: number): Promise<MyCourse[]> {
     const done = Number(r.completed_lessons);
     return {
       ...base,
-      status: (r.e_status ?? "active") as "active" | "completed",
-      enrolled_at: r.e_enrolled_at ?? "",
-      source: (r.e_source ?? "plus") as EnrollmentSource,
+      status: r.e_status as "active" | "completed",
+      enrolled_at: r.e_enrolled_at,
+      source: r.e_source as EnrollmentSource,
       completed_lessons: done,
       percentage: myPercentage(done + Number(r.passed_quizzes), base.lesson_count + Number(r.total_quizzes)),
       certificate_code: r.certificate_code ?? null,
@@ -334,9 +317,6 @@ export async function getModuleForKey(moduleId: number): Promise<{ id: number; t
 }
 
 // ── Siparişler ────────────────────────────────────────────────────────────────
-export const PLUS_PRICE = 449;
-export const PLUS_DAYS = 30;
-
 /** Siparişi "ödendi" yapar ve erişimi verir. Zaten ödenmişse hiçbir şey yapmaz (idempotent). */
 export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reason?: string }> {
   const conn = await pool.getConnection();
@@ -365,6 +345,11 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
         : o.course_id
           ? [{ item_type: "course", course_id: o.course_id, program_id: null }]
           : [];
+    // Profect Plus kaldırıldı: bekleyen eski Plus siparişleri onaylanamaz (erişim verilecek bir şey yok); işlem geri alınır.
+    if (lines.some((l) => l.item_type === "plus")) {
+      await conn.rollback();
+      return { ok: false, reason: "Profect Plus artık satılmıyor; bu sipariş onaylanamaz." };
+    }
     if (o.coupon_id) {
       // UNIQUE(order_id) → sipariş yeniden onaylansa da kupon bir kez sayılır.
       await conn.execute("INSERT IGNORE INTO coupon_redemptions (coupon_id, user_id, order_id, discount_amount) VALUES (?, ?, ?, ?)", [o.coupon_id, o.user_id, orderId, o.discount_amount ?? 0]);
@@ -374,17 +359,12 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
       if (line.item_type === "course" && line.course_id) {
         await conn.execute("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'purchase')", [o.user_id, line.course_id]);
       } else if (line.item_type === "program" && line.program_id) {
-        // Ödeme anındaki tüm program kursları (current program_courses) kalıcı erişimle yazılır; Plus kayıtları yükseltilir.
+        // Ödeme anındaki tüm program kursları (current program_courses) kalıcı erişimle yazılır; eski Plus kayıtları yükseltilir.
         await enrollInProgram(conn, o.user_id, line.program_id, "purchase");
         programIds.push(line.program_id);
       } else if (line.item_type === "seats" && line.course_id && o.company_id) {
         // Şirket kontenjanı: kurs kaydı AÇILMAZ, şirketin havuzu artar. UNIQUE(order_id) çift yazımı da engeller.
         await conn.execute("INSERT IGNORE INTO company_allocations (company_id, course_id, quantity, source, order_id, created_by) VALUES (?, ?, ?, 'purchase', ?, ?)", [o.company_id, line.course_id, line.quantity ?? 1, orderId, o.user_id]);
-      } else if (line.item_type === "plus") {
-        await conn.execute(
-          "UPDATE users SET plus_until = DATE_ADD(GREATEST(NOW(), COALESCE(plus_until, NOW())), INTERVAL ? DAY) WHERE id = ?",
-          [PLUS_DAYS, o.user_id],
-        );
       }
     }
     await conn.commit();
@@ -537,7 +517,7 @@ export async function listMyCertificates(userId: number): Promise<MyCertificate[
   return ([...courseRows, ...programRows] as MyCertificate[]).sort((a, b) => (a.issued_at < b.issued_at ? 1 : a.issued_at > b.issued_at ? -1 : 0));
 }
 
-/** Sipariş kalemlerinin okunur özeti: "Kurs A, Kurs B + Profect Plus". Kalem satırı olmayan eski siparişler için null. */
+/** Sipariş kalemlerinin okunur özeti: "Kurs A · Kurs B". Kalem satırı olmayan eski siparişler için null. */
 export const ORDER_ITEMS_SUMMARY_SQL = `(SELECT GROUP_CONCAT(oi.title ORDER BY oi.id SEPARATOR ' · ') FROM order_items oi WHERE oi.order_id = o.id)`;
 
 /** Siparişe bağlı hediye varsa alıcının e-postası (hediye siparişi değilse NULL). */
@@ -599,11 +579,11 @@ export async function getMyOrderDetail(userId: number, orderId: number): Promise
     type: i.item_type,
     title: i.title,
     price: Number(i.unit_price),
-    href: i.item_type === "course" && i.course_slug ? `/kurslar/${i.course_slug}` : i.item_type === "program" && i.program_slug ? `/programlar/${i.program_slug}` : i.item_type === "plus" ? "/hesabim/abonelik" : null,
+    href: i.item_type === "course" && i.course_slug ? `/kurslar/${i.course_slug}` : i.item_type === "program" && i.program_slug ? `/programlar/${i.program_slug}` : null,
   }));
   if (items.length === 0) {
     const plus = o.plan === "plus";
-    items = [{ type: plus ? "plus" : "course", title: plus ? "Profect Plus (aylık)" : (o.course_title ?? "Kurs"), price: Number(o.amount) + discount, href: plus ? "/hesabim/abonelik" : o.course_slug ? `/kurslar/${o.course_slug}` : null }];
+    items = [{ type: plus ? "plus" : "course", title: plus ? "Profect Plus (aylık)" : (o.course_title ?? "Kurs"), price: Number(o.amount) + discount, href: o.course_slug && !plus ? `/kurslar/${o.course_slug}` : null }];
   }
   const [giftRows] = await pool.query<RowDataPacket[]>("SELECT recipient_email, status FROM gifts WHERE order_id = ?", [orderId]);
   return {
@@ -633,18 +613,6 @@ export async function getAccountProfile(userId: number): Promise<AccountProfile 
   );
   const r = rows[0];
   return r ? { full_name: r.full_name, email: r.email, phone: r.phone, email_verified: !!r.email_verified, created_at: r.created_at } : null;
-}
-
-/** Profect Plus durumu: bitiş tarihi + bekleyen (henüz onaylanmamış) Plus siparişi var mı. */
-export async function getPlusInfo(userId: number) {
-  const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT DATE_FORMAT(plus_until, '%Y-%m-%d %H:%i:%s') AS plus_until, (plus_until > NOW()) AS active,
-            EXISTS(SELECT 1 FROM orders o WHERE o.user_id = users.id AND o.status = 'pending' AND (o.plan = 'plus' OR EXISTS(SELECT 1 FROM order_items oi WHERE oi.order_id = o.id AND oi.item_type = 'plus'))) AS pending_order
-       FROM users WHERE id = ?`,
-    [userId],
-  );
-  const r = rows[0];
-  return { until: (r?.plus_until ?? null) as string | null, active: !!r?.active, pendingOrder: !!r?.pending_order };
 }
 
 // ── Yönetici görünümü (içerik dahil) ──────────────────────────────────────────

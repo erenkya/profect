@@ -14,7 +14,7 @@ export function DistanceSalesContent() {
       </p>
       <h3>2. Konu</h3>
       <p>
-        Sözleşmenin konusu, Alıcı’nın Profect platformu üzerinden elektronik ortamda sipariş verdiği çevrimiçi eğitim içeriğinin (kurs) ve/veya Profect Plus aboneliğinin satışı ve ifasına ilişkin olarak
+        Sözleşmenin konusu, Alıcı’nın Profect platformu üzerinden elektronik ortamda sipariş verdiği çevrimiçi eğitim içeriğinin (kurs) satışı ve ifasına ilişkin olarak
         6502 sayılı Tüketicinin Korunması Hakkında Kanun ile Mesafeli Sözleşmeler Yönetmeliği uyarınca tarafların hak ve yükümlülüklerinin belirlenmesidir.
       </p>
       <h3>3. Ürün ve bedel</h3>
@@ -69,13 +69,12 @@ export function DeliveryReturnContent() {
   return (
     <div className="legal-text">
       <h3>1. Teslimat</h3>
-      <p>Ürün dijital bir eğitim içeriğidir; kargo ile teslimat yapılmaz. Ödemenin onaylanmasının ardından kurs/abonelik hesabınızda erişime açılır (olağan koşullarda en geç 24 saat içinde).</p>
+      <p>Ürün dijital bir eğitim içeriğidir; kargo ile teslimat yapılmaz. Ödemenin onaylanmasının ardından kurs hesabınızda erişime açılır (olağan koşullarda en geç 24 saat içinde).</p>
       <h3>2. Bildirim</h3>
       <p>Erişimin açıldığı hesabınızdaki “Kurslarım” sayfasında ve sipariş sırasında verdiğiniz e-posta adresinde bildirilir.</p>
       <h3>3. Cayma ve iade</h3>
       <p>
         Ödeme tarihinden itibaren <strong>14 gün</strong> içinde {COMPANY.email} adresine başvurarak siparişinizi iptal edebilir ve ödediğiniz tutarın iadesini isteyebilirsiniz.
-        Profect Plus aboneliğinde iade, iptal anına kadar kullanılmayan dönem için değerlendirilir.
       </p>
       <h3>4. İade yöntemi ve süre</h3>
       <p>Onaylanan iadeler, ödemenin yapıldığı karta, bankanın işlem süreleri saklı kalmak kaydıyla en geç 10 iş günü içinde yansıtılır.</p>

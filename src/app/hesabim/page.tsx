@@ -6,16 +6,14 @@ import { PageTitle } from "@/components/account/PageTitle";
 import { CompanyCard } from "@/components/company/CompanyCard";
 import { Corners } from "@/components/Corners";
 import { getCurrentUser } from "@/lib/auth";
-import { isActiveMember } from "@/lib/company";
-import { formatDate } from "@/lib/format";
-import { getPlusInfo, listMyCertificates, listMyCourses, listMyOrders } from "@/lib/lms";
+import { listMyCertificates, listMyCourses, listMyOrders } from "@/lib/lms";
 
 export const metadata: Metadata = { title: "Genel bakış" };
 
 export default async function AccountHome() {
   const user = await getCurrentUser();
   if (!user) redirect("/giris?next=/hesabim");
-  const [courses, certs, orders, plus] = await Promise.all([listMyCourses(user.id), listMyCertificates(user.id), listMyOrders(user.id), getPlusInfo(user.id)]);
+  const [courses, certs, orders] = await Promise.all([listMyCourses(user.id), listMyCertificates(user.id), listMyOrders(user.id)]);
   const current = courses.find((c) => c.status === "active");
   const stats = [
     { k: "Aktif kurs", v: courses.filter((c) => c.status === "active").length, href: "/hesabim/kurslarim" },
@@ -26,7 +24,7 @@ export default async function AccountHome() {
 
   return (
     <>
-      <PageTitle title={`Merhaba, ${user.full_name.split(" ")[0]}`} hint={<>{user.email}{plus.active && <> · <span className="tag tag-accent">Profect Plus</span></>}</>} />
+      <PageTitle title={`Merhaba, ${user.full_name.split(" ")[0]}`} hint={user.email} />
 
       <div className="stat-grid">
         {stats.map((s, i) => (
@@ -47,16 +45,7 @@ export default async function AccountHome() {
         <p style={{ color: "var(--muted-72)", marginBottom: 40 }}>Devam eden bir kursun yok. <Link href="/kurslar">Kursları keşfet →</Link></p>
       )}
 
-      {!plus.active && !(await isActiveMember(user.id)) && (
-        <div className="card blueprint" style={{ background: "var(--color-accent-2-100)", padding: 22, gap: 8, maxWidth: 560 }}>
-          <Corners />
-          <div className="card-title" style={{ fontSize: 24 }}>Profect Plus ile tüm kurslar açık</div>
-          <p className="card-body" style={{ fontSize: 15 }}>Tüm kurslara ve sınırsız sertifikaya aylık erişim.</p>
-          <div><Link href="/hesabim/abonelik" className="btn btn-secondary" style={{ padding: "8px 18px" }}>Ayrıntılar</Link></div>
-        </div>
-      )}
       <CompanyCard userId={user.id} />
-      {plus.active && plus.until && <p style={{ color: "var(--muted-72)" }}>Profect Plus erişimin {formatDate(plus.until)} tarihine kadar açık.</p>}
     </>
   );
 }

@@ -12,7 +12,6 @@ type Props = {
   courseId: number;
   priceLabel: string;
   oldPriceLabel: string | null;
-  plusPriceLabel: string;
   includes: string[];
   loggedIn: boolean;
   hasAccess: boolean;
@@ -23,11 +22,10 @@ type Props = {
 
 const big = { fontSize: 19, padding: 15, marginTop: 0 } as const;
 
-export function PurchasePanel({ slug, courseId, priceLabel, oldPriceLabel, plusPriceLabel, includes, loggedIn, hasAccess, giftable = true, companyMember = false }: Props) {
+export function PurchasePanel({ slug, courseId, priceLabel, oldPriceLabel, includes, loggedIn, hasAccess, giftable = true, companyMember = false }: Props) {
   const router = useRouter();
   const { items, ready } = useCart();
   const inCart = ready && items.some((i) => i.type === "course" && i.slug === slug);
-  const plusInCart = ready && items.some((i) => i.type === "plus");
 
   function buyNow() {
     addToCart({ type: "course", slug });
@@ -81,16 +79,6 @@ export function PurchasePanel({ slug, courseId, priceLabel, oldPriceLabel, plusP
               {t}
             </div>
           ))}
-        </div>
-        <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 16, fontSize: 14 }}>
-          <strong style={{ fontWeight: 600, color: "var(--color-accent-2-700)" }}>Profect Plus</strong> ile tüm kurslara ve sertifikalara aylık {plusPriceLabel}’dan erişebilirsin.{" "}
-          {plusInCart ? (
-            <Link href="/sepet">Sepette →</Link>
-          ) : (
-            <button type="button" onClick={() => addToCart({ type: "plus" })} style={{ background: "none", border: 0, padding: 0, cursor: "pointer", textDecoration: "underline", color: "var(--color-accent-600)" }}>
-              Plus’ı sepete ekle
-            </button>
-          )}
         </div>
       </div>
     </aside>

@@ -10,8 +10,6 @@ const patchSchema = z.object({
   is_active: z.boolean().optional(),
   role: z.enum(["user", "admin", "instructor"]).optional(),
   email_verified: z.boolean().optional(),
-  // Plus erişimini elle ver/kaldır: ISO tarih ya da null
-  plus_until: z.string().datetime().nullable().optional(),
 });
 
 export async function PATCH(request: Request, { params }: Ctx) {
@@ -38,7 +36,6 @@ export async function PATCH(request: Request, { params }: Ctx) {
       ? "email_verified = 1, email_verified_at = COALESCE(email_verified_at, NOW()), verification_token_hash = NULL, verification_token_expiry = NULL, verification_attempts = 0"
       : "email_verified = 0, email_verified_at = NULL");
   }
-  if (d.plus_until !== undefined) { sets.push("plus_until = ?"); values.push(d.plus_until ? d.plus_until.slice(0, 19).replace("T", " ") : null); }
   if (sets.length === 0) return fail("Güncellenecek alan yok.", 400);
 
   try {

@@ -8,7 +8,7 @@ export const metadata = { title: "Kullanıcılar" };
 export default async function AdminUsers() {
   const me = await requireAdminPage();
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT u.id, u.full_name, u.email, u.role, u.is_active, u.email_verified, u.plus_until, u.last_login_at, u.created_at,
+    `SELECT u.id, u.full_name, u.email, u.role, u.is_active, u.email_verified, u.last_login_at, u.created_at,
             (SELECT COUNT(*) FROM enrollments e WHERE e.user_id = u.id) AS enrollment_count,
             co.name AS company_name, cm.status AS company_status
        FROM users u

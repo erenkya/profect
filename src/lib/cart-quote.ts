@@ -3,7 +3,7 @@ import type { RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
 import { coverUrl } from "@/lib/cover-key";
 import { formatDuration } from "@/lib/format";
-import { PLUS_DAYS, PLUS_PRICE, getCourseBySlug, hasPlus } from "@/lib/lms";
+import { getCourseBySlug } from "@/lib/lms";
 import type { CartItem } from "@/lib/cart";
 import { getProgramOffer, isProgramMember, listOwnedCourseIds, type ProgramOffer } from "@/lib/programs";
 import { priceProgramsInOrder, type ProgramQuoteCalc } from "@/lib/program-pricing";
@@ -27,7 +27,7 @@ export type QuoteLine = {
   /** Yalnızca program satırı: kurs kurs döküm (indirimli fiyat, liste fiyatı, kullanıcıda var mı). */
   children?: { title: string; listPrice: number; price: number; owned: boolean }[];
   /**
-   * Yalnızca status 'join' program satırı: kullanıcı TÜM kurslara gerçekten sahip (Plus hariç). `false` ise tutar 0 çünkü kurslar
+   * Yalnızca status 'join' program satırı: kullanıcı TÜM kurslara gerçekten sahip (eski Plus kaynaklı kayıtlar hariç). `false` ise tutar 0 çünkü kurslar
    * sepetteki daha önceki bir programdan "edinilmiş" sayılıyor; o program alınmadan katılım butonu gösterilmez (endpoint de reddeder).
    */
   joinable?: boolean;
@@ -40,7 +40,6 @@ export type Quote = { lines: QuoteLine[]; total: number; payable: QuoteLine[] };
  * Aynı sepet hem gösterim (/api/cart/quote) hem sipariş oluşturma (/api/checkout) için kullanılır.
  */
 export async function quoteCart(items: CartItem[], userId?: number | null): Promise<Quote> {
-  const plus = userId ? await hasPlus(userId) : false;
   const lines: QuoteLine[] = [];
   const seen = new Set<string>();
   const programLines = await quotePrograms(items, userId);
@@ -49,7 +48,7 @@ export async function quoteCart(items: CartItem[], userId?: number | null): Prom
   for (const pl of programLines.values()) if (pl.line.status === "ok") for (const id of pl.courseIds) coveredCourseIds.add(id);
 
   for (const item of items) {
-    const key = item.type === "plus" ? "plus" : `${item.type}:${item.slug}`;
+    const key = `${item.type}:${item.slug}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
@@ -58,29 +57,13 @@ export async function quoteCart(items: CartItem[], userId?: number | null): Prom
       continue;
     }
 
-    if (item.type === "plus") {
-      lines.push({
-        key,
-        item,
-        title: "Profect Plus · aylık",
-        subtitle: `Tüm kurslar · sınırsız sertifika · ${PLUS_DAYS} gün`,
-        price: PLUS_PRICE,
-        oldPrice: null,
-        cover: null,
-        courseId: null,
-        programId: null,
-        status: "ok",
-      });
-      continue;
-    }
-
     const course = await getCourseBySlug(item.slug);
     if (!course) {
       lines.push({ key, item, title: item.slug, subtitle: "Bu kurs artık satışta değil.", price: 0, oldPrice: null, cover: null, courseId: null, programId: null, status: "unavailable" });
       continue;
     }
-    let owned = plus;
-    if (userId && !owned) {
+    let owned = false;
+    if (userId) {
       const [rows] = await pool.query<RowDataPacket[]>("SELECT 1 FROM enrollments WHERE user_id = ? AND course_id = ? LIMIT 1", [userId, course.id]);
       owned = rows.length > 0;
     }

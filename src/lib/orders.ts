@@ -7,8 +7,8 @@ import type { QuoteLine } from "@/lib/cart-quote";
 
 type ItemRow = { item_type: string; course_id: number | null; program_id: number | null };
 // Bekleyen sipariş eşleştirme anahtarı: DB satırı (itemKey) ve sepet satırı (lineKey) aynı biçimi üretmeli; program kalemi `program:<id>`.
-const itemKey = (l: ItemRow) => (l.item_type === "plus" ? "plus" : l.item_type === "program" ? `program:${l.program_id}` : `course:${l.course_id}`);
-const lineKey = (l: QuoteLine) => (l.item.type === "plus" ? "plus" : l.item.type === "program" ? `program:${l.programId}` : `course:${l.courseId}`);
+const itemKey = (l: ItemRow) => (l.item_type === "program" ? `program:${l.program_id}` : `course:${l.course_id}`);
+const lineKey = (l: QuoteLine) => (l.item.type === "program" ? `program:${l.programId}` : `course:${l.courseId}`);
 
 type OrderInput = {
   userId: number;

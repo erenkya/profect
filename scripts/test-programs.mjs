@@ -146,15 +146,14 @@ try {
   const mq = await quote([P], j.cookie);
   check("program üyesi: status owned, price 0", line(mq, PK)?.status === "owned" && line(mq, PK).price === 0 && mq.total === 0, JSON.stringify(line(mq, PK)));
 
-  // Plus kaynaklı kayıtlar kredi vermez
+  // Eski (source=plus) kayıtlar kredi vermez
   const pl = await mkUser("plus");
   await own(pl.id, courseIds.slice(0, 3), "plus");
-  await db.query("UPDATE users SET plus_until = DATE_ADD(NOW(), INTERVAL 20 DAY) WHERE id = ?", [pl.id]);
   const plq = await quote([P], pl.cookie);
   const pll = line(plq, PK);
-  check("3 kurs source=plus + aktif Plus: kredi yok, price 4000, owned çocuk yok", pll?.status === "ok" && pll.price === 4000 && pll.children?.every((c) => !c.owned), JSON.stringify(pll));
+  check("3 kurs source=plus: kredi yok, price 4000, owned çocuk yok", pll?.status === "ok" && pll.price === 4000 && pll.children?.every((c) => !c.owned), JSON.stringify(pll));
   const plc = await quote([{ type: "course", slug: slug(1) }], pl.cookie);
-  check("Plus'lı kullanıcıda kurs satırı hâlâ owned (mevcut davranış)", line(plc, `course:${slug(1)}`)?.status === "owned");
+  check("source=plus kaydı olan kullanıcıda kurs satırı hâlâ owned (mevcut davranış)", line(plc, `course:${slug(1)}`)?.status === "owned");
 
   // yayından kalkan kurs → program unavailable; geri alınınca ok
   await db.query("UPDATE courses SET is_published = 0 WHERE id = ?", [courseIds[2]]);
@@ -228,14 +227,6 @@ try {
   const issuedCodes = many.flatMap((r) => r.json?.program_certificate_codes ?? []);
   check("eşzamanlı 6 istek: hepsi 2xx, tam 1 sertifika, 1 üyelik, yanıtlarda toplam 1 yeni kod",
     many.every((r) => r.status === 200) && (await progCerts(cc2.id)).length === 1 && (await progMembers(cc2.id)).length === 1 && issuedCodes.length === 1, JSON.stringify(many.map((r) => [r.status, r.json?.program_certificate_codes])));
-
-  // Plus: kaydı yok, final sınavları SQL ile geçildi → generate tembel plus kaydı yazar, program sertifikası verilir
-  const px = await mkUser("cert-plus");
-  await db.query("UPDATE users SET plus_until = DATE_ADD(NOW(), INTERVAL 20 DAY) WHERE id = ?", [px.id]);
-  for (const cid of first5) await passQuiz(px.id, cid);
-  let plusLast;
-  for (const cid of first5) plusLast = await gen(px.cookie, cid);
-  check("Plus: 5 kurs sertifikası sonrası program sertifikası verildi (auto üyelik)", plusLast?.status === 200 && plusLast.json?.program_certificate_codes?.length === 1 && (await progCerts(px.id)).length === 1 && (await progMembers(px.id))[0]?.source === "auto", JSON.stringify(plusLast?.json));
 
   // Yayında olmayan program: üye değilse çağrıdan sertifika üretilmez; yayına alınınca üretilir
   const dr = await mkUser("cert-draft");
@@ -327,10 +318,9 @@ try {
   const pendCount = Number((await db.query("SELECT COUNT(*) n FROM orders WHERE user_id = ? AND plan = 'cart' AND status = 'pending'", [bf.id]))[0][0].n);
   if (rf.json?.status === "pending") check("aynı program sepeti tekrar: bekleyen sipariş yeniden kullanıldı (tek sipariş, tek kalem)", rf2.json?.orderId === rf.json.orderId && pendCount === 1 && (await itemsOf(rf.json.orderId)).length === 1, JSON.stringify({ rf2: rf2.json, pendCount }));
 
-  // Plus yükseltme: 3 kurs source=plus + aktif Plus → 4000; ödeme sonrası kalıcı kaynak
+  // Eski Plus kaydı yükseltme: 3 kurs source=plus → 4000; ödeme sonrası kalıcı kaynak
   const bp = await mkBuyer("buyplus");
   await own(bp.id, courseIds.slice(0, 3), "plus");
-  await db.query("UPDATE users SET plus_until = DATE_ADD(NOW(), INTERVAL 20 DAY) WHERE id = ?", [bp.id]);
   const rp = await checkout(bp);
   check("Plus kaynaklı 3 kurs: sipariş 4000", rp.status === 201 && Number((await orderOf(rp.json?.orderId)).amount) === 4000, JSON.stringify(rp));
   await settle(rp);

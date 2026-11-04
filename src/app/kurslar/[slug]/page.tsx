@@ -12,7 +12,7 @@ import { isActiveMember } from "@/lib/company";
 import { formatDuration, formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 import { previewLessonIds } from "@/lib/preview";
-import { PLUS_PRICE, canAccessCourse, getCourseBySlug, getCourseTree } from "@/lib/lms";
+import { canAccessCourse, getCourseBySlug, getCourseTree } from "@/lib/lms";
 import { listProgramsForCourse } from "@/lib/programs";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -158,7 +158,6 @@ export default async function CoursePage({ params }: Props) {
           courseId={course.id}
           priceLabel={formatPrice(course.price)}
           oldPriceLabel={course.old_price ? formatPrice(course.old_price) : null}
-          plusPriceLabel={formatPrice(PLUS_PRICE)}
           includes={includes}
           loggedIn={!!user}
           hasAccess={hasAccess}

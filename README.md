@@ -33,7 +33,7 @@ npm run dev
 - Geçme notu varsayılan **%70**, sınırsız deneme; soru ve şık sırası her oturumda karıştırılır, doğru cevap istemciye gönderilmez.
 - Sertifika yalnızca **final sınavı** geçilince, kurs başına bir kez verilir; `/sertifika/[kod]` herkese açıktır.
 - İlerleme: Video bitince/%95'te, metin dersi sonuna kaydırılınca otomatik tamamlanır.
-- Erişim: `enrollments` satırı **veya** aktif Profect Plus (`users.plus_until`). Yönetici atayabilir; kullanıcı satın alabilir.
+- Erişim: `enrollments` satırı. Yönetici atayabilir; kullanıcı satın alabilir.
 
 ## Ders videoları (Cloudflare R2)
 

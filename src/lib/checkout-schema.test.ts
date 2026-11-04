@@ -34,12 +34,13 @@ test("bireysel fatura yalnızca ad ve e-posta ister; kurumsal tam bilgi ister", 
 });
 
 test("dört onayın hepsi zorunlu", () => {
-  const ok = { items: [{ type: "plus" }], billing: { invoice_type: "bireysel", full_name: base.full_name, email: base.email }, consents };
+  const ok = { items: [{ type: "course", slug: "etik-hacking" }], billing: { invoice_type: "bireysel", full_name: base.full_name, email: base.email }, consents };
   assert.equal(checkoutSchema.safeParse(ok).success, true);
   for (const k of Object.keys(consents)) {
     assert.equal(checkoutSchema.safeParse({ ...ok, consents: { ...consents, [k]: false } }).success, false, k);
   }
   assert.equal(checkoutSchema.safeParse({ ...ok, items: [] }).success, false);
+  assert.equal(checkoutSchema.safeParse({ ...ok, items: [{ type: "plus" }] }).success, false, "Profect Plus artık sepete girmez");
 });
 
 test("kart şeması boşlukları temizler, geçersiz numarayı reddeder", () => {

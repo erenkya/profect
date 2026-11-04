@@ -2,9 +2,9 @@
 
 import { useSyncExternalStore } from "react";
 
-// Sepet yalnızca "ne var" bilgisini tarayıcıda tutar (kurs slug'ı / Plus). Fiyat ve başlık her zaman
+// Sepet yalnızca "ne var" bilgisini tarayıcıda tutar (kurs / program slug'ı). Fiyat ve başlık her zaman
 // sunucudan (/api/cart/quote) gelir; böylece eski fiyat sepette asılı kalmaz ve istemciden tutar alınmaz.
-export type CartItem = { type: "course"; slug: string } | { type: "program"; slug: string } | { type: "plus" };
+export type CartItem = { type: "course"; slug: string } | { type: "program"; slug: string };
 
 const KEY = "profect_cart_v1";
 export const CART_MAX_ITEMS = 20;
@@ -20,9 +20,7 @@ function parse(raw: string | null): CartItem[] {
     if (!Array.isArray(data)) return EMPTY;
     const out: CartItem[] = [];
     for (const it of data) {
-      if (it && typeof it === "object" && (it as { type?: unknown }).type === "plus") {
-        if (!out.some((o) => o.type === "plus")) out.push({ type: "plus" });
-      } else if (it && typeof it === "object" && ((it as { type?: unknown }).type === "course" || (it as { type?: unknown }).type === "program") && typeof (it as { slug?: unknown }).slug === "string") {
+      if (it && typeof it === "object" && ((it as { type?: unknown }).type === "course" || (it as { type?: unknown }).type === "program") && typeof (it as { slug?: unknown }).slug === "string") {
         const type = (it as { type: "course" | "program" }).type;
         const slug = (it as { slug: string }).slug;
         if (slug && !out.some((o) => o.type === type && "slug" in o && o.slug === slug)) out.push({ type, slug });
@@ -55,7 +53,7 @@ function write(items: CartItem[]) {
   listeners.forEach((l) => l());
 }
 
-export const sameItem = (a: CartItem, b: CartItem) => (a.type === "plus" ? b.type === "plus" : b.type === a.type && "slug" in b && a.slug === b.slug);
+export const sameItem = (a: CartItem, b: CartItem) => b.type === a.type && a.slug === b.slug;
 
 export function addToCart(item: CartItem) {
   const cur = read();

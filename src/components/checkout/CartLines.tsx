@@ -11,7 +11,6 @@ import type { QuoteLine } from "@/lib/cart-quote";
 const NOTE = {
   course: { owned: "Bu kursa zaten erişimin var; siparişe eklenmez.", unavailable: "Bu kurs artık satışta değil; siparişe eklenmez.", covered: "Programa dahil; ayrıca ödenmez.", join: "", ok: "" },
   program: { owned: "Bu programa zaten üyesin; siparişe eklenmez.", unavailable: "Bu program artık satışta değil; siparişe eklenmez.", covered: "", join: "Tüm kursların sende; programa ücretsiz katılabilirsin.", ok: "" },
-  plus: { owned: "", unavailable: "", covered: "", join: "", ok: "" },
 } as const;
 
 /** Sepet / ödeme sayfalarının ortak kalem listesi. `editable` ise satır silinebilir. */
@@ -25,7 +24,7 @@ export function CartLines({ lines, editable }: { lines: QuoteLine[]; editable?: 
           </div>
           <div style={{ minWidth: 0 }}>
             <div className="cart-title">
-              {l.item.type !== "plus" && l.status !== "unavailable" ? <Link href={`/${l.item.type === "program" ? "programlar" : "kurslar"}/${l.item.slug}`}>{l.title}</Link> : l.title}
+              {l.status !== "unavailable" ? <Link href={`/${l.item.type === "program" ? "programlar" : "kurslar"}/${l.item.slug}`}>{l.title}</Link> : l.title}
             </div>
             <div className="cart-sub">{l.subtitle}</div>
             {l.item.type === "program" && l.status === "join" && !l.joinable ? (

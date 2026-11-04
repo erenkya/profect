@@ -38,7 +38,6 @@ export function Footer() {
         <Link href="/#sertifika">Sertifika doğrula</Link>
         <Link href="/blog">Blog</Link>
         <Link href="/haberler">Haberler</Link>
-        <a href="#">Profect Plus</a>
       </div>
       <div className="footer-col">
         <div className="footer-title">Şirket</div>

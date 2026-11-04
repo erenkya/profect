@@ -304,8 +304,6 @@ try {
   const m5c = await cookieFor(m5.email);
   r = await api("/api/checkout", { cookie: m5c, body: { items: [{ type: "course", slug: SLUG }], billing: BILL(m5.email), consents: CONSENTS } });
   check("aktif üye sepetten kurs alamaz (403, kısıt mesajı)", r.status === 403 && r.json?.message === MEMBER_PURCHASE_BLOCK_MESSAGE, JSON.stringify(r.json));
-  r = await api("/api/checkout", { cookie: m5c, body: { items: [{ type: "plus" }], billing: BILL(m5.email), consents: CONSENTS } });
-  check("aktif üye Profect Plus alamaz (403)", r.status === 403 && r.json?.message === MEMBER_PURCHASE_BLOCK_MESSAGE, JSON.stringify(r.json));
   r = await api("/api/gifts/checkout", { cookie: m5c, body: { slug: SLUG, recipient_email: mail("hediye-alici"), billing: BILL(m5.email), consents: CONSENTS } });
   check("aktif üye hediye satın alamaz (403)", r.status === 403 && r.json?.message === MEMBER_PURCHASE_BLOCK_MESSAGE, JSON.stringify(r.json));
   r = await api("/api/checkout", { cookie: ax, body: { items: [{ type: "course", slug: SLUG }], billing: BILL(adminXEmail), consents: CONSENTS } });

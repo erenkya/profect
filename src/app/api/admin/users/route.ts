@@ -9,7 +9,7 @@ export async function GET() {
   try {
     // Parola/token alanları bilerek SEÇİLMEZ.
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT u.id, u.full_name, u.email, u.phone, u.role, u.is_active, u.email_verified, u.plus_until,
+      `SELECT u.id, u.full_name, u.email, u.phone, u.role, u.is_active, u.email_verified,
               u.last_login_at, u.created_at,
               (SELECT COUNT(*) FROM enrollments e WHERE e.user_id = u.id) AS enrollment_count
          FROM users u ORDER BY u.created_at DESC LIMIT 1000`,
