@@ -6,7 +6,7 @@ import { Corners } from "@/components/Corners";
 import { ProgramPricePanel } from "@/components/ProgramPricePanel";
 import { getCurrentUser } from "@/lib/auth";
 import { coverUrl } from "@/lib/cover-key";
-import { formatPrice } from "@/lib/format";
+import { formatDuration, formatPrice } from "@/lib/format";
 import { ensureProgramProgress, getCourseStandings, getProgramBySlug, getProgramOffer, isProgramMember } from "@/lib/programs";
 import pool from "@/lib/db";
 import type { RowDataPacket } from "mysql2";
@@ -51,7 +51,7 @@ export default async function ProgramPage({ params }: Props) {
     programCert = rows[0]?.certificate_code ?? null;
   }
   const completed = standings ? courses.filter((c) => standings.get(c.id)?.certificate_code).length : 0;
-  const hours = courses.reduce((s, c) => s + c.hours, 0);
+  const minutes = courses.reduce((s, c) => s + c.minutes, 0);
   const cover = coverUrl(program.thumbnail_url);
   const joinable = !offer.member && offer.sellable && calc.payable === 0 && courses.length > 0 && calc.ownedCount === courses.length;
 
@@ -75,7 +75,7 @@ export default async function ProgramPage({ params }: Props) {
             <h1 data-reveal="1" data-delay="100" style={{ fontSize: "clamp(48px,6vw,84px)", lineHeight: 0.94, textTransform: "uppercase", margin: "0 0 22px" }}>{program.title}</h1>
             <p data-reveal="1" data-delay="200" style={{ fontSize: 19, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", textWrap: "pretty", marginBottom: 28 }}>{program.description}</p>
             <div data-reveal="1" data-delay="300" style={{ display: "flex", gap: 28, flexWrap: "wrap", fontSize: 15 }}>
-              <span>{courses.length} kurs · {hours} saat</span>
+              <span>{courses.length} kurs · {formatDuration(minutes)}</span>
               <span>Ayrı ayrı <strong style={{ fontWeight: 600 }}>{formatPrice(calc.listTotal)}</strong></span>
             </div>
             {cover && (
@@ -105,7 +105,7 @@ export default async function ProgramPage({ params }: Props) {
                     <span className="road-n">{String(i + 1).padStart(2, "0")}</span>
                     <div style={{ minWidth: 0 }}>
                       <div className="road-title">{c.is_published ? <Link href={`/kurslar/${c.slug}`}>{c.title}</Link> : c.title}</div>
-                      <div className="road-meta">{c.hours} saat{done ? " · Sertifika alındı" : ""}</div>
+                      <div className="road-meta">{formatDuration(c.minutes)}{done ? " · Sertifika alındı" : ""}</div>
                     </div>
                     <div className="road-side">
                       {have ? (

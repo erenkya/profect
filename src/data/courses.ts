@@ -8,7 +8,7 @@ export const courseDelay = (i: number) => (i % 3) * 120;
 
 export const STEPS = [
   { n: "01", title: "Kursa kaydol", color: BLUE, delay: 0, body: "Video dersler, okumalar ve uygulamalı ödevlerle konuyu kendi hızında çalış. İlerlemen her cihazda kaldığın yerden devam eder.", tags: ["Video", "Okuma", "Proje"] },
-  { n: "02", title: "Sınavlara gir", color: BLUE, delay: 150, body: "Her modülün sonunda kısa bir değerlendirme, kursun sonunda kapsamlı bir final sınavı seni bekler. Sonuçlarını anında görürsün.", tags: ["Modül sınavı", "Final", "Anında sonuç"] },
+  { n: "02", title: "Sınavlara gir", color: BLUE, delay: 150, body: "Kursun sonunda kapsamlı bir final sınavı seni bekler. Sonuçlarını anında görürsün.", tags: ["Final sınavı", "Anında sonuç", "Sertifika"] },
   { n: "03", title: "Sertifikanı al", color: PURP, delay: 300, body: "Final sınavını geçtiğinde benzersiz numaralı, QR kodla doğrulanabilir sertifikan hesabına eklenir ve LinkedIn’de paylaşılabilir.", tags: ["QR doğrulama", "LinkedIn", "PDF"] },
 ];
 

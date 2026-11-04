@@ -13,6 +13,7 @@ import { VideoUploadField } from "./VideoUploadField";
 import { LessonFilesField } from "./LessonFilesField";
 import { CoverUploadField } from "./CoverUploadField";
 import { CategoryField } from "./CategoryField";
+import { formatDuration } from "@/lib/format";
 
 type Props = { course: CourseRow; modules: AdminModule[]; finalQuiz: AdminQuizRef | null; categories: string[]; instructors: Instructor[] };
 
@@ -111,7 +112,7 @@ function CourseForm({ course, categories, run, onDeleted }: { course: CourseRow;
         <div className="field"><label htmlFor="cb-cat">Kategori</label><CategoryField id="cb-cat" categories={categories} value={f.category} onChange={(category) => setF({ ...f, category })} style={input} /></div>
         <div className="field"><label>Seviye</label><input className="input" value={f.level} onChange={set("level")} style={input} /></div>
         <div className="field"><label>Eğitmen</label><input className="input" value={f.instructor} onChange={set("instructor")} style={input} /></div>
-        <div className="field"><label>Süre (saat)</label><input className="input" value={`${course.hours} (videolardan otomatik)`} disabled style={input} /></div>
+        <div className="field"><label>Süre</label><input className="input" value={`${formatDuration(course.minutes)} (videolardan otomatik)`} disabled style={input} /></div>
         <div className="field"><label>Puan (0–9.9)</label><input className="input" type="number" step="0.1" min={0} max={9.9} value={f.rating} onChange={set("rating")} style={input} /></div>
         <div className="field"><label>Fiyat (₺)</label><input className="input" type="number" min={0} value={f.price} onChange={set("price")} style={input} /></div>
         <div className="field"><label>Eski fiyat (₺)</label><input className="input" type="number" min={0} value={f.old_price} onChange={set("old_price")} style={input} /></div>
@@ -206,11 +207,6 @@ function ModuleCard({ mod, index, courseId, siblings, instructors, run }: { mod:
         ) : (
           <button className="btn btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => setAdding(true)}>+ Ders ekle</button>
         )}
-      </div>
-
-      <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 12 }}>
-        <div className="card-kicker" style={{ marginBottom: 6 }}>Modül sınavı</div>
-        <QuizRow quiz={mod.quiz} createUrl={`/api/admin/modules/${mod.id}/quizzes`} createBody={{ title: `${mod.title} — Sınav` }} run={run} />
       </div>
     </div>
   );

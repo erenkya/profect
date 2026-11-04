@@ -74,18 +74,6 @@ export function CourseSidebar({ slug, title, tree, percentage, previewIds }: { s
                 </Link>
               );
             })}
-            {m.quiz && previewIds && (
-              <Link href={lockedHref} className="side-link" title="Kursa kaydolunca açılır">
-                {lock}
-                <span style={{ opacity: 0.6 }}>{m.quiz.title}</span>
-              </Link>
-            )}
-            {m.quiz && !previewIds && (
-              <Link href={`${base}/sinav/${m.quiz.id}`} className="side-link" aria-current={pathname === `${base}/sinav/${m.quiz.id}` ? "page" : undefined}>
-                {icon(m.quiz.passed, ListChecks)}
-                <span>{m.quiz.title}</span>
-              </Link>
-            )}
           </div>
         ))}
         {tree.finalQuiz && (

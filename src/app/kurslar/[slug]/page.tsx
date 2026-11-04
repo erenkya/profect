@@ -9,7 +9,7 @@ import { Corners } from "@/components/Corners";
 import { BLUE, PURP } from "@/data/courses";
 import { getCurrentUser } from "@/lib/auth";
 import { isActiveMember } from "@/lib/company";
-import { formatPrice } from "@/lib/format";
+import { formatDuration, formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 import { previewLessonIds } from "@/lib/preview";
 import { PLUS_PRICE, canAccessCourse, getCourseBySlug, getCourseTree } from "@/lib/lms";
@@ -35,10 +35,9 @@ export default async function CoursePage({ params }: Props) {
   const programs = await listProgramsForCourse(course.id);
 
   const previewIds = previewLessonIds(tree);
-  const modules: CurriculumModule[] = tree.modules.map((m, i) => {
+  const modules: CurriculumModule[] = tree.modules.map((m) => {
     const minutes = m.lessons.reduce((sum, l) => sum + (l.duration_minutes ?? 0), 0);
     return {
-      n: String(i + 1).padStart(2, "0"),
       title: m.title,
       meta: `${m.lessons.length} ders${minutes ? ` · ${minutes} dk` : ""}`,
       items: [
@@ -52,13 +51,11 @@ export default async function CoursePage({ params }: Props) {
             ...(!hasAccess && previewIds.includes(l.id) && { free: true, href }),
           };
         }),
-        ...(m.quiz ? [{ t: m.quiz.title, d: `${m.quiz.question_count} soru`, c: PURP }] : []),
       ],
     };
   });
   if (tree.finalQuiz) {
     modules.push({
-      n: "◆",
       title: "Final sınavı ve sertifika",
       meta: `${tree.finalQuiz.question_count} soru`,
       items: [
@@ -69,19 +66,7 @@ export default async function CoursePage({ params }: Props) {
   }
 
   const cover = coverUrl(course.thumbnail_url);
-  const moduleQuizzes = tree.modules.flatMap((m) => (m.quiz ? [m.quiz] : []));
-  const counts = moduleQuizzes.map((q) => q.question_count);
   const examRules: { k: string; v: string; d: string; c: string }[] = [];
-  if (moduleQuizzes.length) {
-    const min = Math.min(...counts);
-    const max = Math.max(...counts);
-    examRules.push({
-      k: "Modül sınavları",
-      v: `${moduleQuizzes.length} sınav`,
-      d: `Her biri ${min === max ? min : `${min}–${max}`} soru; modül sonunda konuyu pekiştiren kısa değerlendirme.`,
-      c: BLUE,
-    });
-  }
   if (tree.finalQuiz) {
     examRules.push(
       { k: "Final sınavı", v: `${tree.finalQuiz.question_count} soru`, d: `Tüm modülleri kapsar. Geçme notu %${tree.finalQuiz.passing_score_percentage}.`, c: BLUE },
@@ -89,10 +74,8 @@ export default async function CoursePage({ params }: Props) {
     );
   }
   const includes = [
-    `${course.hours} saat video ders`,
-    ...(moduleQuizzes.length || tree.finalQuiz
-      ? [[moduleQuizzes.length ? `${moduleQuizzes.length} modül sınavı` : "", tree.finalQuiz ? "final sınavı" : ""].filter(Boolean).join(" + ")]
-      : []),
+    `${formatDuration(course.minutes)} video ders`,
+    ...(tree.finalQuiz ? ["Final sınavı"] : []),
     "Doğrulanabilir sertifika",
     "Ömür boyu erişim",
     "Mobil ve masaüstü",
@@ -120,7 +103,7 @@ export default async function CoursePage({ params }: Props) {
             <div data-reveal="1" data-delay="300" style={{ display: "flex", gap: 28, flexWrap: "wrap", fontSize: 15 }}>
               {course.instructor && <span><strong style={{ fontWeight: 600 }}>Eğitmen:</strong> {course.instructor}</span>}
               {course.rating && <span>★ {course.rating}</span>}
-              <span>{course.hours} saat · {course.module_count} modül</span>
+              <span>{formatDuration(course.minutes)}</span>
             </div>
             {cover && (
               <div data-reveal="1" data-delay="400" style={{ marginTop: 32, aspectRatio: "16 / 9", border: "1px solid var(--color-divider)", overflow: "hidden", background: "var(--color-divider)" }}>
@@ -150,7 +133,7 @@ export default async function CoursePage({ params }: Props) {
           <div data-reveal="1">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
               <h2 style={{ fontSize: 36, textTransform: "uppercase", margin: 0 }}>Müfredat</h2>
-              <span style={{ fontSize: 14, color: "var(--muted-55)" }}>{course.module_count} modül · {course.hours} saat</span>
+              <span style={{ fontSize: 14, color: "var(--muted-55)" }}>{formatDuration(course.minutes)}</span>
             </div>
             <Curriculum modules={modules} />
           </div>

@@ -117,7 +117,7 @@ export const quizShownCountSql = (alias: string) =>
   `IF(${alias}.mode = 'pool' AND ${alias}.draw_count IS NOT NULL, ${alias}.draw_count, (SELECT COUNT(*) FROM questions x WHERE x.quiz_id = ${alias}.id AND x.type <> 'scenario'))`;
 
 export type QuizNode = { id: number; title: string; module_id: number | null; passing_score_percentage: number; question_count: number; passed?: boolean };
-export type ModuleNode = { id: number; title: string; sort_order: number; lessons: LessonNode[]; quiz: QuizNode | null };
+export type ModuleNode = { id: number; title: string; sort_order: number; lessons: LessonNode[] };
 export type CourseTree = { modules: ModuleNode[]; finalQuiz: QuizNode | null };
 
 /** İçerik (video ID / Markdown) bilerek dahil edilmez — yalnızca iskelet. */
@@ -135,7 +135,7 @@ export async function getCourseTree(courseId: number, userId?: number): Promise<
   const [quizRows] = await pool.query<RowDataPacket[]>(
     `SELECT q.id, q.title, q.module_id, q.passing_score_percentage,
             ${quizShownCountSql("q")} AS question_count
-       FROM quizzes q WHERE q.course_id = ? ORDER BY q.id`,
+       FROM quizzes q WHERE q.course_id = ? AND q.module_id IS NULL ORDER BY q.id`,
     [courseId],
   );
 
@@ -180,9 +180,8 @@ export async function getCourseTree(courseId: number, userId?: number): Promise<
         sort_order: l.sort_order,
         completed: userId ? completed.has(l.id) : undefined,
       })),
-    quiz: quizRows.filter((q) => q.module_id === m.id).map(toQuiz)[0] ?? null,
   }));
-  const finalQuiz = quizRows.filter((q) => q.module_id === null).map(toQuiz)[0] ?? null;
+  const finalQuiz = quizRows.map(toQuiz)[0] ?? null;
   return { modules, finalQuiz };
 }
 
@@ -243,10 +242,10 @@ export async function isPreviewLesson(courseId: number, lessonId: number): Promi
 }
 
 /** Sınav sayısı (soru içeren) ve kullanıcının geçtiği sınav sayısı; soru içermeyen sınav geçilemez, sayılmaz. */
-const QUIZ_TOTAL_SQL = `(SELECT COUNT(*) FROM quizzes q WHERE q.course_id = c.id
+const QUIZ_TOTAL_SQL = `(SELECT COUNT(*) FROM quizzes q WHERE q.course_id = c.id AND q.module_id IS NULL
     AND EXISTS (SELECT 1 FROM questions qu WHERE qu.quiz_id = q.id AND qu.type <> 'scenario'))`;
 const QUIZ_PASSED_SQL = `(SELECT COUNT(DISTINCT qa.quiz_id) FROM quiz_attempts qa JOIN quizzes q ON q.id = qa.quiz_id
-    WHERE qa.user_id = ? AND q.course_id = c.id AND qa.is_passed = 1
+    WHERE qa.user_id = ? AND q.course_id = c.id AND q.module_id IS NULL AND qa.is_passed = 1
       AND EXISTS (SELECT 1 FROM questions qu WHERE qu.quiz_id = q.id AND qu.type <> 'scenario'))`;
 
 // ── İlerleme ──────────────────────────────────────────────────────────────────
@@ -429,13 +428,12 @@ export async function getLesson(lessonId: number): Promise<LessonFull | null> {
   return (rows[0] as LessonFull | undefined) ?? null;
 }
 
-/** Müfredatın doğrusal sırası: modül dersleri → modül sınavı → … → final sınavı. */
+/** Müfredatın doğrusal sırası: modül dersleri → … → final sınavı. */
 export type FlowItem = { kind: "lesson" | "quiz"; id: number; title: string; done: boolean };
 export function flattenTree(tree: CourseTree): FlowItem[] {
   const out: FlowItem[] = [];
   for (const m of tree.modules) {
     for (const l of m.lessons) out.push({ kind: "lesson", id: l.id, title: l.title, done: !!l.completed });
-    if (m.quiz) out.push({ kind: "quiz", id: m.quiz.id, title: m.quiz.title, done: !!m.quiz.passed });
   }
   if (tree.finalQuiz) out.push({ kind: "quiz", id: tree.finalQuiz.id, title: tree.finalQuiz.title, done: !!tree.finalQuiz.passed });
   return out;
@@ -652,7 +650,7 @@ export async function getPlusInfo(userId: number) {
 // ── Yönetici görünümü (içerik dahil) ──────────────────────────────────────────
 export type AdminLesson = { id: number; module_id: number; title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null; instructor_id: number | null; sort_order: number; files: LessonFileItem[] };
 export type AdminQuizRef = { id: number; title: string; module_id: number | null; passing_score_percentage: number; question_count: number; pool_count: number };
-export type AdminModule = { id: number; title: string; sort_order: number; lessons: AdminLesson[]; quiz: AdminQuizRef | null };
+export type AdminModule = { id: number; title: string; sort_order: number; lessons: AdminLesson[] };
 
 export async function getCourseAdminTree(courseId: number) {
   const course = await getCourseById(courseId);
@@ -675,7 +673,7 @@ export async function getCourseAdminTree(courseId: number) {
     `SELECT q.id, q.title, q.module_id, q.passing_score_percentage,
             ${quizShownCountSql("q")} AS question_count,
             (SELECT COUNT(*) FROM questions p WHERE p.quiz_id = q.id AND p.type <> 'scenario') AS pool_count
-       FROM quizzes q WHERE q.course_id = ?`,
+       FROM quizzes q WHERE q.course_id = ? AND q.module_id IS NULL`,
     [courseId],
   );
   const toQuiz = (q: RowDataPacket): AdminQuizRef => ({ id: q.id, title: q.title, module_id: q.module_id, passing_score_percentage: q.passing_score_percentage, question_count: Number(q.question_count), pool_count: Number(q.pool_count) });
@@ -686,8 +684,7 @@ export async function getCourseAdminTree(courseId: number) {
       title: m.title,
       sort_order: m.sort_order,
       lessons: lessons.filter((l) => l.module_id === m.id).map((l) => ({ ...l, files: filesOf(l.id) }) as AdminLesson),
-      quiz: quizzes.filter((q) => q.module_id === m.id).map(toQuiz)[0] ?? null,
     })),
-    finalQuiz: quizzes.filter((q) => q.module_id === null).map(toQuiz)[0] ?? null,
+    finalQuiz: quizzes.map(toQuiz)[0] ?? null,
   };
 }
