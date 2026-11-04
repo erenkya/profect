@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Corners } from "./Corners";
 import { CourseCardActions } from "./CourseCardActions";
 import type { CourseRow } from "@/lib/lms";
-import { formatDuration, formatPrice } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 
 export function CourseCard({ course, color, delay, loggedIn, hasAccess, companyMember = false }: { course: CourseRow; color: string; delay: number; loggedIn: boolean; hasAccess: boolean; companyMember?: boolean }) {
@@ -37,7 +37,7 @@ export function CourseCard({ course, color, delay, loggedIn, hasAccess, companyM
             <div style={{ fontSize: 14, color: "color-mix(in srgb,var(--color-text) 62%,transparent)" }}>{course.instructor}</div>
             <div style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid var(--color-divider)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span className="card-meta" style={{ fontSize: 13 }}>
-                {[formatDuration(course.minutes), course.rating ? `★ ${course.rating}` : ""].filter(Boolean).join(" · ")}
+                {[`${course.lesson_count} ders`, course.rating ? `★ ${course.rating}` : ""].filter(Boolean).join(" · ")}
               </span>
               <span style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 600, color: "var(--color-accent-2)" }}>
                 {formatPrice(course.price)}

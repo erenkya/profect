@@ -19,8 +19,6 @@ export type CourseRow = {
   category: string;
   level: string;
   instructor: string;
-  /** Toplam eğitim süresi (dk): video derslerin süreleri toplamı. */
-  minutes: number;
   rating: string | null;
   price: number;
   old_price: number | null;
@@ -31,17 +29,15 @@ export type CourseRow = {
   lesson_count: number;
 };
 
-/** Kursun toplam eğitim süresi (dk): video derslerin süreleri toplamı. `alias` = courses takma adı. */
-export const courseVideoMinutesSql = (alias: string) => `(
-  SELECT COALESCE(SUM(l.duration_minutes), 0)
-    FROM lessons l JOIN modules m ON m.id = l.module_id
-   WHERE m.course_id = ${alias}.id AND l.lesson_type = 'video'
+/** Kursun toplam ders sayısı. `alias` = courses takma adı. */
+export const courseLessonCountSql = (alias: string) => `(
+  SELECT COUNT(*) FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = ${alias}.id
 )`;
 
-const COURSE_COLUMNS = `c.id, c.slug, c.code, c.title, c.description, c.category, c.level, c.instructor, ${courseVideoMinutesSql("c")} AS minutes,
+const COURSE_COLUMNS = `c.id, c.slug, c.code, c.title, c.description, c.category, c.level, c.instructor,
   c.rating, c.price, c.old_price, c.outcomes, c.thumbnail_url, c.is_published,
   (SELECT COUNT(*) FROM modules m WHERE m.course_id = c.id) AS module_count,
-  (SELECT COUNT(*) FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = c.id) AS lesson_count`;
+  ${courseLessonCountSql("c")} AS lesson_count`;
 
 function mapCourse(r: RowDataPacket): CourseRow {
   let outcomes: string[] = [];
@@ -60,7 +56,6 @@ function mapCourse(r: RowDataPacket): CourseRow {
     category: r.category,
     level: r.level,
     instructor: r.instructor,
-    minutes: Number(r.minutes),
     rating: r.rating,
     price: Number(r.price),
     old_price: r.old_price == null ? null : Number(r.old_price),
@@ -427,24 +422,19 @@ export type CertificateRow = {
   score: number | null;
   student_name: string;
   course_title: string;
-  course_minutes: number;
+  lesson_count: number;
   instructor: string;
   /** Program sertifikasında programın tüm kurs adları (program sırasıyla); kurs sertifikasında boş. */
   included_courses: string[];
 };
 
-/** Kursun toplam süresi (dk): tüm derslerin + tüm sınavların süreleri. `cr` = courses takma adı. */
-export const COURSE_MINUTES_SQL = `(
-  (SELECT COALESCE(SUM(l.duration_minutes), 0) FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = cr.id) +
-  (SELECT COALESCE(SUM(q.duration_minutes), 0) FROM quizzes q WHERE q.course_id = cr.id)
-)`;
 
 export async function getCertificateByCode(code: string): Promise<CertificateRow | null> {
   const normalized = code.trim().toUpperCase();
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT c.certificate_code, c.issued_at, c.score, u.full_name AS student_name,
             cr.title AS course_title, cr.instructor,
-            ${COURSE_MINUTES_SQL} AS course_minutes
+            ${courseLessonCountSql("cr")} AS lesson_count
        FROM certificates c JOIN users u ON u.id = c.user_id JOIN courses cr ON cr.id = c.course_id
       WHERE c.certificate_code = ?`,
     [normalized],
@@ -458,16 +448,16 @@ export async function getCertificateByCode(code: string): Promise<CertificateRow
       score: row.score,
       student_name: row.student_name,
       course_title: row.course_title,
-      course_minutes: Number(row.course_minutes),
+      lesson_count: Number(row.lesson_count),
       instructor: row.instructor,
       included_courses: [],
     };
   }
 
-  // Program sertifikası: program adı, kursların toplam süresi; eğitmen/puan yok. Kurs yayından kalksa da okunur.
+  // Program sertifikası: program adı, kursların toplam ders sayısı; eğitmen/puan yok. Kurs yayından kalksa da okunur.
   const [prog] = await pool.query<RowDataPacket[]>(
     `SELECT pc.certificate_code, pc.issued_at, u.full_name AS student_name, p.id AS program_id, p.title AS course_title,
-            (SELECT COALESCE(SUM(${COURSE_MINUTES_SQL}), 0) FROM program_courses pcc JOIN courses cr ON cr.id = pcc.course_id WHERE pcc.program_id = p.id) AS course_minutes
+            (SELECT COALESCE(SUM(${courseLessonCountSql("cr")}), 0) FROM program_courses pcc JOIN courses cr ON cr.id = pcc.course_id WHERE pcc.program_id = p.id) AS lesson_count
        FROM program_certificates pc JOIN users u ON u.id = pc.user_id JOIN programs p ON p.id = pc.program_id
       WHERE pc.certificate_code = ?`,
     [normalized],
@@ -485,7 +475,7 @@ export async function getCertificateByCode(code: string): Promise<CertificateRow
     score: null,
     student_name: pr.student_name,
     course_title: pr.course_title,
-    course_minutes: Number(pr.course_minutes),
+    lesson_count: Number(pr.lesson_count),
     instructor: "",
     included_courses: included.map((r) => r.title as string),
   };

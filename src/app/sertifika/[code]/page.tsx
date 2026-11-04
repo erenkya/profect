@@ -7,7 +7,7 @@ import { Corners } from "@/components/Corners";
 import { ShareCertificate } from "@/components/ShareCertificate";
 import { Cta } from "@/components/Cta";
 import { certificateQrSvg, certificateVerifyUrl } from "@/lib/certificate-pdf";
-import { formatDate, formatDuration } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { getBaseUrlFromHeaders } from "@/lib/http";
 import { getCertificateByCode } from "@/lib/lms";
 
@@ -64,7 +64,7 @@ export default async function CertificatePage({ params }: Props) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 40, flexWrap: "wrap", fontSize: 14 }}>
                 <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Tarih</div><strong style={{ fontWeight: 600 }}>{formatDate(cert.issued_at)}</strong></div>
-                <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Süre</div><strong style={{ fontWeight: 600 }}>{formatDuration(cert.course_minutes)}</strong></div>
+                <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Ders sayısı</div><strong style={{ fontWeight: 600 }}>{cert.lesson_count} ders</strong></div>
                 {cert.instructor && <div><div style={{ color: "var(--muted-55)", fontSize: 12 }}>Eğitmen</div><strong style={{ fontWeight: 600 }}>{cert.instructor}</strong></div>}
               </div>
               <div style={{ textAlign: "center" }}>

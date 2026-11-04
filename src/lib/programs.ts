@@ -3,7 +3,7 @@
 import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import pool from "@/lib/db";
-import { courseVideoMinutesSql } from "@/lib/lms";
+import { courseLessonCountSql } from "@/lib/lms";
 import { priceProgram, type ProgramQuoteCalc } from "@/lib/program-pricing";
 import { courseProblems, generateProgramCertificateCode, isProgramComplete, type CourseEligibility } from "@/lib/program-rules";
 
@@ -27,7 +27,7 @@ export type ProgramCourse = {
   id: number;
   slug: string;
   title: string;
-  minutes: number;
+  lesson_count: number;
   price: number;
   thumbnail_url: string | null;
   is_published: boolean;
@@ -70,12 +70,12 @@ export async function getProgramById(id: number): Promise<ProgramRow | null> {
 }
 
 /** Yayındaki programlar; kurs sayısı, liste fiyatı toplamı (S) ve toplam süre programın TÜM kurslarından hesaplanır. */
-export async function listPublishedPrograms(): Promise<(ProgramRow & { course_count: number; list_total: number; minutes: number })[]> {
+export async function listPublishedPrograms(): Promise<(ProgramRow & { course_count: number; list_total: number; lesson_count: number })[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT ${PROGRAM_COLUMNS},
             COUNT(c.id) AS course_count,
             COALESCE(SUM(c.price), 0) AS list_total,
-            COALESCE(SUM(${courseVideoMinutesSql("c")}), 0) AS minutes
+            COALESCE(SUM(${courseLessonCountSql("c")}), 0) AS lesson_count
        FROM programs p
        LEFT JOIN program_courses pc ON pc.program_id = p.id
        LEFT JOIN courses c ON c.id = pc.course_id
@@ -87,14 +87,14 @@ export async function listPublishedPrograms(): Promise<(ProgramRow & { course_co
     ...mapProgram(r),
     course_count: Number(r.course_count),
     list_total: Number(r.list_total),
-    minutes: Number(r.minutes),
+    lesson_count: Number(r.lesson_count),
   }));
 }
 
 /** Programın TÜM kursları (yayın durumuna bakılmaksızın), program içi sıraya göre. */
 export async function listProgramCourses(programId: number): Promise<ProgramCourse[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT c.id, c.slug, c.title, ${courseVideoMinutesSql("c")} AS minutes, c.price, c.thumbnail_url, c.is_published, pc.sort_order,
+    `SELECT c.id, c.slug, c.title, ${courseLessonCountSql("c")} AS lesson_count, c.price, c.thumbnail_url, c.is_published, pc.sort_order,
             ${HAS_FINAL_QUIZ_SQL} AS has_final_quiz
        FROM program_courses pc
        JOIN courses c ON c.id = pc.course_id
@@ -106,7 +106,7 @@ export async function listProgramCourses(programId: number): Promise<ProgramCour
     id: r.id,
     slug: r.slug,
     title: r.title,
-    minutes: Number(r.minutes),
+    lesson_count: Number(r.lesson_count),
     price: Number(r.price),
     thumbnail_url: r.thumbnail_url,
     is_published: !!r.is_published,

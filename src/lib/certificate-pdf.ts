@@ -4,7 +4,7 @@ import path from "node:path";
 import fontkit from "@pdf-lib/fontkit";
 import QRCode from "qrcode";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { formatDate, formatDuration } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import type { CertificateRow } from "@/lib/lms";
 
 export function certificateVerifyUrl(baseUrl: string, code: string): string {
@@ -140,7 +140,7 @@ export async function buildCertificatePdf(cert: CertificateRow, verifyUrl: strin
 
   // Alt bilgiler
   const infoY = 92;
-  const infos: [string, string][] = [["TARİH", formatDate(cert.issued_at)], ["SÜRE", formatDuration(cert.course_minutes)]];
+  const infos: [string, string][] = [["TARİH", formatDate(cert.issued_at)], ["DERS", `${cert.lesson_count} ders`]];
   if (cert.instructor) infos.push(["EĞİTMEN", cert.instructor]);
   let ix = px;
   for (const [label, value] of infos) {

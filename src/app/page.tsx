@@ -270,9 +270,9 @@ export default async function HomePage() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16 }}>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(2,auto)", gap: "6px 28px", fontSize: 12 }}>
                         <span style={{ color: "color-mix(in srgb,var(--color-text) 50%,transparent)" }}>Tarih</span>
-                        <span style={{ color: "color-mix(in srgb,var(--color-text) 50%,transparent)" }}>Süre</span>
+                        <span style={{ color: "color-mix(in srgb,var(--color-text) 50%,transparent)" }}>Ders sayısı</span>
                         <span style={{ fontWeight: 600 }}>{DEMO_CERT.date}</span>
-                        <span style={{ fontWeight: 600 }}>24 saat</span>
+                        <span style={{ fontWeight: 600 }}>24 ders</span>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(11,6px)", gap: 1, padding: 6, border: "1px solid var(--color-divider)" }}>
                         {qr.map((on, i) => <span key={i} style={{ width: 6, height: 6, background: on ? "#17142b" : "transparent" }} />)}

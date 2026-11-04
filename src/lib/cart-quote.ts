@@ -2,7 +2,6 @@ import "server-only";
 import type { RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
 import { coverUrl } from "@/lib/cover-key";
-import { formatDuration } from "@/lib/format";
 import { getCourseBySlug } from "@/lib/lms";
 import type { CartItem } from "@/lib/cart";
 import { getProgramOffer, isProgramMember, listOwnedCourseIds, type ProgramOffer } from "@/lib/programs";
@@ -71,7 +70,7 @@ export async function quoteCart(items: CartItem[], userId?: number | null): Prom
       key,
       item,
       title: course.title,
-      subtitle: `${course.instructor} · ${formatDuration(course.minutes)} · Ömür boyu erişim`,
+      subtitle: `${course.instructor} · ${course.lesson_count} ders · Ömür boyu erişim`,
       price: course.price,
       oldPrice: course.old_price,
       cover: coverUrl(course.thumbnail_url),

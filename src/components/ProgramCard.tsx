@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { Corners } from "./Corners";
 import type { ProgramOffer } from "@/lib/programs";
-import { formatDuration, formatPrice } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 
 /** Girişliyse `offer` kişiye özeldir: ödenecek tutar edinilmiş kurslar düşülmüş halidir. */
 export function ProgramCard({ offer, color, delay, loggedIn }: { offer: ProgramOffer; color: string; delay: number; loggedIn: boolean }) {
   const { program, courses, calc } = offer;
   const cover = coverUrl(program.thumbnail_url);
-  const minutes = courses.reduce((s, c) => s + c.minutes, 0);
+  const lessons = courses.reduce((s, c) => s + c.lesson_count, 0);
   const personal = loggedIn && calc.ownedCount > 0;
   const shown = personal ? calc.payable : calc.effectivePrice;
   return (
@@ -42,7 +42,7 @@ export function ProgramCard({ offer, color, delay, loggedIn }: { offer: ProgramO
               {personal ? `Sahip olduğun ${calc.ownedCount} kurs düşüldü` : "Program sertifikalı"}
             </div>
             <div style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid var(--color-divider)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <span className="card-meta" style={{ fontSize: 13 }}>{courses.length} kurs · {formatDuration(minutes)}</span>
+              <span className="card-meta" style={{ fontSize: 13 }}>{courses.length} kurs · {lessons} ders</span>
               {offer.member ? (
                 <span className="tag tag-accent">Üyesin</span>
               ) : !offer.sellable ? (

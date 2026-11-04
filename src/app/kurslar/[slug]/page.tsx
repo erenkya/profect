@@ -9,7 +9,7 @@ import { Corners } from "@/components/Corners";
 import { BLUE, PURP } from "@/data/courses";
 import { getCurrentUser } from "@/lib/auth";
 import { isActiveMember } from "@/lib/company";
-import { formatDuration, formatPrice } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 import { previewLessonIds } from "@/lib/preview";
 import { canAccessCourse, getCourseBySlug, getCourseTree } from "@/lib/lms";
@@ -73,7 +73,7 @@ export default async function CoursePage({ params }: Props) {
     );
   }
   const includes = [
-    `${formatDuration(course.minutes)} video ders`,
+    `${course.lesson_count} ders`,
     ...(tree.finalQuiz ? ["Final sınavı"] : []),
     "Doğrulanabilir sertifika",
     "Ömür boyu erişim",
@@ -102,7 +102,7 @@ export default async function CoursePage({ params }: Props) {
             <div data-reveal="1" data-delay="300" style={{ display: "flex", gap: 28, flexWrap: "wrap", fontSize: 15 }}>
               {course.instructor && <span><strong style={{ fontWeight: 600 }}>Eğitmen:</strong> {course.instructor}</span>}
               {course.rating && <span>★ {course.rating}</span>}
-              <span>{formatDuration(course.minutes)}</span>
+              <span>{course.lesson_count} ders</span>
             </div>
             {cover && (
               <div data-reveal="1" data-delay="400" style={{ marginTop: 32, aspectRatio: "16 / 9", border: "1px solid var(--color-divider)", overflow: "hidden", background: "var(--color-divider)" }}>
@@ -132,7 +132,7 @@ export default async function CoursePage({ params }: Props) {
           <div data-reveal="1">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
               <h2 style={{ fontSize: 36, textTransform: "uppercase", margin: 0 }}>Müfredat</h2>
-              <span style={{ fontSize: 14, color: "var(--muted-55)" }}>{formatDuration(course.minutes)}</span>
+              <span style={{ fontSize: 14, color: "var(--muted-55)" }}>{course.lesson_count} ders</span>
             </div>
             <Curriculum modules={modules} />
           </div>
