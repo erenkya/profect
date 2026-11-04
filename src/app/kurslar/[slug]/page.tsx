@@ -36,10 +36,9 @@ export default async function CoursePage({ params }: Props) {
 
   const previewIds = previewLessonIds(tree);
   const modules: CurriculumModule[] = tree.modules.map((m) => {
-    const minutes = m.lessons.reduce((sum, l) => sum + (l.duration_minutes ?? 0), 0);
     return {
       title: m.title,
-      meta: `${m.lessons.length} ders${minutes ? ` · ${minutes} dk` : ""}`,
+      meta: `${m.lessons.length} ders`,
       items: [
         ...m.lessons.map((l) => {
           const href = `/ogrenim/${course.slug}/ders/${l.id}`;
