@@ -1,14 +1,11 @@
 import Link from "next/link";
 import { CONSENT_MAX_AGE_DAYS } from "@/lib/consent";
 import { CookieSettingsButton } from "@/components/legal/CookieSettingsButton";
+import { COMPANY } from "@/components/legal/company";
 
-// TODO: Yayına çıkmadan önce gerçek şirket bilgileriyle doldurun (KvkkContent.tsx'teki CONTROLLER ile aynı olmalı)
-// ve metni bir hukukçuya onaylatın. Sitede yeni çerez/betik eklenirse aşağıdaki tabloyu güncelleyin.
-const CONTROLLER = {
-  name: "[Şirket ünvanı]",
-  address: "[Adres]",
-  email: "[kvkk@alanadi.com]",
-};
+// TODO: Yayına çıkmadan önce metni bir hukukçuya onaylatın. Şirket bilgileri company.ts'ten gelir.
+// Sitede yeni çerez/betik eklenirse aşağıdaki tabloyu güncelleyin.
+const CONTROLLER = COMPANY;
 
 type Row = { name: string; purpose: string; party: string; duration: string };
 

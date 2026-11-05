@@ -1,12 +1,7 @@
 import Link from "next/link";
+import { COMPANY as CONTROLLER } from "./company";
 
-// TODO: Yayına çıkmadan önce gerçek şirket bilgileriyle doldurun ve metni bir hukukçuya onaylatın.
-const CONTROLLER = {
-  name: "[Şirket ünvanı]",
-  address: "[Adres]",
-  mersis: "[MERSİS no]",
-  email: "[kvkk@alanadi.com]",
-};
+// TODO: Yayına çıkmadan önce metni bir hukukçuya onaylatın. Şirket bilgileri company.ts'ten gelir.
 
 const SECTIONS: { title: string; body: React.ReactNode }[] = [
   {

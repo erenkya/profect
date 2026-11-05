@@ -1,7 +1,8 @@
-// TODO: Yayına çıkmadan önce gerçek şirket bilgileriyle doldurun (KvkkContent.tsx'teki CONTROLLER ile aynı olmalı).
+// TODO: Yayına çıkmadan önce adres ve MERSİS no alanlarını gerçek bilgilerle doldurun.
+// Satış, gizlilik, iade, KVKK ve çerez metinlerinin tamamı bu bilgileri kullanır.
 export const COMPANY = {
-  name: "[Şirket ünvanı]",
+  name: "Profect",
   address: "[Adres]",
   mersis: "[MERSİS no]",
-  email: "[destek@alanadi.com]",
+  email: "info@frofect.com.tr",
 };
