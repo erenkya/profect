@@ -8,14 +8,16 @@ import { formatDate } from "@/lib/format";
 import { adminApi } from "./api";
 
 export type EnrollmentRow = { id: number; user_id: number; course_id: number; user_name: string; user_email: string; course_title: string; status: string; source: string; enrolled_at: string; completed_lessons: number; total_lessons: number; certificate_code: string | null; company_name: string | null; company_id: number | null };
+export type ProgramEnrollmentRow = { id: number; user_id: number; program_id: number; user_name: string; user_email: string; program_title: string; source: string; enrolled_at: string; certificate_code: string | null };
 type Opt = { id: number; label: string };
 
-const SOURCE: Record<string, string> = { admin: "Yönetici", purchase: "Satın alma", plus: "Plus", gift: "Hediye", company: "Şirket" };
+const SOURCE: Record<string, string> = { admin: "Yönetici", purchase: "Satın alma", plus: "Plus", gift: "Hediye", company: "Şirket", auto: "Otomatik" };
 
-export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow[]; users: Opt[]; courses: Opt[] }) {
+export function EnrollmentsPanel({ rows, programRows, users, courses, programs }: { rows: EnrollmentRow[]; programRows: ProgramEnrollmentRow[]; users: Opt[]; courses: Opt[]; programs: Opt[] }) {
   const router = useRouter();
   const [userIds, setUserIds] = useState<number[]>([]);
   const [courseIds, setCourseIds] = useState<number[]>([]);
+  const [programIds, setProgramIds] = useState<number[]>([]);
   const [flash, setFlash] = useFlash();
   const [filter, setFilter] = useState("");
   const [companyFilter, setCompanyFilter] = useState("");
@@ -23,11 +25,12 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
   const toggle = (arr: number[], set: (v: number[]) => void, id: number) => set(arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id]);
 
   async function assign() {
-    const r = await adminApi("POST", "/api/admin/enrollments", { user_ids: userIds, course_ids: courseIds });
+    const r = await adminApi("POST", "/api/admin/enrollments", { user_ids: userIds, course_ids: courseIds, program_ids: programIds });
     setFlash({ kind: r.ok ? "ok" : "error", text: r.message });
     if (r.ok) {
       setUserIds([]);
       setCourseIds([]);
+      setProgramIds([]);
       router.refresh();
     }
   }
@@ -38,14 +41,25 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
     if (r.ok) router.refresh();
   }
 
+  async function removeProgram(id: number) {
+    if (!confirm("Bu program üyeliği silinsin mi? Programın kurs kayıtları ve verilmiş sertifikalar kalır.")) return;
+    const r = await adminApi("DELETE", `/api/admin/enrollments?program_enrollment_id=${id}`);
+    setFlash({ kind: r.ok ? "ok" : "error", text: r.message });
+    if (r.ok) router.refresh();
+  }
+
   // Zaten atanmış çiftler listeden düşsün: tüm kurslara atanmış kullanıcı ve tüm kullanıcılara atanmış kurs gösterilmez.
   const enrolled = new Set(rows.map((r) => `${r.user_id}:${r.course_id}`));
-  const availableUsers = users.filter((u) => courses.some((c) => !enrolled.has(`${u.id}:${c.id}`)));
+  const programEnrolled = new Set(programRows.map((r) => `${r.user_id}:${r.program_id}`));
+  const availableUsers = users.filter((u) => courses.some((c) => !enrolled.has(`${u.id}:${c.id}`)) || programs.some((p) => !programEnrolled.has(`${u.id}:${p.id}`)));
   const availableCourses = courses.filter((c) => users.some((u) => !enrolled.has(`${u.id}:${c.id}`)));
+  const availablePrograms = programs.filter((p) => users.some((u) => !programEnrolled.has(`${u.id}:${p.id}`)));
 
   const box = { border: "1px solid var(--color-divider)", background: "#fff", maxHeight: 220, overflowY: "auto", padding: 8 } as const;
   const companies = Array.from(new Map(rows.filter((r) => r.company_id).map((r) => [r.company_id!, r.company_name!])).entries());
   const shown = rows.filter((r) => (r.user_name + r.user_email + r.course_title).toLocaleLowerCase("tr-TR").includes(filter.toLocaleLowerCase("tr-TR")) && (!companyFilter || String(r.company_id) === companyFilter));
+
+  const shownPrograms = programRows.filter((r) => (r.user_name + r.user_email + r.program_title).toLocaleLowerCase("tr-TR").includes(filter.toLocaleLowerCase("tr-TR")));
 
   return (
     <>
@@ -73,13 +87,24 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
               ))}
             </div>
           </div>
+          <div>
+            <div className="card-kicker" style={{ marginBottom: 6 }}>Programlar ({programIds.length})</div>
+            <div style={box} role="group" aria-label="Programlar">
+              {availablePrograms.map((p) => (
+                <label key={p.id} style={{ display: "flex", gap: 8, fontSize: 14, padding: "3px 0", cursor: "pointer" }}>
+                  <input type="checkbox" checked={programIds.includes(p.id)} onChange={() => toggle(programIds, setProgramIds, p.id)} />{p.label}
+                </label>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted-55)", marginTop: 4 }}>Programa atanan kullanıcı programdaki tüm kurslara da erişir.</div>
+          </div>
         </div>
-        <div><button className="btn btn-primary blueprint" disabled={!userIds.length || !courseIds.length} onClick={assign}><Corners />Ata</button></div>
+        <div><button className="btn btn-primary blueprint" disabled={!userIds.length || (!courseIds.length && !programIds.length)} onClick={assign}><Corners />Ata</button></div>
       </div>
 
       <Toast flash={flash} onClose={() => setFlash(null)} />
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-        <input className="input" placeholder="Kullanıcı veya kurs ara…" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ background: "#fff", maxWidth: 320 }} aria-label="Kayıt ara" />
+        <input className="input" placeholder="Kullanıcı, kurs veya program ara…" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ background: "#fff", maxWidth: 320 }} aria-label="Kayıt ara" />
         <select className="input" value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} style={{ background: "#fff", maxWidth: 260 }} aria-label="Şirkete göre süz">
           <option value="">Tüm şirketler</option>
           {companies.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
@@ -102,6 +127,26 @@ export function EnrollmentsPanel({ rows, users, courses }: { rows: EnrollmentRow
               </tr>
             ))}
             {shown.length === 0 && <tr><td colSpan={8} style={{ color: "var(--muted-55)" }}>Kayıt yok.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 style={{ fontSize: 32, textTransform: "uppercase", margin: "40px 0 16px" }}>Program üyelikleri</h2>
+      <div className="admin-table-wrap">
+        <table className="table">
+          <thead><tr><th>Kullanıcı</th><th>Program</th><th>Kaynak</th><th>Sertifika</th><th>Tarih</th><th /></tr></thead>
+          <tbody>
+            {shownPrograms.map((r) => (
+              <tr key={r.id}>
+                <td>{r.user_name}<div style={{ fontSize: 12, color: "var(--muted-55)" }}>{r.user_email}</div></td>
+                <td>{r.program_title}</td>
+                <td>{SOURCE[r.source] ?? r.source}</td>
+                <td>{r.certificate_code ?? "—"}</td>
+                <td>{formatDate(r.enrolled_at)}</td>
+                <td><button className="btn btn-ghost" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => removeProgram(r.id)}>Kaldır</button></td>
+              </tr>
+            ))}
+            {shownPrograms.length === 0 && <tr><td colSpan={6} style={{ color: "var(--muted-55)" }}>Program üyeliği yok.</td></tr>}
           </tbody>
         </table>
       </div>

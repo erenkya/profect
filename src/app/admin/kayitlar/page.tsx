@@ -1,12 +1,12 @@
 import type { RowDataPacket } from "mysql2";
-import { EnrollmentsPanel, type EnrollmentRow } from "@/components/admin/EnrollmentsPanel";
+import { EnrollmentsPanel, type EnrollmentRow, type ProgramEnrollmentRow } from "@/components/admin/EnrollmentsPanel";
 import pool from "@/lib/db";
 import { listAllCourses } from "@/lib/lms";
 
 export const metadata = { title: "Kayıtlar" };
 
 export default async function AdminEnrollments() {
-  const [[rows], [users], courses] = await Promise.all([
+  const [[rows], [users], courses, [programRows], [programs]] = await Promise.all([
     pool.query<RowDataPacket[]>(
       `SELECT e.id, e.user_id, e.course_id, e.status, e.source, e.enrolled_at, u.full_name AS user_name, u.email AS user_email,
               c.title AS course_title, cert.certificate_code, co.name AS company_name, co.id AS company_id,
@@ -21,14 +21,24 @@ export default async function AdminEnrollments() {
     ),
     pool.query<RowDataPacket[]>("SELECT id, full_name, email FROM users WHERE is_active = 1 ORDER BY full_name"),
     listAllCourses(),
+    pool.query<RowDataPacket[]>(
+      `SELECT pe.id, pe.user_id, pe.program_id, pe.source, pe.enrolled_at, u.full_name AS user_name, u.email AS user_email,
+              p.title AS program_title, pc.certificate_code
+         FROM program_enrollments pe JOIN users u ON u.id = pe.user_id JOIN programs p ON p.id = pe.program_id
+         LEFT JOIN program_certificates pc ON pc.user_id = pe.user_id AND pc.program_id = pe.program_id
+        ORDER BY pe.enrolled_at DESC LIMIT 1000`,
+    ),
+    pool.query<RowDataPacket[]>("SELECT id, code, title, is_published FROM programs ORDER BY sort_order, id"),
   ]);
   return (
     <>
       <h1 style={{ fontSize: 56, textTransform: "uppercase", margin: "0 0 24px" }}>Kayıtlar</h1>
       <EnrollmentsPanel
         rows={rows as EnrollmentRow[]}
+        programRows={programRows as ProgramEnrollmentRow[]}
         users={users.map((u) => ({ id: u.id, label: `${u.full_name} — ${u.email}` }))}
         courses={courses.map((c) => ({ id: c.id, label: `${c.code} · ${c.title}${c.is_published ? "" : " (taslak)"}` }))}
+        programs={programs.map((p) => ({ id: p.id, label: `${p.code} · ${p.title}${p.is_published ? "" : " (taslak)"}` }))}
       />
     </>
   );
