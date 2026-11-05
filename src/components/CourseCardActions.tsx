@@ -20,9 +20,6 @@ export function CourseCardActions({ slug, courseId, loggedIn, hasAccess, giftabl
     router.push(loggedIn ? "/odeme" : `/giris?next=${encodeURIComponent("/odeme")}`);
   }
 
-  // Şirkete bağlı üye kendi parasıyla kurs alamaz: satın alma, sepet ve hediye yerine şirketten talep eder.
-  if (companyMember && !hasAccess) return <RequestCourseButton courseId={courseId} style={btn} />;
-
   const giftHref = `/hediye-et/${slug}`;
   const giftLink = giftable && (
     <Link href={loggedIn ? giftHref : `/giris?next=${encodeURIComponent(giftHref)}`} className="btn btn-secondary btn-block" style={{ ...btn, gridColumn: "1 / -1" }}>
@@ -53,6 +50,7 @@ export function CourseCardActions({ slug, courseId, loggedIn, hasAccess, giftabl
       <button type="button" className="btn btn-primary btn-block" style={btn} onClick={buyNow}>
         Hemen Satın Al
       </button>
+      {companyMember && <div style={{ gridColumn: "1 / -1" }}><RequestCourseButton courseId={courseId} className="btn btn-secondary btn-block" style={btn} /></div>}
       {giftLink}
     </div>
   );

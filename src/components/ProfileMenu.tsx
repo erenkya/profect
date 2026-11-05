@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { ChevronDown, LogOut, ShieldCheck } from "lucide-react";
+import { Building2, ChevronDown, LogOut, ShieldCheck } from "lucide-react";
 import { ACCOUNT_ITEMS, isActiveItem } from "@/components/account/items";
 import type { SessionUser } from "@/lib/auth";
 
@@ -12,7 +12,7 @@ function initials(name: string) {
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toLocaleUpperCase("tr-TR");
 }
 
-export function ProfileMenu({ user }: { user: SessionUser }) {
+export function ProfileMenu({ user, companyAdmin = false }: { user: SessionUser; companyAdmin?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -125,6 +125,12 @@ export function ProfileMenu({ user }: { user: SessionUser }) {
             <Link href="/egitmen/sorular" role="menuitem" className="pm-item" style={{ "--i": ACCOUNT_ITEMS.length } as React.CSSProperties}>
               <ShieldCheck size={17} aria-hidden="true" />
               Öğrenci soruları
+            </Link>
+          )}
+          {companyAdmin && (
+            <Link href="/sirket" role="menuitem" className="pm-item" style={{ "--i": ACCOUNT_ITEMS.length } as React.CSSProperties}>
+              <Building2 size={17} aria-hidden="true" />
+              Şirket paneli
             </Link>
           )}
           {user.role === "admin" && (

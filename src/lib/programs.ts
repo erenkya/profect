@@ -194,7 +194,7 @@ export async function getProgramOffer(slug: string, userId: number | null, opts:
  * Kursa kalıcı erişim yazar: kayıt yoksa ekler, `source='plus'` ise verilen kaynağa yükseltir,
  * diğer kaynaklara (admin/purchase/gift) dokunmaz. `INSERT IGNORE` Plus kaydını yükseltmediği için ON DUPLICATE KEY kullanılır.
  */
-export async function grantCourseEnrollment(conn: Queryable, userId: number, courseId: number, source: "purchase" | "gift" | "admin"): Promise<void> {
+export async function grantCourseEnrollment(conn: Queryable, userId: number, courseId: number, source: "purchase" | "gift" | "admin" | "company"): Promise<void> {
   await conn.execute(
     `INSERT INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', ?)
      ON DUPLICATE KEY UPDATE source = IF(source = 'plus', ?, source)`,
@@ -204,10 +204,10 @@ export async function grantCourseEnrollment(conn: Queryable, userId: number, cou
 
 /**
  * Üyelik satırını `INSERT IGNORE` eder; yeni eklendiyse `true`, zaten üyeyse `false` döner.
- * `purchase`/`gift`/`admin` kaynağında programdaki TÜM kurslara üyeliğin yeni olup olmadığına bakılmaksızın
+ * `purchase`/`gift`/`admin`/`company` kaynağında programdaki TÜM kurslara üyeliğin yeni olup olmadığına bakılmaksızın
  * `grantCourseEnrollment` uygulanır (ödenmiş bir yeniden işlem, eksik/Plus kayıtları tamamlar); `auto` kurs yazmaz.
  */
-export async function enrollInProgram(conn: Queryable, userId: number, programId: number, source: "purchase" | "gift" | "auto" | "admin"): Promise<boolean> {
+export async function enrollInProgram(conn: Queryable, userId: number, programId: number, source: "purchase" | "gift" | "auto" | "admin" | "company"): Promise<boolean> {
   const [res] = await conn.execute<ResultSetHeader>(
     "INSERT IGNORE INTO program_enrollments (user_id, program_id, source) VALUES (?, ?, ?)",
     [userId, programId, source],

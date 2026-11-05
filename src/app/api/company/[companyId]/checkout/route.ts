@@ -3,11 +3,14 @@ import { seatCheckoutSchema, seatOrderTitle } from "@/lib/company-rules";
 import { fail, getBaseUrl, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { fulfillOrder, getCourseBySlug } from "@/lib/lms";
 import { createSeatOrder } from "@/lib/orders";
+import { createProgramSeatOrder } from "@/lib/program-seat-orders";
+import { getProgramOffer } from "@/lib/programs";
+import { programSeatOrderTitle } from "@/lib/program-seat-rules";
 import { paymentProvider } from "@/lib/payment";
 import { startTamiCheckout } from "@/lib/payment/start-tami";
 
 /**
- * Şirket kontenjanı siparişi (şirket admini ya da ana admin): kurs + adet. Fiyat DAİMA sunucuda DB'den (birim fiyat × adet) hesaplanır;
+ * Şirket kontenjanı siparişi (şirket admini ya da ana admin): kurs ya da program (`kind`, varsayılan kurs) + adet. Fiyat DAİMA sunucuda DB'den (birim fiyat × adet) hesaplanır;
  * kupon yoktur (hediye siparişi gibi). Sonuç şekli /api/checkout ile aynı: pending (manual) · paid (mock) · redirect (tami 3D Secure).
  * Ödeme onaylanınca `fulfillOrder` kurs kaydı açmaz, şirketin kontenjanını artırır.
  */
@@ -19,10 +22,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   const body = await parseBody(request, seatCheckoutSchema);
   if (body.error) return body.error;
   const userId = guard.payload.userId;
-  const { slug, quantity, billing, card } = body.data;
+  const { kind, slug, quantity, billing, card } = body.data;
   const provider = paymentProvider();
 
   try {
+    if (kind === "program") {
+      // Birim fiyat programın güncel satış fiyatıdır (kullanıcıya özel indirim yok: owned = boş küme). Yayında olmayan program yok sayılır.
+      const offer = await getProgramOffer(slug, null);
+      if (!offer) return fail("Program bulunamadı.", 404);
+      if (!offer.sellable || offer.calc.effectivePrice <= 0) return fail("Bu program için kontenjan satın alınamaz.", 400);
+      if (provider.requiresCard && !card) return fail("Kart bilgileri eksik.", 400);
+      const total = Math.round(offer.calc.effectivePrice * quantity * 100) / 100;
+      const title = programSeatOrderTitle(offer.program.title, quantity);
+      const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+      const orderId = await createProgramSeatOrder({ userId, companyId, programId: offer.program.id, title, quantity, total, billing, provider: provider.id, ip });
+      if (provider.id === "mock") {
+        await fulfillOrder(orderId);
+        return ok({ orderId, status: "paid" }, 201);
+      }
+      if (provider.id === "manual") return ok({ orderId, status: "pending" }, 201);
+      const r = await startTamiCheckout({
+        orderId, total, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
+        basket: [{ key: `program-seats:${offer.program.slug}`, title, subCategory: "Kontenjan", price: total }],
+      });
+      if (!r.ok) return fail(r.message, 400);
+      return ok({ orderId, status: "redirect", threeDSHtmlContent: r.threeDSHtmlContent }, 201);
+    }
     const course = await getCourseBySlug(slug);
     if (!course) return fail("Kurs bulunamadı.", 404);
     if (course.price <= 0) return fail("Ücretsiz kurslar için kontenjan satın alınamaz.", 400);

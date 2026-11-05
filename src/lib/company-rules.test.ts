@@ -13,6 +13,7 @@ import {
   isWatched,
   normalizeCompanyCode,
   normalizeDomain,
+  courseProgress,
   progressStatus,
   seatOrderResultView,
   reclaimOutcome,
@@ -20,6 +21,17 @@ import {
   seatOrderTitle,
   signupFieldsSchema,
 } from "./company-rules.ts";
+import {
+  BULK_MAX_ITEMS,
+  PROGRAM_ASSIGN_BLOCK_MESSAGES,
+  dedupeBulkItems,
+  programAssignBlock,
+  programSeatOrderTitle,
+  releasableCourseIds,
+  summarizeBulk,
+  type BulkItem,
+  type BulkResult,
+} from "./program-seat-rules.ts";
 
 test("generateCompanyCode: ön ek Türkçe harfleri sadeleştirir", () => {
   assert.equal(generateCompanyCode("Ağaç Yazılım A.Ş.", () => 0), "AGAC-2222");
@@ -118,6 +130,18 @@ test("progressStatus", () => {
   assert.equal(progressStatus({ completed: 3, total: 12, certificate: "PRF-1" }), "completed");
 });
 
+test("progressStatus: final sınavı geçilmedikçe dersler bitse de tamamlanmaz", () => {
+  assert.equal(progressStatus({ completed: 12, total: 12, certificate: null, quizzesPassed: 0, quizzesTotal: 1 }), "in_progress");
+  assert.equal(progressStatus({ completed: 12, total: 12, certificate: null, quizzesPassed: 1, quizzesTotal: 1 }), "completed");
+  assert.equal(progressStatus({ completed: 0, total: 12, certificate: null, quizzesPassed: 0, quizzesTotal: 1 }), "not_started");
+});
+
+test("courseProgress: ders + final sınavı birlikte, öğrenci tarafıyla aynı yuvarlama", () => {
+  assert.deepEqual(courseProgress({ completed: 6, total: 10, quizzesPassed: 0, quizzesTotal: 1 }), { done: 6, total: 11, percentage: 55 });
+  assert.equal(courseProgress({ completed: 10, total: 10, quizzesPassed: 1, quizzesTotal: 1 }).percentage, 100);
+  assert.equal(courseProgress({ completed: 0, total: 0, quizzesPassed: 0, quizzesTotal: 0 }).percentage, 0);
+});
+
 test("seatCheckoutSchema: adet 1..1000; seatOrderTitle", () => {
   const base = {
     slug: "excel",
@@ -128,6 +152,20 @@ test("seatCheckoutSchema: adet 1..1000; seatOrderTitle", () => {
   assert.equal(seatCheckoutSchema.safeParse({ ...base, quantity: 1001 }).success, false);
   assert.equal(seatCheckoutSchema.safeParse({ ...base, quantity: 25 }).success, true);
   assert.equal(seatOrderTitle("Excel", 25), "Excel · 25 kişilik kontenjan");
+});
+
+test("seatCheckoutSchema: kind yoksa 'course', 'program' kabul, başka değer reddedilir", () => {
+  const base = {
+    slug: "excel",
+    quantity: 3,
+    billing: { invoice_type: "bireysel", full_name: "Ali Veli", email: "a@x.com" },
+    consents: { distance_sales: true, privacy: true, delivery_return: true, kvkk: true },
+  };
+  const none = seatCheckoutSchema.safeParse(base);
+  assert.equal(none.success && none.data.kind, "course");
+  const prog = seatCheckoutSchema.safeParse({ ...base, kind: "program" });
+  assert.equal(prog.success && prog.data.kind, "program");
+  assert.equal(seatCheckoutSchema.safeParse({ ...base, kind: "x" }).success, false);
 });
 
 test("seatOrderResultView: kontenjan siparişi erişim açıldı demez, şirket paneline yönlendirir", () => {
@@ -145,4 +183,57 @@ test("seatOrderResultView: kontenjan siparişi erişim açıldı demez, şirket 
   assert.match(rejected.body, /Yetersiz bakiye/);
   assert.notEqual(rejected.cta.href, "/sepet"); // kontenjan siparişi sepetten verilmez
   assert.equal(seatOrderResultView("rejected", null).body, "Ödeme onaylanmadı.");
+});
+
+// ── Program kontenjanı ve toplu atama ─────────────────────────────────────────
+const okProgram = { free: 3, member: "active" as const, burned: false, alreadyProgramMember: false, courseCount: 4 };
+
+test("programAssignBlock: sıra not_member → empty_program → burned → already_member → no_free", () => {
+  assert.equal(programAssignBlock(okProgram), null);
+  assert.equal(programAssignBlock({ ...okProgram, member: "other", courseCount: 0, burned: true, alreadyProgramMember: true, free: 0 }), "not_member");
+  assert.equal(programAssignBlock({ ...okProgram, courseCount: 0, burned: true, alreadyProgramMember: true, free: 0 }), "empty_program");
+  assert.equal(programAssignBlock({ ...okProgram, burned: true, alreadyProgramMember: true, free: 0 }), "burned");
+  assert.equal(programAssignBlock({ ...okProgram, alreadyProgramMember: true, free: 0 }), "already_member");
+  assert.equal(programAssignBlock({ ...okProgram, free: 0 }), "no_free");
+});
+
+test("PROGRAM_ASSIGN_BLOCK_MESSAGES: her neden için Türkçe mesaj var", () => {
+  for (const reason of ["not_member", "burned", "already_member", "no_free", "empty_program"] as const) {
+    assert.ok(PROGRAM_ASSIGN_BLOCK_MESSAGES[reason].length > 10, reason);
+  }
+});
+
+test("releasableCourseIds: yalnızca company kaynaklı ve başka atamayla karşılanmayan program kursları", () => {
+  assert.deepEqual(
+    releasableCourseIds({ programCourseIds: [1, 2, 3], companySourced: new Set([1, 2, 9]), coveredElsewhere: new Set([2]) }),
+    [1],
+  );
+  assert.deepEqual(releasableCourseIds({ programCourseIds: [1, 2], companySourced: new Set(), coveredElsewhere: new Set() }), []);
+});
+
+test("dedupeBulkItems: aynı (kullanıcı, tür, id) bir kez; kurs 5 ile program 5 ayrıdır", () => {
+  const items: BulkItem[] = [
+    { userId: 1, courseId: 5 },
+    { userId: 1, courseId: 5 },
+    { userId: 1, programId: 5 },
+    { userId: 2, courseId: 5 },
+  ];
+  assert.deepEqual(dedupeBulkItems(items), [
+    { userId: 1, courseId: 5 },
+    { userId: 1, programId: 5 },
+    { userId: 2, courseId: 5 },
+  ]);
+});
+
+test("summarizeBulk: başarıları sayar, başarısızları nedenleriyle toplar", () => {
+  const a: BulkItem = { userId: 1, courseId: 5 }, b: BulkItem = { userId: 2, courseId: 5 }, c: BulkItem = { userId: 3, programId: 7 };
+  const results: BulkResult[] = [{ item: a, ok: true }, { item: b, ok: false, reason: "no_free" }, { item: c, ok: true }];
+  const s = summarizeBulk(results);
+  assert.equal(s.assigned, 2);
+  assert.deepEqual(s.failures, [{ item: b, ok: false, reason: "no_free" }]);
+});
+
+test("BULK_MAX_ITEMS ve programSeatOrderTitle", () => {
+  assert.equal(BULK_MAX_ITEMS, 500);
+  assert.equal(programSeatOrderTitle("Satın Alma", 3), "Satın Alma · 3 kişilik program kontenjanı");
 });

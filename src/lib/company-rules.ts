@@ -8,8 +8,6 @@ import { SEAT_MAX_QUANTITY, seatQuantitySchema } from "./seat-quantity.ts";
 
 export { SEAT_MAX_QUANTITY };
 
-export const MEMBER_PURCHASE_BLOCK_MESSAGE = "Şirket hesabına bağlı olduğunuz için bireysel satın alma yapılamaz. Şirket yöneticinizden talep edebilirsiniz.";
-
 // ── Şirket kodu ───────────────────────────────────────────────────────────────
 /** Karıştırılan karakterler (0, O, 1, I) yok. */
 export const COMPANY_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -136,13 +134,24 @@ export const canRemoveAdmin = (adminCount: number): boolean => adminCount >= 2;
 
 export type ProgressStatus = "not_started" | "in_progress" | "completed";
 
-export function progressStatus(i: { completed: number; total: number; certificate: string | null }): ProgressStatus {
-  if (i.certificate || (i.total > 0 && i.completed >= i.total)) return "completed";
-  return i.completed === 0 ? "not_started" : "in_progress";
+/**
+ * Öğrencinin gördüğü ilerleme ile aynı hesap (`getCourseProgress`): (tamamlanan ders + geçilen final sınavı) / (toplam ders + final sınavı).
+ * Yalnızca kurs final sınavları sayılır; modül sınavları ilerlemeye girmez.
+ */
+export function courseProgress(i: { completed: number; total: number; quizzesPassed: number; quizzesTotal: number }): { done: number; total: number; percentage: number } {
+  const total = i.total + i.quizzesTotal, done = i.completed + i.quizzesPassed;
+  return { done, total, percentage: total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0 };
+}
+
+export function progressStatus(i: { completed: number; total: number; certificate: string | null; quizzesPassed?: number; quizzesTotal?: number }): ProgressStatus {
+  const p = courseProgress({ completed: i.completed, total: i.total, quizzesPassed: i.quizzesPassed ?? 0, quizzesTotal: i.quizzesTotal ?? 0 });
+  if (i.certificate || (p.total > 0 && p.done >= p.total)) return "completed";
+  return p.done === 0 ? "not_started" : "in_progress";
 }
 
 // ── Kontenjan satın alma ──────────────────────────────────────────────────────
 export const seatCheckoutSchema = z.object({
+  kind: z.enum(["course", "program"]).default("course"),
   slug: z.string().min(1).max(120),
   quantity: seatQuantitySchema,
   billing: billingSchema,

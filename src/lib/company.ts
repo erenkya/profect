@@ -2,7 +2,6 @@ import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import pool from "@/lib/db";
 import {
-  MEMBER_PURCHASE_BLOCK_MESSAGE,
   canRemoveAdmin,
   corporateEmailBlock,
   generateCompanyCode,
@@ -30,11 +29,6 @@ export async function getMembership(userId: number): Promise<Membership | null> 
 export async function isActiveMember(userId: number): Promise<boolean> {
   const [rows] = await pool.query<RowDataPacket[]>("SELECT 1 FROM company_members WHERE user_id = ? AND status = 'active' LIMIT 1", [userId]);
   return rows.length > 0;
-}
-
-/** Onaylı üyeye bireysel satın alma kapalıdır: engel varsa mesajı, yoksa null döner. */
-export async function memberPurchaseBlock(userId: number): Promise<string | null> {
-  return (await isActiveMember(userId)) ? MEMBER_PURCHASE_BLOCK_MESSAGE : null;
 }
 
 const toRef = (r: RowDataPacket): CompanyRef => ({ id: r.id, name: r.name, code: r.code, is_active: !!r.is_active });

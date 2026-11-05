@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { CourseSidebar } from "@/components/learn/CourseSidebar";
 import { getCurrentUser } from "@/lib/auth";
 import Link from "next/link";
-import { canAccessCourse, getCourseBySlug, getCourseProgress, getCourseTree } from "@/lib/lms";
+import { canAccessCourse, getCompanyDue, getCourseBySlug, getCourseProgress, getCourseTree } from "@/lib/lms";
+import { formatIstanbul, remainingLabel } from "@/lib/due-rules";
 import { FREE_PREVIEW_LESSONS, previewLessonIds } from "@/lib/preview";
 
 export default async function LearnLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
@@ -14,7 +15,9 @@ export default async function LearnLayout({ children, params }: { children: Reac
   const course = await getCourseBySlug(slug, { includeDraft: user?.role === "admin" });
   if (!course) notFound();
   const enrolled = user ? await canAccessCourse(user.id, course.id) : false;
-  const previewing = !enrolled && user?.role !== "admin";
+  const due = user ? await getCompanyDue(user.id, course.id) : null;
+  const expired = due?.expired === true;
+  const previewing = !enrolled && user?.role !== "admin" && !expired;
 
   const [tree, progress] = await Promise.all([
     getCourseTree(course.id, user?.id),
@@ -25,6 +28,13 @@ export default async function LearnLayout({ children, params }: { children: Reac
     <div className="learn-shell">
       <CourseSidebar slug={slug} title={course.title} tree={tree} percentage={progress.percentage} previewIds={previewing ? previewLessonIds(tree) : null} />
       <main className="learn-main">
+        {due && (
+          <div role="status" style={{ marginBottom: 24, padding: "10px 14px", border: "1px solid var(--color-accent-2-300)", background: "var(--color-accent-2-100)", fontSize: 14 }}>
+            {expired
+              ? <>Bu eğitimin süresi <strong>{formatIstanbul(due.dueAt)}</strong> tarihinde doldu ve erişimin kapandı. Devam etmek için şirket yöneticinden süreyi uzatmasını iste.</>
+              : <>Şirketin bu eğitimi <strong>{formatIstanbul(due.dueAt)}</strong> tarihine kadar bitirmeni istiyor · {remainingLabel(due.dueAt, Date.now())}</>}
+          </div>
+        )}
         {previewing && (
           <div role="status" style={{ marginBottom: 24, padding: "10px 14px", border: "1px solid var(--color-accent-2-300)", background: "var(--color-accent-2-100)", fontSize: 14, display: "flex", gap: 12, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
             <span>Ücretsiz önizleme — kursun ilk {FREE_PREVIEW_LESSONS} dersini {user ? "" : "giriş yapmadan "}inceleyebilirsin. İlerlemen kaydedilmez.</span>

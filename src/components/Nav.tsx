@@ -10,7 +10,7 @@ import { CartLink } from "./CartLink";
 import { ProfileMenu } from "./ProfileMenu";
 import type { SessionUser } from "@/lib/auth";
 
-export function Nav({ user }: { user: SessionUser | null }) {
+export function Nav({ user, companyAdmin = false }: { user: SessionUser | null; companyAdmin?: boolean }) {
   const pathname = usePathname();
   const onCourses = pathname.startsWith("/kurslar");
   const onPrograms = pathname.startsWith("/programlar");
@@ -74,7 +74,7 @@ export function Nav({ user }: { user: SessionUser | null }) {
         )}
       </div>
       <div className="nav-cart"><CartLink /></div>
-      {user && <div className="nav-profile"><ProfileMenu user={user} /></div>}
+      {user && <div className="nav-profile"><ProfileMenu user={user} companyAdmin={companyAdmin} /></div>}
       <button
         type="button"
         className="nav-burger"

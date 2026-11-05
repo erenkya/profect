@@ -26,7 +26,7 @@ type Defaults = { full_name: string; email: string; phone: string };
 /** Hediye modu: tek kurs ya da program, sepet/kupon yok; sipariş /api/gifts/checkout'a gider. */
 type GiftCheckout = { kind: "course" | "program"; slug: string; title: string; price: number; provider: "manual" | "mock" | "tami" };
 /** Şirket kontenjanı modu: tek kurs × adet, kupon/sepet yok; sipariş /api/company/<id>/checkout'a gider. */
-type SeatsCheckout = { companyId: number; slug: string; title: string; unitPrice: number; provider: "manual" | "mock" | "tami"; company?: { name: string; tax_office: string; tax_number: string } };
+type SeatsCheckout = { kind?: "course" | "program"; companyId: number; slug: string; title: string; unitPrice: number; provider: "manual" | "mock" | "tami"; company?: { name: string; tax_office: string; tax_number: string } };
 type Errors = Record<string, string>;
 
 const input = { background: "#fff", minHeight: 44, fontSize: 16 } as const;
@@ -138,7 +138,7 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
           gift
             ? { kind: gift.kind, slug: gift.slug, recipient_email: recipient.email, message: recipient.message, billing, consents, ...(needsCard && { card }) }
             : seats
-            ? { slug: seats.slug, quantity: qty, billing, consents, ...(needsCard && { card }) }
+            ? { kind: seats.kind ?? "course", slug: seats.slug, quantity: qty, billing, consents, ...(needsCard && { card }) }
             : { items, billing, consents, ...(needsCard && { card }), ...(coupon && { coupon_code: coupon.code }) },
         ),
       });
@@ -176,7 +176,7 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
               <label htmlFor="co-quantity">Kaç kişilik kontenjan?</label>
               <input id="co-quantity" className="input" type="number" inputMode="numeric" min={1} max={SEAT_MAX_QUANTITY} step={1} value={quantity} onChange={(e) => { setQuantity(e.target.value); setErrors((s) => ({ ...s, quantity: "" })); }} aria-invalid={!!errors.quantity} aria-describedby="co-quantity-hint" style={{ ...input, maxWidth: 160 }} />
               {errors.quantity && <div role="alert" className="field-err">{errors.quantity}</div>}
-              <div id="co-quantity-hint" style={{ fontSize: 13, color: "var(--muted-55)" }}>Satın aldığınız kontenjanı şirket panelinden çalışanlarınıza atarsınız. Birim fiyat: {formatPrice(seats.unitPrice)}</div>
+              <div id="co-quantity-hint" style={{ fontSize: 13, color: "var(--muted-55)" }}>Satın aldığınız {seats.kind === "program" ? "program kontenjanını" : "kontenjanı"} şirket panelinden çalışanlarınıza atarsınız. Birim fiyat: {formatPrice(seats.unitPrice)}</div>
             </div>
           </section>
         )}
@@ -268,7 +268,7 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
       <aside className="card blueprint elev-md checkout-summary" style={{ background: "#fff", padding: 24, gap: 14 }}>
         <Corners />
         <div className="dialog-title" style={{ fontSize: 24, textTransform: "uppercase" }}>Sipariş özeti</div>
-        {gift ? <div className="sum-row"><span>{gift.title}</span><span>{formatPrice(gift.price)}</span></div> : seats ? <div className="sum-row"><span>{seats.title} × {qtyOk ? qty : "—"} kişilik kontenjan</span><span>{formatPrice(seatsTotal)}</span></div> : <CartLines lines={q.lines} />}
+        {gift ? <div className="sum-row"><span>{gift.title}</span><span>{formatPrice(gift.price)}</span></div> : seats ? <div className="sum-row"><span>{seats.title} × {qtyOk ? qty : "—"} kişilik {seats.kind === "program" ? "program " : ""}kontenjan</span><span>{formatPrice(seatsTotal)}</span></div> : <CartLines lines={q.lines} />}
         {!solo && <div className="co-coupon">
           {coupon ? (
             <div className="co-coupon-applied" role="status">
@@ -322,7 +322,7 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
         {error && <FormMessage kind="error">{error}</FormMessage>}
         <button type="submit" disabled={busy || !allConsents} className="btn btn-primary blueprint btn-block" style={{ fontSize: 18, padding: 14 }}>
           <Corners />
-          {busy ? "İşleniyor…" : effTotal <= 0 ? "Siparişi tamamla (ücretsiz)" : provider === "tami" ? `${formatPrice(effTotal)} öde` : gift ? "Hediyeyi satın al" : seats ? "Kontenjanı satın al" : BUTTON_LABEL[provider]}
+          {busy ? "İşleniyor…" : effTotal <= 0 ? "Siparişi tamamla (ücretsiz)" : provider === "tami" ? `${formatPrice(effTotal)} öde` : gift ? "Hediyeyi satın al" : seats ? (seats.kind === "program" ? "Program kontenjanını satın al" : "Kontenjanı satın al") : BUTTON_LABEL[provider]}
         </button>
         {!allConsents && <div style={{ fontSize: 13, color: "var(--muted-55)", textAlign: "center" }}>Devam etmek için dört onayın tümünü işaretle.</div>}
         <PaymentBadges secured={needsCard} />

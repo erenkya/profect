@@ -6,6 +6,7 @@ import { Check, Gift, ShoppingCart } from "lucide-react";
 import { Corners } from "./Corners";
 import { addToCart, useCart } from "@/lib/cart";
 import { RequestCourseButton } from "@/components/company/RequestCourseButton";
+import { formatIstanbul } from "@/lib/due-rules";
 
 type Props = {
   slug: string;
@@ -16,13 +17,15 @@ type Props = {
   loggedIn: boolean;
   hasAccess: boolean;
   giftable?: boolean;
-  /** Şirkete bağlı (onaylı) üye: bireysel satın alma kapalı, şirketten talep eder. */
+  /** Şirkete bağlı (onaylı) üye: satın almanın yanında şirketinden de talep edebilir. */
   companyMember?: boolean;
+  /** Şirketin verdiği eğitim süresi (UTC) dolduğu için erişimi kapanmış kullanıcı: talep yerine açıklama gösterilir. */
+  expiredAt?: string | null;
 };
 
 const big = { fontSize: 19, padding: 15, marginTop: 0 } as const;
 
-export function PurchasePanel({ slug, courseId, priceLabel, oldPriceLabel, includes, loggedIn, hasAccess, giftable = true, companyMember = false }: Props) {
+export function PurchasePanel({ slug, courseId, priceLabel, oldPriceLabel, includes, loggedIn, hasAccess, giftable = true, companyMember = false, expiredAt = null }: Props) {
   const router = useRouter();
   const { items, ready } = useCart();
   const inCart = ready && items.some((i) => i.type === "course" && i.slug === slug);
@@ -46,8 +49,10 @@ export function PurchasePanel({ slug, courseId, priceLabel, oldPriceLabel, inclu
             <Corners />
             Derse Git
           </Link>
-        ) : companyMember ? (
-          <RequestCourseButton courseId={courseId} style={big} />
+        ) : expiredAt ? (
+          <div role="status" style={{ padding: "12px 14px", border: "1px solid var(--color-accent-2-300)", background: "var(--color-accent-2-100)", fontSize: 14 }}>
+            Bu eğitimin süresi <strong>{formatIstanbul(expiredAt)}</strong> tarihinde doldu ve erişimin kapandı. Devam etmek için şirket yöneticinden süreyi uzatmasını iste.
+          </div>
         ) : (
           <>
             <button type="button" className="btn btn-primary blueprint btn-block" onClick={buyNow} style={big}>
@@ -63,10 +68,11 @@ export function PurchasePanel({ slug, courseId, priceLabel, oldPriceLabel, inclu
                 <ShoppingCart size={16} aria-hidden /> Sepete Ekle
               </button>
             )}
+            {companyMember && <RequestCourseButton courseId={courseId} className="btn btn-secondary btn-block" style={{ marginTop: 0 }} />}
           </>
         )}
 
-        {giftable && !companyMember && (
+        {giftable && (
           <Link href={loggedIn ? `/hediye-et/${slug}` : `/giris?next=${encodeURIComponent(`/hediye-et/${slug}`)}`} className="btn btn-secondary btn-block" style={{ marginTop: 0 }}>
             <Gift size={16} aria-hidden /> Hediye Et
           </Link>

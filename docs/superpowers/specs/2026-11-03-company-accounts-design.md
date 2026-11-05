@@ -70,7 +70,7 @@ Başarı ölçütü: bir şirket tek bir hesapla bir eğitimin N kişilik konten
 - Geri alınan kullanıcının ilerlemesi ve aldığı sertifika silinmez. Sertifika doğrulama linki çalışmaya devam eder.
 
 ### 4.5 Çalışanın satın alması ve talep
-- Şirkete bağlı (onaylı) üye **kendi parasıyla kurs alamaz**. Kendi parasıyla almak isteyen, ayrı bir bireysel hesap açar.
+- Şirkete bağlı (onaylı) üye **kendi parasıyla kurs alamaz**. Kendi parasıyla almak isteyen, ayrı bir bireysel hesap açar. **→ 2026-11-05'te değişti: üyeler ve şirket adminleri kendileri de satın alabilir (bkz. `2026-11-05-company-program-seats-design.md` §4.7).**
 - Üye, şirket admininden bir kursu satın almasını **talep edebilir**. Kurs sayfasında "Satın al" yerine "Şirketimden talep et" görünür.
 - Şirket admini talebi görür: boş kontenjan varsa kontenjan atar, yoksa satın alma akışına gider ya da reddeder.
 
@@ -93,7 +93,7 @@ Kontenjan metni her yerde "kontenjan" olarak yazılır (taslaklarda "koltuk" ge�
 
 1. **Kurumsal hesap onaysız açılır.** Ana admin onayı gerekmez, kayıtla şirket hemen oluşur. Alan adı kötüye kullanımına karşı: kayıt olan kişinin e-posta adresi, girdiği şirket mail uzantısıyla aynı olmalıdır (doğrulama koduyla zaten kanıtlanır). Bir uzantı tek şirkete aittir. Genel posta sağlayıcıları (gmail.com, outlook.com, hotmail.com, yahoo.com, icloud.com vb.) uzantı olarak kabul edilmez. Ana admin şirketi düzenleyip pasifleştirebilir.
 2. **Mail uzantısı eşleşmesi yalnızca kolaylıktır.** Onay kutusu kodu doldurur ama katılım yine onay ister (4.2).
-3. **Onay beklerken** kullanıcı normal bir bireysel hesap gibi davranır (satın alabilir). Şirkete **onaylandığı anda** kurs satın alma, Profect Plus alma ve hediye gönderme kapanır. Onaydan önce aldığı kurslar kalır. Hediyeyi **almak** serbesttir.
+3. **Onay beklerken** kullanıcı normal bir bireysel hesap gibi davranır (satın alabilir). Şirkete **onaylandığı anda** kurs satın alma, Profect Plus alma ve hediye gönderme kapanır. Onaydan önce aldığı kurslar kalır. Hediyeyi **almak** serbesttir. **→ 2026-11-05: kapanma kaldırıldı; onaylı üye satın alma ve hediye göndermeye devam eder.**
 4. **Kullanıcı şirkete sonradan da katılabilir:** profil sayfasına "Şirkete katıl" alanı eklenir (mevcut kullanıcılar için yol olsun diye).
 5. **Şirket admini kontenjanı kendine de atayabilir.**
 6. **Zaten sahip olan kullanıcıya atama yapılamaz.** Kullanıcı o kursa başka yoldan sahipse (satın almış, hediye, Plus), atama reddedilir. Hediyedeki "zaten sahip" kuralının aynısı.
@@ -101,7 +101,7 @@ Kontenjan metni her yerde "kontenjan" olarak yazılır (taslaklarda "koltuk" ge�
 8. **Ana admin kontenjan düzenlemesi:** toplamı artırabilir. Azaltırken toplam, atanan + yanan sayıdan aşağı inemez.
 9. **"İzlenmiş" tanımı:** o kursun herhangi bir dersi için kullanıcıda `lesson_progress` satırı ya da `video_stream_usage` satırı (bytes > 0) varsa izlenmiş sayılır. Sayfa yüklenip hemen kapanan istekler yüzünden yanlış "izlenmiş" çıkmasın diye eşik (örnek: toplam akış baytı belirli bir eşiğin üstü) uygulayıp uygulamamak oluşturucunun kararıdır (6. bölüm).
 10. **Talepler** kurs bazındadır. Aynı üyenin aynı kurs için birden fazla açık talebi olamaz. Durumlar: bekliyor / karşılandı / reddedildi. Üye kendi taleplerinin durumunu görür.
-12. **Şirket admini de üyedir.** Kurumsal kayıtla gelen ilk admin dahil, şirket adminleri de 4.5'teki "kendi parasıyla kurs alamaz" kısıtına tabidir. Kendileri için eğitim isterlerse şirketin kontenjanından kendilerine atarlar (madde 5). Kontenjan alımı dışında bireysel satın alma yapamazlar.
+12. **Şirket admini de üyedir.** Kurumsal kayıtla gelen ilk admin dahil, şirket adminleri de 4.5'teki "kendi parasıyla kurs alamaz" kısıtına tabidir. Kendileri için eğitim isterlerse şirketin kontenjanından kendilerine atarlar (madde 5). Kontenjan alımı dışında bireysel satın alma yapamazlar. **→ 2026-11-05: bu kısıt kalktı; adminler de bireysel satın alabilir.**
 11. **Şirket satın alması** normal sipariştir: fatura bilgileri ("kurumsal" fatura tipi) şirket kaydından önceden doldurulur. Ödeme onaylanınca `fulfillOrder` kurs kaydı **açmaz**, şirketin kontenjanını artırır. Şirket kontenjan alımı yalnızca şirket adminlerine açıktır.
 
 ## 6. Oluşturucuya bırakılanlar

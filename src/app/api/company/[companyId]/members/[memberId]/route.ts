@@ -3,6 +3,7 @@ import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { requireCompanyAccess } from "@/lib/company-guard";
 import { resolveMember } from "@/lib/company";
 import { removeMember } from "@/lib/company-seats";
+import { startedReclaimText } from "@/lib/company-copy";
 
 /** { action: "approve" | "reject" | "promote" | "demote" | "remove", confirm_burn? }: şirket admini kendi şirketinde, ana admin her şirkette. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ companyId: string; memberId: string }> }) {
@@ -21,7 +22,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
       if (r.reason === "not_found") return fail("Üye bulunamadı.", 404);
       if (r.reason === "last_admin") return fail("Şirketin son yöneticisi çıkarılamaz.", 409);
       return Response.json(
-        { success: false, reason: "needs_confirm", courseTitles: r.courseTitles, message: "Bu üye şu eğitimlerde en az bir video izlemiş: bu eğitimlerin hakkı yeni bir kişiye verilemez. Devam ederseniz erişimi kapanır ve kontenjanlar yanmış sayılır." },
+        { success: false, reason: "needs_confirm", courseTitles: r.courseTitles, userName: r.userName, message: startedReclaimText({ name: r.userName ?? "Üye", titles: r.courseTitles ?? [] }) },
         { status: 409 },
       );
     }

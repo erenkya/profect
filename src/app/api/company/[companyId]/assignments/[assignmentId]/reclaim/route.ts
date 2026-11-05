@@ -2,6 +2,7 @@ import { z } from "zod";
 import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
 import { requireCompanyAccess } from "@/lib/company-guard";
 import { reclaimSeat } from "@/lib/company-seats";
+import { startedReclaimText } from "@/lib/company-copy";
 
 /**
  * Atanmış kontenjanı geri alır. İzlenmiş eğitimde `confirm_burn` yoksa 409 `needs_confirm` döner (hiçbir şey değişmez);
@@ -21,7 +22,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     if (r.ok) return ok({ outcome: r.outcome, message: r.outcome === "burn" ? "Erişim kapatıldı; kontenjan yanmış sayıldı." : "Kontenjan geri alındı." });
     if (r.reason === "not_found") return fail("Atama bulunamadı.", 404);
     return Response.json(
-      { success: false, reason: "needs_confirm", courseTitle: r.courseTitle, message: "Bu eğitimin hakkı yeni bir kişiye verilemez: kullanıcı bu eğitimde en az bir video izlemiş. Devam ederseniz erişimi kapanır ve kontenjan yanmış sayılır." },
+      { success: false, reason: "needs_confirm", courseTitle: r.courseTitle, userName: r.userName, message: startedReclaimText({ name: r.userName ?? "Çalışan", titles: [r.courseTitle ?? "bu eğitim"] }) },
       { status: 409 },
     );
   } catch (err) {

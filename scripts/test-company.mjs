@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import mysql from "mysql2/promise";
 import { hashCode } from "../src/lib/verification-code.ts";
-import { MEMBER_PURCHASE_BLOCK_MESSAGE, isCompanyCode } from "../src/lib/company-rules.ts";
+import { isCompanyCode } from "../src/lib/company-rules.ts";
 // Şirket hesapları / kontenjan için uçtan uca test (çalışan sunucu + gerçek DB). Kendi kullanıcılarını, kursunu, şirketlerini
 // ve siparişlerini oluşturur, sonunda hepsini siler (e-postalar e2e-company-<damga>-*, kurs slug'ı e2e-company-*).
 // Kullanım:  MAIL_DRY_RUN=true npm run dev   →   npm run test:company
@@ -303,14 +303,16 @@ try {
   const CONSENTS = { distance_sales: true, privacy: true, delivery_return: true, kvkk: true };
   const m5c = await cookieFor(m5.email);
   r = await api("/api/checkout", { cookie: m5c, body: { items: [{ type: "course", slug: SLUG }], billing: BILL(m5.email), consents: CONSENTS } });
-  check("aktif üye sepetten kurs alamaz (403, kısıt mesajı)", r.status === 403 && r.json?.message === MEMBER_PURCHASE_BLOCK_MESSAGE, JSON.stringify(r.json));
+  // 2026-11-05: şirkete bağlı üye ve şirket admini de kendi satın alabilir (hem talep hem satın alma açık).
+  r = await api("/api/checkout", { cookie: m5c, body: { items: [{ type: "course", slug: SLUG }], billing: BILL(m5.email), consents: CONSENTS } });
+  check("aktif üye sepetten kurs alabilir (201)", r.status === 201, JSON.stringify(r.json));
   r = await api("/api/gifts/checkout", { cookie: m5c, body: { slug: SLUG, recipient_email: mail("hediye-alici"), billing: BILL(m5.email), consents: CONSENTS } });
-  check("aktif üye hediye satın alamaz (403)", r.status === 403 && r.json?.message === MEMBER_PURCHASE_BLOCK_MESSAGE, JSON.stringify(r.json));
+  check("aktif üye hediye satın alabilir (201)", r.status === 201, JSON.stringify(r.json));
   r = await api("/api/checkout", { cookie: ax, body: { items: [{ type: "course", slug: SLUG }], billing: BILL(adminXEmail), consents: CONSENTS } });
-  check("şirket admini de bireysel satın alamaz (403)", r.status === 403 && r.json?.message === MEMBER_PURCHASE_BLOCK_MESSAGE, JSON.stringify(r.json));
+  check("şirket admini de bireysel satın alabilir (201)", r.status === 201, JSON.stringify(r.json));
   const mpc = await cookieFor(mp.email);
   r = await api("/api/checkout", { cookie: mpc, body: { items: [{ type: "course", slug: SLUG }], billing: BILL(mp.email), consents: CONSENTS } });
-  check("onay bekleyen üye kısıttan etkilenmez", r.json?.message !== MEMBER_PURCHASE_BLOCK_MESSAGE && r.status === 201, JSON.stringify(r.json));
+  check("onay bekleyen üye de satın alabilir (201)", r.status === 201, JSON.stringify(r.json));
 
   // Eğitim talebi
   const rq = (cookie, body) => api("/api/company/requests", { cookie, body });
@@ -347,6 +349,17 @@ try {
   check("talep reddedilir (200)", r.status === 200 && (await db.query("SELECT status FROM company_course_requests WHERE id=?", [req2.id]))[0][0].status === "rejected", JSON.stringify(r.json));
   r = await rq(m5c, { course_id: course2 });
   check("reddedildikten sonra aynı kurs için yeni talep açılabilir (200)", r.status === 200, JSON.stringify(r.json));
+
+  // Bekleyen talebi olan üye kursu kendisi edinirse talep panelde bayat görünmez; çözme denemesi 409 already_owned (çökmez).
+  const panelText = async () => (await (await fetch(B + "/sirket", { headers: { cookie: ax } })).text()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  check("açık talep panelde görünür (sağlama)", /Eğitim talebi/.test(await panelText()));
+  await db.query("INSERT INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'purchase')", [m5.uid, course2]);
+  check("kursu kendisi edinen üyenin bekleyen talebi panelde görünmez", !/Eğitim talebi/.test(await panelText()));
+  const reqStale = (await db.query("SELECT id FROM company_course_requests WHERE user_id=? AND course_id=? AND status='pending'", [m5.uid, course2]))[0][0];
+  r = await api(rqPath(coX.id, reqStale.id), { cookie: ax, body: { action: "assign" } });
+  check("bayat talebi atamayla çözme 409 already_owned", r.status === 409 && r.json?.reason === "already_owned", JSON.stringify(r.json));
+  await db.query("DELETE FROM enrollments WHERE user_id=? AND course_id=? AND source='purchase'", [m5.uid, course2]);
+  await api(rqPath(coX.id, reqStale.id), { cookie: ax, body: { action: "reject" } });
 
   // ── D. Şirketin kontenjan satın alması ──────────────────────────────────────
   const [c3] = await db.query("INSERT INTO courses (slug, code, title, description, price, is_published) VALUES (?, ?, ?, 'e2e', 0, 1)", [`${SLUG}-3`, `E2E3-${stamp}`.slice(0, 30), "E2E Ücretsiz Kurs"]);

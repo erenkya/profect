@@ -12,7 +12,7 @@ import { isActiveMember } from "@/lib/company";
 import { formatPrice } from "@/lib/format";
 import { coverUrl } from "@/lib/cover-key";
 import { previewLessonIds } from "@/lib/preview";
-import { canAccessCourse, getCourseBySlug, getCourseTree } from "@/lib/lms";
+import { canAccessCourse, getCompanyDue, getCourseBySlug, getCourseTree } from "@/lib/lms";
 import { listProgramsForCourse } from "@/lib/programs";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -31,6 +31,7 @@ export default async function CoursePage({ params }: Props) {
   const user = await getCurrentUser();
   const hasAccess = user ? await canAccessCourse(user.id, course.id) : false;
   const companyMember = user ? await isActiveMember(user.id) : false;
+  const companyDue = user && !hasAccess ? await getCompanyDue(user.id, course.id) : null;
   const tree = await getCourseTree(course.id);
   const programs = await listProgramsForCourse(course.id);
 
@@ -162,6 +163,7 @@ export default async function CoursePage({ params }: Props) {
           hasAccess={hasAccess}
           giftable={course.price > 0}
           companyMember={companyMember}
+          expiredAt={companyDue?.expired ? companyDue.dueAt : null}
         />
       </section>
     </main>

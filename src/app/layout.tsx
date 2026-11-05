@@ -6,6 +6,7 @@ import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Motion } from "@/components/Motion";
 import { getCurrentUser } from "@/lib/auth";
+import { getMembership } from "@/lib/company";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { CookieConsent } from "@/components/CookieConsent";
 
@@ -33,12 +34,14 @@ export const viewport: Viewport = { themeColor: "#ffffff" };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
+  const membership = user ? await getMembership(user.id) : null;
+  const companyAdmin = membership?.role === "admin" && membership.status === "active";
   return (
     <html lang="tr" className={`${barlow.variable} ${barlowCondensed.variable}`}>
       <body>
         <Motion />
         <SmoothScroll />
-        <Nav user={user} />
+        <Nav user={user} companyAdmin={companyAdmin} />
         {children}
         <Footer />
         <CookieConsent />

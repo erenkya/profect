@@ -192,15 +192,41 @@ export async function grantEnrollment(userId: number, courseId: number, source: 
 }
 
 /**
+ * Şirket kontenjanıyla açılmış kaydın geçerli son tarihi (UTC): çalışana özel süre ile eğitim geneli sürenin erken olanı.
+ * Süre tanımlı değilse NULL. `e`, `enrollments` satırının takma adıdır.
+ */
+const COMPANY_DUE_SQL = `(SELECT CASE WHEN a.due_at IS NULL THEN d.due_at WHEN d.due_at IS NULL THEN a.due_at ELSE LEAST(a.due_at, d.due_at) END
+    FROM company_assignments a
+    LEFT JOIN company_course_deadlines d ON d.company_id = a.company_id AND d.course_id = a.course_id
+   WHERE a.user_id = e.user_id AND a.course_id = e.course_id AND a.status = 'active' LIMIT 1)`;
+
+/** Bitmemiş (aktif) şirket kaydı ve son tarihi geçmişse doğru: erişim kapalıdır. Tamamlanmış kayıt hiç kilitlenmez. */
+const COMPANY_LOCKED_SQL = `(e.source = 'company' AND e.status = 'active' AND COALESCE(${COMPANY_DUE_SQL} <= UTC_TIMESTAMP(), 0))`;
+
+/**
  * Kullanıcının kursa erişimi var mı? (BOLA koruması)
  * Kayıt satırı (aktif ya da tamamlanmış — tamamlanan kurs salt-okunur incelenebilsin).
+ * Şirket kontenjanıyla açılmış ve süresi dolmuş, bitmemiş kayıt erişim vermez.
  */
 export async function canAccessCourse(userId: number, courseId: number): Promise<boolean> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT 1 FROM enrollments WHERE user_id = ? AND course_id = ? LIMIT 1",
+    `SELECT 1 FROM enrollments e WHERE e.user_id = ? AND e.course_id = ? AND NOT ${COMPANY_LOCKED_SQL} LIMIT 1`,
     [userId, courseId],
   );
   return rows.length > 0;
+}
+
+export type CompanyDue = { dueAt: string; expired: boolean };
+
+/** Kullanıcının bu kurstaki bitmemiş şirket kaydının son tarihi; süre yoksa ya da kayıt şirket kaydı değilse null. */
+export async function getCompanyDue(userId: number, courseId: number): Promise<CompanyDue | null> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT ${COMPANY_DUE_SQL} AS due_at, ${COMPANY_DUE_SQL} <= UTC_TIMESTAMP() AS expired
+       FROM enrollments e WHERE e.user_id = ? AND e.course_id = ? AND e.source = 'company' AND e.status = 'active'`,
+    [userId, courseId],
+  );
+  const r = rows[0];
+  return r?.due_at ? { dueAt: r.due_at, expired: Number(r.expired) === 1 } : null;
 }
 
 /** Kullanıcının erişimi olan kurs id'leri (liste sayfalarında tek sorguyla). */
@@ -256,6 +282,10 @@ export type MyCourse = CourseRow & {
   percentage: number;
   completed_lessons: number;
   certificate_code: string | null;
+  /** Şirket atamasının geçerli son tarihi (UTC); süre yoksa ya da kurs bitmişse null. */
+  due_at: string | null;
+  /** Son tarih geçmiş: erişim kapalı. */
+  locked: boolean;
 };
 
 function myPercentage(done: number, total: number) {
@@ -270,7 +300,9 @@ export async function listMyCourses(userId: number): Promise<MyCourse[]> {
                JOIN modules m ON m.id = l.module_id WHERE lp.user_id = ? AND m.course_id = c.id) AS completed_lessons,
             ${QUIZ_TOTAL_SQL} AS total_quizzes,
             ${QUIZ_PASSED_SQL} AS passed_quizzes,
-            cert.certificate_code
+            cert.certificate_code,
+            IF(e.source = 'company' AND e.status = 'active', ${COMPANY_DUE_SQL}, NULL) AS due_at,
+            ${COMPANY_LOCKED_SQL} AS locked
        FROM courses c
        LEFT JOIN enrollments e ON e.course_id = c.id AND e.user_id = ?
        LEFT JOIN certificates cert ON cert.course_id = c.id AND cert.user_id = ?
@@ -289,6 +321,8 @@ export async function listMyCourses(userId: number): Promise<MyCourse[]> {
       completed_lessons: done,
       percentage: myPercentage(done + Number(r.passed_quizzes), base.lesson_count + Number(r.total_quizzes)),
       certificate_code: r.certificate_code ?? null,
+      due_at: r.due_at ?? null,
+      locked: Number(r.locked) === 1,
     };
   });
 }
@@ -331,7 +365,7 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
     // Hediye siparişinde kurs siparişi verene DEĞİL, alıcıya gider: burada yalnızca hediye aktive edilir (token + mailler).
     const gift = await activateGiftForOrder(conn, orderId);
     const [items] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id, program_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
-    type Line = { item_type: "course" | "plus" | "program" | "seats"; course_id: number | null; program_id: number | null; quantity?: number };
+    type Line = { item_type: "course" | "plus" | "program" | "seats" | "program_seats"; course_id: number | null; program_id: number | null; quantity?: number };
     // Eski (tek kalemli) siparişlerde kalem satırı yoktur: plan/course_id alanlarından türetilir.
     const lines: Line[] = items.length
       ? (items as Line[])
@@ -360,6 +394,9 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
       } else if (line.item_type === "seats" && line.course_id && o.company_id) {
         // Şirket kontenjanı: kurs kaydı AÇILMAZ, şirketin havuzu artar. UNIQUE(order_id) çift yazımı da engeller.
         await conn.execute("INSERT IGNORE INTO company_allocations (company_id, course_id, quantity, source, order_id, created_by) VALUES (?, ?, ?, 'purchase', ?, ?)", [o.company_id, line.course_id, line.quantity ?? 1, orderId, o.user_id]);
+      } else if (line.item_type === "program_seats" && line.program_id && o.company_id) {
+        // Şirket program kontenjanı: program/kurs kaydı AÇILMAZ, şirketin program havuzu artar (UNIQUE(order_id) çift yazımı engeller).
+        await conn.execute("INSERT IGNORE INTO company_program_allocations (company_id, program_id, quantity, source, order_id, created_by) VALUES (?, ?, ?, 'purchase', ?, ?)", [o.company_id, line.program_id, line.quantity ?? 1, orderId, o.user_id]);
       }
     }
     await conn.commit();
@@ -529,7 +566,7 @@ export function orderLabel(o: { plan: "single" | "plus" | "cart"; course_title: 
   return giftOrderLabel(o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—"), o.gift_to);
 }
 
-export type MyOrderItem = { type: "course" | "plus" | "program" | "seats"; title: string; price: number; href: string | null };
+export type MyOrderItem = { type: "course" | "plus" | "program" | "seats" | "program_seats"; title: string; price: number; href: string | null };
 export type MyOrderDetail = {
   id: number;
   status: "pending" | "paid" | "rejected";

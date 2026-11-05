@@ -5,7 +5,7 @@ import { Send } from "lucide-react";
 
 const STATUS_STYLE = { fontSize: 13, textAlign: "center", color: "var(--muted-72)" } as const;
 
-/** Şirkete bağlı üyenin kurs sayfasındaki tek eylemi: şirket yöneticisinden eğitimi talep eder (bireysel satın alma kapalıdır). */
+/** Şirkete bağlı üyenin kurs sayfasındaki eylemi: şirket yöneticisinden eğitimi talep eder (kendi satın alması da açıktır). */
 export function RequestCourseButton({ courseId, className = "btn btn-primary btn-block", style }: { courseId: number; className?: string; style?: React.CSSProperties }) {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
