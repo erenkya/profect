@@ -1,6 +1,6 @@
 # Şirket Paneli: Program Kontenjanı ve Toplu Atama: Tasarım
 
-Tarih: 2026-11-05 · Durum: onay bekliyor
+Tarih: 2026-11-05 · Durum: uygulandı (2026-11-05). Uygulama sapmaları: ana admin dışında `test:api` çalıştırılamadı; panel arayüzü tarayıcıda elle görülemedi (yalnızca sunucu çıktısı doğrulandı); yeni sunucu export'ları dev sunucusunun görmesi için yeni modüllere kondu (`program-seat-rules.ts`, `program-seat-orders.ts`, `company-matrix.ts`, `company-buyable-programs.ts`, `company-program-progress.ts`, `company-watch.ts`, `company-lock.ts`)
 
 Önceki belge: `2026-11-03-company-accounts-design.md` (şirket hesapları ve kurs kontenjanı). Bu belge onu genişletir; orada "bu sürümde değil" denen **program kontenjanını** ekler ve atamayı **toplu** yapar. Dil Türkçedir; arayüz metinleri ve kod yorumları mevcut koddaki gibi Türkçe-İngilizce karışık kalır. "Karar" etiketli maddeler ürün sahibinin söyledikleridir; "Benim kararım" etiketliler tasarımcının doldurduğu boşluklardır.
 
