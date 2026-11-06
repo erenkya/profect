@@ -4,5 +4,5 @@ export const COMPANY = {
   name: "Profect",
   address: "[Adres]",
   mersis: "[MERSİS no]",
-  email: "info@frofect.com.tr",
+  email: "info@profect.com.tr",
 };
