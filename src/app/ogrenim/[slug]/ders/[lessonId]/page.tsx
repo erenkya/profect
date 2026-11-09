@@ -43,7 +43,8 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
   const done = flow[idx]?.done ?? false;
 
   // Soru yazabilenler: kursa erişimi olanlar ve dersin personeli. Önizleyenler akışı okuyamaz bile (kayıtlı öğrencilere ait).
-  const canPost = enrolled || (user ? await canAnswerLesson(user, id) : false);
+  const staff = user ? await canAnswerLesson(user, id) : false;
+  const canPost = enrolled || staff;
   const threads = canPost ? await listLessonComments(id, user?.id) : [];
   // Dosyalar yalnızca kayıtlı öğrenci/yönetici içindir; önizlemede sorgu bile yapılmaz.
   const files = previewing ? [] : await listLessonFiles(id);
@@ -66,7 +67,7 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
         nextLabel={next && nextOpen ? (next.kind === "quiz" ? "Sınava geç" : "Sonraki ders") : null}
       />
       {!previewing && <LessonFiles lessonId={lesson.id} files={files} />}
-      {!previewing && <LessonComments lessonId={lesson.id} threads={threads} canPost={canPost} />}
+      {!previewing && <LessonComments lessonId={lesson.id} threads={threads} canPost={canPost} canModerate={staff} />}
       {previewing && !nextOpen && (
         <div className="card blueprint lesson-card" style={{ background: "#fff", padding: 24, gap: 12, marginTop: 32, maxWidth: 560 }}>
           <div className="card-kicker" style={{ fontSize: 11 }}>Ücretsiz önizleme sona erdi</div>

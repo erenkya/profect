@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CommentForm } from "@/components/learn/LessonComments";
+import { CommentForm, DeleteCommentButton } from "@/components/learn/LessonComments";
 import { requireStaffPage } from "@/lib/admin-guard";
 import { listStaffThreads } from "@/lib/comments";
 
@@ -34,14 +34,14 @@ export default async function StaffQuestions({ searchParams }: { searchParams: P
               <Link href={`/ogrenim/${t.courseSlug}/ders/${t.lessonId}`}>{t.courseTitle} · {t.lessonTitle}</Link>
             </div>
             <div>
-              <div style={{ fontSize: 13, color: "var(--muted-55)" }}><strong style={{ color: "var(--color-text)", fontWeight: 600 }}>{t.question.author}</strong> · {when(t.question.created_at)}</div>
+              <div style={{ fontSize: 13, color: "var(--muted-55)", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><strong style={{ color: "var(--color-text)", fontWeight: 600 }}>{t.question.author}</strong> · {when(t.question.created_at)}<DeleteCommentButton commentId={t.question.id} /></div>
               <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{t.question.body}</p>
             </div>
             {t.replies.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingLeft: 16, borderLeft: "2px solid var(--color-accent-100)" }}>
                 {t.replies.map((r) => (
                   <div key={r.id}>
-                    <div style={{ fontSize: 13, color: "var(--muted-55)" }}><strong style={{ color: "var(--color-text)", fontWeight: 600 }}>{r.author}</strong>{r.isStaff && " (eğitmen)"} · {when(r.created_at)}</div>
+                    <div style={{ fontSize: 13, color: "var(--muted-55)", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><strong style={{ color: "var(--color-text)", fontWeight: 600 }}>{r.author}</strong>{r.isStaff && " (eğitmen)"} · {when(r.created_at)}<DeleteCommentButton commentId={r.id} /></div>
                     <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{r.body}</p>
                   </div>
                 ))}

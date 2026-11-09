@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CookieSettingsButton } from "@/components/legal/CookieSettingsButton";
+import { COMPANY } from "@/components/legal/company";
 
 export function Footer() {
   const pathname = usePathname();
@@ -41,10 +42,11 @@ export function Footer() {
       <div className="footer-col">
         <div className="footer-title">Şirket</div>
         <Link href="/hakkimizda">Hakkımızda</Link>
-        <a href="#">İletişim</a>
+        <a href={`mailto:${COMPANY.email}`}>İletişim</a>
         <a href="https://www.linkedin.com/company/profect-academy/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
         <Link href="/kvkk">KVKK Aydınlatma Metni</Link>
         <Link href="/cerez-politikasi">Çerez Politikası</Link>
+        <Link href="/icerik-bildirimi">İçerik ve Telif Bildirimi</Link>
         <CookieSettingsButton className="footer-link-btn">Çerez Tercihleri</CookieSettingsButton>
       </div>
     </footer>

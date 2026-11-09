@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { COMPANY } from "@/components/legal/company";
 import type { CommentNode } from "@/lib/comments";
 
 type Thread = { question: CommentNode; replies: CommentNode[] };
@@ -58,28 +60,70 @@ export function CommentForm({ lessonId, parentId = null, placeholder, submitLabe
   );
 }
 
-function Message({ c }: { c: CommentNode }) {
+/** Yetkilinin (yönetici / dersin eğitmeni) yorumu kaldırdığı düğme; yanlışlıkla silmeyi önlemek için iki adımlıdır. Soru silinirse cevapları da gider. */
+export function DeleteCommentButton({ commentId }: { commentId: number }) {
+  const router = useRouter();
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const small = { padding: "2px 8px", fontSize: 13 } as const;
+
+  async function remove() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/client/comments/${commentId}`, { method: "DELETE" });
+      if (res.ok) return router.refresh();
+    } catch {}
+    setBusy(false);
+    setArmed(false);
+  }
+
+  return armed ? (
+    <span style={{ display: "inline-flex", gap: 4 }}>
+      <button type="button" className="btn btn-ghost" style={small} disabled={busy} onClick={remove}>{busy ? "…" : "Kaldır"}</button>
+      <button type="button" className="btn btn-ghost" style={small} disabled={busy} onClick={() => setArmed(false)}>Vazgeç</button>
+    </span>
+  ) : (
+    <button type="button" className="btn btn-ghost" style={small} onClick={() => setArmed(true)}>Sil</button>
+  );
+}
+
+/** Hukuka aykırı içerik bildirimi: yorumun numarasını taşıyan hazır e-posta açar. */
+function reportHref(lessonId: number, commentId: number) {
+  const subject = encodeURIComponent(`İçerik bildirimi: yorum #${commentId}`);
+  const body = encodeURIComponent(`Ders #${lessonId}, yorum #${commentId} hakkında bildirim.\n\nGerekçe (hukuka aykırılık, telif hakkı ihlali vb.):\n`);
+  return `mailto:${COMPANY.email}?subject=${subject}&body=${body}`;
+}
+
+function Message({ c, lessonId, canModerate }: { c: CommentNode; lessonId: number; canModerate: boolean }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ fontSize: 13, color: "var(--muted-55)", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <strong style={{ color: "var(--color-text)", fontWeight: 600 }}>{c.author}</strong>
         {c.isStaff && <span className="tag tag-accent-2">Eğitmen</span>}
         <span>{when(c.created_at)}</span>
+        {!c.mine && <a href={reportHref(lessonId, c.id)}>Bildir</a>}
+        {canModerate && <DeleteCommentButton commentId={c.id} />}
       </div>
       <p style={{ margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{c.body}</p>
     </div>
   );
 }
 
-/** Ders sayfasının altındaki soru & yorum bölümü. `canPost` false ise (önizleme) yalnızca okunur. */
-export function LessonComments({ lessonId, threads, canPost }: { lessonId: number; threads: Thread[]; canPost: boolean }) {
+/** Ders sayfasının altındaki soru & yorum bölümü. `canPost` false ise (önizleme) yalnızca okunur; `canModerate` yetkiliye "Sil" düğmesini açar. */
+export function LessonComments({ lessonId, threads, canPost, canModerate = false }: { lessonId: number; threads: Thread[]; canPost: boolean; canModerate?: boolean }) {
   const [replying, setReplying] = useState<number | null>(null);
   return (
     <section aria-labelledby="comments-title" style={{ marginTop: 48, maxWidth: 760 }}>
       <h2 id="comments-title" style={{ fontSize: 28, textTransform: "uppercase", margin: "0 0 16px" }}>Sorular ve yorumlar</h2>
 
       {canPost ? (
-        <CommentForm lessonId={lessonId} placeholder="Bu dersle ilgili sorunu yaz — eğitmene e-postayla iletilir." submitLabel="Soruyu gönder" />
+        <>
+          <CommentForm lessonId={lessonId} placeholder="Bu dersle ilgili sorunu yaz — eğitmene e-postayla iletilir." submitLabel="Soruyu gönder" />
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--muted-55)" }}>
+            Yazdıkların adınla birlikte bu kursa kayıtlı katılımcılara ve eğitmene görünür. Hukuka aykırı, hakaret içeren ya da telif hakkı ihlal eden paylaşım yapma;
+            bu tür içerikler bildirim üzerine kaldırılır. <Link href="/icerik-bildirimi">İçerik bildirimi</Link>
+          </p>
+        </>
       ) : (
         <p style={{ margin: 0, color: "var(--muted-55)" }}>Soru sormak için kursa kayıt olmalısın.</p>
       )}
@@ -88,10 +132,10 @@ export function LessonComments({ lessonId, threads, canPost }: { lessonId: numbe
         {threads.length === 0 && <p style={{ margin: 0, color: "var(--muted-55)" }}>Henüz soru yok. İlk soruyu sen sor.</p>}
         {threads.map(({ question, replies }) => (
           <article key={question.id} className="card" style={{ background: "#fff", padding: 20, gap: 14 }}>
-            <Message c={question} />
+            <Message c={question} lessonId={lessonId} canModerate={canModerate} />
             {replies.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingLeft: 16, borderLeft: "2px solid var(--color-accent-100)" }}>
-                {replies.map((r) => <Message key={r.id} c={r} />)}
+                {replies.map((r) => <Message key={r.id} c={r} lessonId={lessonId} canModerate={canModerate} />)}
               </div>
             )}
             {canPost && (replying === question.id ? (

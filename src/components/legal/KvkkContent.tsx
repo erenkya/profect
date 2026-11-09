@@ -20,7 +20,8 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
         <li><strong>Kimlik ve iletişim:</strong> ad soyad, e-posta adresi, telefon numarası (isteğe bağlı).</li>
         <li><strong>Hesap güvenliği:</strong> şifreniz (yalnızca geri döndürülemez özet olarak saklanır), oturum bilgileri, giriş zamanı, IP adresi ve cihaz/tarayıcı bilgisi.</li>
         <li><strong>Eğitim verileri:</strong> kayıtlı olduğunuz kurslar, ders ilerlemeniz, sınav cevapları ve sonuçları, düzenlenen sertifikalar.</li>
-        <li><strong>İşlem verileri:</strong> sipariş ve abonelik kayıtları.</li>
+        <li><strong>İşlem verileri:</strong> sipariş ve ödeme kayıtları (kart bilgileriniz saklanmaz).</li>
+        <li><strong>Soru ve yorumlar:</strong> ders altına yazdığınız mesajlar ve adınız.</li>
       </ul>
     ),
   },
@@ -30,7 +31,8 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
       <ul>
         <li>Üyelik hesabınızı oluşturmak ve yönetmek,</li>
         <li>Kurs, sınav ve sertifika hizmetlerini sunmak; ilerlemenizi kaydetmek,</li>
-        <li>Sipariş ve abonelik süreçlerini yürütmek,</li>
+        <li>Sipariş ve ödeme süreçlerini yürütmek,</li>
+        <li>Ders altındaki soru-cevap alanını işletmek, sorularınızı eğitmene iletmek ve hukuka aykırı içerik bildirimlerini değerlendirmek,</li>
         <li>Hesap ve platform güvenliğini sağlamak, kötüye kullanımı ve otomatik saldırıları önlemek,</li>
         <li>Hukuki yükümlülükleri yerine getirmek ve destek taleplerinizi yanıtlamak.</li>
       </ul>
@@ -48,11 +50,19 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
   {
     title: "5. Aktarım",
     body: (
-      <p>
-        Kişisel verileriniz; hizmetin sunulması için gerekli olduğu ölçüde barındırma, e-posta gönderimi, güvenlik doğrulaması (bot koruması) ve ödeme hizmeti sağlayıcıları gibi
-        hizmet sağlayıcılarımıza ve yasal olarak yetkili kamu kurum ve kuruluşlarına aktarılabilir. Verileriniz üçüncü kişilere pazarlama amacıyla satılmaz. Yurt dışına
-        aktarım söz konusu olduğunda KVKK m.9 hükümlerine uyulur.
-      </p>
+      <>
+        <p>
+          Kişisel verileriniz; hizmetin sunulması için gerekli olduğu ölçüde barındırma, e-posta gönderimi, güvenlik doğrulaması (bot koruması) ve ödeme hizmeti sağlayıcıları gibi
+          hizmet sağlayıcılarımıza ve yasal olarak yetkili kamu kurum ve kuruluşlarına aktarılabilir. Ders altına yazdığınız soru ve yorumlar adınızla birlikte dersin eğitmenine ve
+          platform yöneticilerine e-postayla iletilir, aynı kursa kayıtlı katılımcılara görünür. Verileriniz üçüncü kişilere pazarlama amacıyla satılmaz.
+        </p>
+        <p>
+          <strong>Yurt dışına aktarım:</strong> Kayıt ve giriş sayfalarında bot doğrulaması için Cloudflare, Inc. (Turnstile) hizmeti kullanılır; sayfayı açtığınızda IP adresiniz ve
+          tarayıcı bilgileriniz bu hizmete iletilir. E-postalar (doğrulama kodu, şifre bağlantısı, sipariş özeti, hediye ve soru bildirimleri) Google LLC’nin e-posta altyapısı üzerinden
+          gönderilir; bu kapsamda e-posta adresiniz, adınız ve e-posta içeriği Google’a aktarılır. Her iki hizmet sağlayıcı da yurt dışında bulunduğundan bu aktarımlar KVKK m.9’da
+          öngörülen koşullara uygun olarak yapılır.
+        </p>
+      </>
     ),
   },
   {
