@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Award } from "lucide-react";
 import { Corners } from "@/components/Corners";
+import { HeroSlides } from "@/components/HeroSlides";
 import { CourseCard } from "@/components/CourseCard";
 import { DEMO_CERT, FOUNDERS, STEPS, BLUE, PURP, courseColor, courseDelay } from "@/data/courses";
 import { getCurrentUser } from "@/lib/auth";
@@ -90,6 +91,12 @@ export default async function HomePage() {
               <div data-fx="1" data-py="0.12" data-rot="0.04" data-br="45" style={{ position: "absolute", left: "50%", top: "50%", width: 340, height: 340, margin: "-170px 0 0 -170px", border: "1px solid var(--color-accent-300)", transform: "rotate(45deg)" }} />
               <div data-fx="1" data-py="0.22" data-rot="-0.06" data-br="45" style={{ position: "absolute", left: "50%", top: "50%", width: 240, height: 240, margin: "-120px 0 0 -120px", border: "1px dashed var(--color-accent-2-300)", transform: "rotate(45deg)" }} />
               <div data-fx="1" data-py="0.4" data-fl="10" data-br="45" className="brand-diamond" style={{ position: "absolute", left: "calc(50% - 30px)", top: "calc(50% - 30px)", width: 60, height: 60, transform: "rotate(45deg)" }} />
+
+              <div style={{ position: "absolute", left: "clamp(-96px,-7vw,-20px)", top: 0, bottom: 0, width: "min(340px,72%)", display: "flex", alignItems: "center" }}>
+                <div data-fx="1" data-py="0.1" data-fl="6" data-ph="1" style={{ width: "100%" }}>
+                  <HeroSlides />
+                </div>
+              </div>
 
               <div data-fx="1" data-py="-0.18" data-fl="8" data-ph="0" style={{ position: "absolute", left: 0, top: "6%", width: "min(300px,70%)" }}>
                 <div className="card blueprint elev-md" style={{ background: "#ffffff", padding: 18, gap: 10 }}>
