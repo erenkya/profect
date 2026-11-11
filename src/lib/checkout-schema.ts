@@ -28,9 +28,13 @@ const identity = {
   email: z.string().trim().toLowerCase().email("Geçerli bir e-posta girin.").max(190),
 };
 
-// Bireysel faturada yalnızca hesaptan gelen ad ve e-posta alınır; kurumsalda tam fatura bilgisi zorunludur.
+// Bireysel faturada ad ve e-posta alınır; telefon isteğe bağlıdır (sipariş sonrası iletişim için), doluysa geçerli olmalı. Kurumsalda tam fatura bilgisi zorunludur.
 export const billingSchema = z.discriminatedUnion("invoice_type", [
-  z.object({ invoice_type: z.literal("bireysel"), ...identity }),
+  z.object({
+    invoice_type: z.literal("bireysel"),
+    ...identity,
+    phone: z.string().trim().optional().refine((v) => !v || normalizePhone(v) !== null, "Geçerli bir cep telefonu girin (5XX XXX XX XX)."),
+  }),
   z.object({
     invoice_type: z.literal("kurumsal"),
     ...identity,

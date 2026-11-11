@@ -163,6 +163,83 @@ export async function sendOrderReceiptEmail(r: OrderReceipt) {
   await deliver({ to: r.buyer.email, subject: `Siparişiniz alındı #${r.orderNo} — Profect`, html: receiptLayout(r), text });
 }
 
+/** Yeni (ödemesi alınmamış) siparişlerin bildirimi bu adrese gider: müşteriyle iletişime geçilip ödeme alınır. */
+export const ORDER_NOTIFY_TO = "kaan.tuncbilek@xellence.com.tr";
+
+export type NewOrderNotice = {
+  orderNo: number;
+  createdAt: string;
+  customer: { name: string; accountEmail: string; billingEmail: string; phone: string | null };
+  invoice: { type: "bireysel" | "kurumsal"; companyName?: string | null; taxOffice?: string | null; taxNumber?: string | null; address?: string | null } | null;
+  items: string[];
+  giftTo?: string | null;
+  couponCode?: string | null;
+  discount: number;
+  /** Müşterinin ödeyeceği tutar (KDV dahil). */
+  total: number;
+  adminUrl: string;
+};
+
+/** Yeni sipariş bildirimi (Kaan Bey'e): müşterinin iletişim bilgisi + sipariş içeriği. Tüm değerler kaçışlanır. */
+export async function sendNewOrderNotificationEmail(n: NewOrderNotice, to = ORDER_NOTIFY_TO) {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:6px 12px 6px 0;font-size:14px;color:#6b6880;vertical-align:top;white-space:nowrap">${esc(label)}</td><td style="padding:6px 0;font-size:14px">${value}</td></tr>`;
+  const c = n.customer;
+  const inv = n.invoice;
+  const mailLink = (m: string) => `<a href="mailto:${esc(m)}" style="color:#3a5fdc">${esc(m)}</a>`;
+  const phone = c.phone ? `<a href="tel:+90${esc(c.phone)}" style="color:#3a5fdc">0${esc(c.phone)}</a>` : "Girilmedi";
+  const rows = [
+    row("Ad soyad", esc(c.name)),
+    row("Telefon", phone),
+    row("Fatura e-postası", mailLink(c.billingEmail)),
+    ...(c.accountEmail.toLowerCase() !== c.billingEmail.toLowerCase() ? [row("Hesap e-postası", mailLink(c.accountEmail))] : []),
+    ...(inv?.type === "kurumsal" ? [row("Şirket", esc(`${inv.companyName ?? ""} · ${inv.taxOffice ?? ""} V.D. · VKN ${inv.taxNumber ?? ""}`)), row("Adres", esc(inv.address ?? ""))] : []),
+  ].join("");
+  const items = n.items.map((t) => `<li style="margin:2px 0">${esc(t)}</li>`).join("");
+  const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><title>Yeni Sipariş</title></head>
+<body style="margin:0;background:#f6f6fb;font-family:Arial,sans-serif;color:#17142b">
+  <div style="max-width:560px;margin:24px auto;background:#fff;border:1px solid #dbe4fd">
+    <div style="background:#162357;color:#fff;padding:24px 28px">
+      <div style="font-size:22px;font-weight:bold;letter-spacing:.04em">PROFECT</div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px">Yeni sipariş · #${n.orderNo}</div>
+    </div>
+    <div style="padding:28px">
+      <p style="font-size:15px;line-height:1.6;margin:0 0 20px">Yeni bir sipariş alındı. Müşteriyle iletişime geçip ödemeyi aldıktan sonra siparişi admin panelinden onaylayın; onayla birlikte eğitim hesabına tanımlanır.</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:20px">${rows}</table>
+      <div style="border-top:2px solid #162357;padding-top:12px;font-size:14px">
+        <strong>Sipariş içeriği</strong>
+        <ul style="margin:8px 0 0;padding-left:20px">${items}</ul>
+        ${n.giftTo ? `<p style="margin:10px 0 0;color:#6b6880">Hediye alıcısı: ${esc(n.giftTo)}</p>` : ""}
+        ${n.discount > 0 ? `<p style="margin:10px 0 0;color:#1d8a55">Kupon${n.couponCode ? ` ${esc(n.couponCode)}` : ""}: -${esc(money(n.discount))}</p>` : ""}
+        <p style="margin:10px 0 0;font-size:16px;font-weight:bold;color:#162357">Toplam (KDV dahil): ${esc(money(n.total))}</p>
+        <p style="margin:6px 0 0;font-size:12px;color:#6b6880">Sipariş zamanı: ${esc(n.createdAt)}</p>
+      </div>
+      <p style="text-align:center;margin:28px 0 0">
+        <a href="${esc(n.adminUrl)}" style="background:#3a5fdc;color:#fff;text-decoration:none;padding:12px 28px;font-weight:bold;display:inline-block">Siparişlere Git</a>
+      </p>
+    </div>
+  </div>
+</body></html>`;
+  const text = [
+    `Yeni sipariş #${n.orderNo}`,
+    "",
+    `Ad soyad: ${c.name}`,
+    `Telefon: ${c.phone ? `0${c.phone}` : "Girilmedi"}`,
+    `Fatura e-postası: ${c.billingEmail}`,
+    ...(c.accountEmail.toLowerCase() !== c.billingEmail.toLowerCase() ? [`Hesap e-postası: ${c.accountEmail}`] : []),
+    ...(inv?.type === "kurumsal" ? [`Şirket: ${inv.companyName} · ${inv.taxOffice} V.D. · VKN ${inv.taxNumber}`, `Adres: ${inv.address}`] : []),
+    "",
+    ...n.items.map((t) => `- ${t}`),
+    ...(n.giftTo ? [`Hediye alıcısı: ${n.giftTo}`] : []),
+    ...(n.discount > 0 ? [`Kupon${n.couponCode ? ` ${n.couponCode}` : ""}: -${money(n.discount)}`] : []),
+    `Toplam (KDV dahil): ${money(n.total)}`,
+    `Sipariş zamanı: ${n.createdAt}`,
+    "",
+    `Siparişler: ${n.adminUrl}`,
+  ].join("\n");
+  await deliver({ to, subject: `Yeni sipariş #${n.orderNo} — ${c.name}`, html, text });
+}
+
 export async function sendPasswordResetEmail(email: string, url: string) {
   const intro = "Hesabınız için bir şifre sıfırlama talebi aldık. Yeni şifrenizi belirlemek için aşağıdaki butonu kullanın.";
   const notice = "Bu bağlantı 10 dakika geçerlidir. Talebi siz yapmadıysanız bu e-postayı yok sayın; şifreniz değişmez.";

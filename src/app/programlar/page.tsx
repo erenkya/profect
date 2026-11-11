@@ -26,7 +26,7 @@ export default async function ProgramsPage() {
             <div data-reveal="1" className="eyebrow">Paketler</div>
             <h1 data-reveal="1" data-delay="100" style={{ fontSize: "clamp(56px,7vw,96px)", lineHeight: 0.92, textTransform: "uppercase", margin: "0 0 20px" }}>Uzmanlık programları</h1>
             <p data-reveal="1" data-delay="200" style={{ fontSize: 18, maxWidth: 560, color: "var(--muted-72)" }}>
-              Birkaç kursu tek pakette topla: ayrı ayrı almaktan daha uygun. Sahip olduğun kurslar fiyattan düşülür, tüm kursları bitirdiğinde program sertifikan otomatik düzenlenir.
+              Birkaç kursu tek pakette topla: ayrı ayrı almaktan daha uygun. Sahip olduğun kurslar fiyattan düşülür, tüm kursları tamamladığında program sertifikan otomatik olarak hazırlanır.
             </p>
           </div>
         </section>

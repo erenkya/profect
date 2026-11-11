@@ -8,6 +8,7 @@ import { getProgramOffer } from "@/lib/programs";
 import { programSeatOrderTitle } from "@/lib/program-seat-rules";
 import { paymentProvider } from "@/lib/payment";
 import { startTamiCheckout } from "@/lib/payment/start-tami";
+import { notifyNewOrder } from "@/lib/order-notify";
 import { withVat } from "@/lib/vat";
 
 /**
@@ -42,7 +43,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
         await fulfillOrder(orderId);
         return ok({ orderId, status: "paid" }, 201);
       }
-      if (provider.id === "manual") return ok({ orderId, status: "pending" }, 201);
+      if (provider.id === "manual") {
+        await notifyNewOrder(orderId, getBaseUrl(request));
+        return ok({ orderId, status: "pending" }, 201);
+      }
       const r = await startTamiCheckout({
         orderId, total: charge, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
         basket: [{ key: `program-seats:${offer.program.slug}`, title, subCategory: "Kontenjan", price: charge }],
@@ -65,7 +69,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
       await fulfillOrder(orderId);
       return ok({ orderId, status: "paid" }, 201);
     }
-    if (provider.id === "manual") return ok({ orderId, status: "pending" }, 201);
+    if (provider.id === "manual") {
+      await notifyNewOrder(orderId, getBaseUrl(request));
+      return ok({ orderId, status: "pending" }, 201);
+    }
 
     const r = await startTamiCheckout({
       orderId, total: charge, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),

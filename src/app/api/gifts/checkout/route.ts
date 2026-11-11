@@ -7,6 +7,7 @@ import { cancelGiftsForOrder, countRecentGiftsBySender, createGiftOrder, type Gi
 import { fulfillOrder, getCourseBySlug } from "@/lib/lms";
 import { paymentProvider } from "@/lib/payment";
 import { startTamiCheckout } from "@/lib/payment/start-tami";
+import { notifyNewOrder } from "@/lib/order-notify";
 import { getProgramOffer } from "@/lib/programs";
 import { allocateVat, withVat } from "@/lib/vat";
 
@@ -68,7 +69,10 @@ export async function POST(request: Request) {
       await fulfillOrder(orderId);
       return ok({ orderId, status: "paid" }, 201);
     }
-    if (provider.id === "manual") return ok({ orderId, status: "pending" }, 201);
+    if (provider.id === "manual") {
+      await notifyNewOrder(orderId, getBaseUrl(request));
+      return ok({ orderId, status: "pending" }, 201);
+    }
 
     const r = await startTamiCheckout({
       orderId, total: charge, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),

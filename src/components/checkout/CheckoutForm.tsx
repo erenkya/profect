@@ -104,7 +104,7 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
     e.preventDefault();
     setError("");
     const billing = invoiceType === "bireysel"
-      ? { invoice_type: invoiceType, full_name: f.full_name, email: f.email }
+      ? { invoice_type: invoiceType, full_name: f.full_name, email: f.email, phone: f.phone }
       : { invoice_type: invoiceType, full_name: f.full_name, email: f.email, phone: f.phone, address: f.address, city: f.city, district: f.district, zip_code: f.zip_code, company_name: f.company_name, tax_office: f.tax_office, tax_number: f.tax_number };
 
     const errs: Errors = {};
@@ -196,9 +196,9 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
           </div>
           {field("full_name", "Ad soyad", { autoComplete: "name" })}
           {field("email", "E-posta", { type: "email", autoComplete: "email" })}
+          {field("phone", invoiceType === "kurumsal" ? "Cep telefonu" : "Cep telefonu (isteğe bağlı)", { type: "tel", autoComplete: "tel", placeholder: "5XX XXX XX XX" })}
           {invoiceType === "kurumsal" && (
             <>
-              {field("phone", "Cep telefonu", { type: "tel", autoComplete: "tel", placeholder: "5XX XXX XX XX" })}
               {field("company_name", "Şirket unvanı", { autoComplete: "organization" })}
               <div className="co-two">
                 {field("tax_office", "Vergi dairesi")}
@@ -228,9 +228,9 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
           ) : provider === "mock" ? (
             <FormMessage kind="ok">Test modu: ödeme alınmaz, sipariş anında “ödendi” sayılır ve erişim açılır. Kart bilgileri hiçbir yere gönderilmez.</FormMessage>
           ) : null}
-            {pay.gross <= 0 ? (
-              <FormMessage kind="ok">Kuponla bu sipariş için ödeme gerekmiyor; siparişi tamamladığında erişimin hemen açılır.</FormMessage>
-            ) : (
+          {pay.gross <= 0 ? (
+            <FormMessage kind="ok">Kuponla bu sipariş için ödeme gerekmiyor; siparişi tamamladığında erişimin hemen açılır.</FormMessage>
+          ) : needsCard ? (
             <div className="pay-row">
               <div className="card-fields">
               <div className="field">
@@ -263,7 +263,9 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
               </div>
               <CardPreview number={card.number} name={card.holder_name} expiry={card.expiry} cvv={card.cvv} focus={cardFocus} />
             </div>
-            )}
+          ) : provider === "manual" ? (
+            <FormMessage kind="ok">Siparişini oluşturduktan sonra seninle iletişime geçeceğiz. Ödemeyi aldıktan sonra eğitimini hesabına tanımlayacağız.</FormMessage>
+          ) : null}
         </section>
       </div>
 
@@ -333,7 +335,7 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
           {busy ? "İşleniyor…" : pay.gross <= 0 ? "Siparişi tamamla (ücretsiz)" : provider === "tami" ? `${formatPrice(pay.gross)} öde` : gift ? "Hediyeyi satın al" : seats ? (seats.kind === "program" ? "Program kontenjanını satın al" : "Kontenjanı satın al") : BUTTON_LABEL[provider]}
         </button>
         {!allConsents && <div style={{ fontSize: 13, color: "var(--muted-55)", textAlign: "center" }}>Devam etmek için dört onayın tümünü işaretle.</div>}
-        <PaymentBadges secured={needsCard} />
+        {needsCard && <PaymentBadges secured />}
         {seats ? <Link href="/sirket" style={{ fontSize: 14, textAlign: "center" }}>← Şirket paneline dön</Link> : gift ? <Link href={gift.kind === "program" ? `/programlar/${gift.slug}` : `/kurslar/${gift.slug}`} style={{ fontSize: 14, textAlign: "center" }}>{gift.kind === "program" ? "← Programa dön" : "← Kursa dön"}</Link> : <Link href="/sepet" style={{ fontSize: 14, textAlign: "center" }}>← Sepete dön</Link>}
       </aside>
     </form>

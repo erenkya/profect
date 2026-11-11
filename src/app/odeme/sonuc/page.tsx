@@ -35,14 +35,14 @@ export default async function CheckoutResultPage({ searchParams }: { searchParam
     ? order.status === "paid"
       ? { title: "Hediyen gönderildi", body: "Alıcıya ve sana e-posta gönderdik. Mail ulaşmazsa linki Hediyelerim sayfasından alabilirsin.", cta: { href: "/hesabim/hediyeler", label: "Hediyelerim" } }
       : order.status === "pending"
-        ? { title: "Siparişin alındı", body: "Siparişin onay bekliyor. Ödemen doğrulandığında hediye alıcıya e-postayla gönderilecek.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } }
+        ? { title: "Siparişin alındı", body: "Siparişin onay bekliyor. Seninle iletişime geçip ödemeyi alacağız; ödeme tamamlandığında hediye alıcıya e-postayla gönderilecek.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } }
         : { title: "Ödeme tamamlanamadı", body: order.error_message ? `Banka yanıtı: ${order.error_message}` : "Ödeme onaylanmadı.", cta: { href: "/kurslar", label: "Kurslara dön" } }
     : !order
     ? { title: "Sipariş bulunamadı", body: "Bu sipariş kaydına ulaşılamadı.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } }
     : order.status === "paid"
       ? { title: "Ödemen alındı", body: "Erişimin açıldı. Kurslarına hesabından ulaşabilirsin.", cta: { href: "/hesabim/kurslarim", label: "Kurslarım" } }
       : order.status === "pending"
-        ? { title: "Siparişin alındı", body: "Siparişin onay bekliyor. Ödemen doğrulandığında erişimin hesabında açılacak.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } }
+        ? { title: "Siparişin alındı", body: "Siparişin onay bekliyor. Seninle iletişime geçip ödemeyi alacağız; ödeme tamamlandığında eğitimin hesabına tanımlanacak.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } }
         : { title: "Ödeme tamamlanamadı", body: order.error_message ? `Banka yanıtı: ${order.error_message}` : "Ödeme onaylanmadı.", cta: { href: "/sepet", label: "Sepete dön ve tekrar dene" } };
 
   return (

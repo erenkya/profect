@@ -14,9 +14,13 @@ export function OrdersTable({ orders }: { orders: OrderRow[] }) {
   const router = useRouter();
   const [flash, setFlash] = useFlash();
 
-  async function act(id: number, action: "approve" | "reject") {
-    if (!confirm(action === "approve" ? "Ödeme alındı olarak işaretlenip erişim verilsin mi?" : "Sipariş reddedilsin mi?")) return;
-    const r = await adminApi("PATCH", `/api/admin/orders/${id}`, { action });
+  async function act(o: OrderRow, action: "approve" | "reject") {
+    const approve = action === "approve";
+    if (!confirm(approve ? "Ödeme alındı olarak işaretlenip erişim verilsin mi?" : "Sipariş reddedilsin mi?")) return;
+    // 2. onay: işlem geri alınamaz, bu yüzden sipariş özetiyle bir kez daha sorulur.
+    const summary = `#${o.id} · ${o.user_name} · ${formatPrice(o.amount)}`;
+    if (!confirm(approve ? `SON ONAY\n\n${summary}\n\nÖdemenin alındığından emin misin? Onaylarsan kullanıcıya erişim hemen verilir.` : `SON ONAY\n\n${summary}\n\nBu siparişi reddetmek istediğinden emin misin? Bu işlem geri alınamaz.`)) return;
+    const r = await adminApi("PATCH", `/api/admin/orders/${o.id}`, { action });
     setFlash({ kind: r.ok ? "ok" : "error", text: r.message });
     if (r.ok) router.refresh();
   }
@@ -31,7 +35,7 @@ export function OrdersTable({ orders }: { orders: OrderRow[] }) {
             {orders.map((o) => (
               <tr key={o.id}>
                 <td>{o.id}</td>
-                <td>{o.user_name}<div style={{ fontSize: 12, color: "var(--muted-55)" }}>{o.user_email}</div></td>
+                <td>{o.user_name}<div style={{ fontSize: 12, color: "var(--muted-55)" }}>{o.user_email}</div>{o.phone && <div style={{ fontSize: 12, color: "var(--muted-55)" }}>Tel: 0{o.phone}</div>}</td>
                 <td>
                   {giftOrderLabel(o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—"), o.gift_to)}
                   {o.invoice_type === "kurumsal" && (
@@ -51,8 +55,8 @@ export function OrdersTable({ orders }: { orders: OrderRow[] }) {
                 <td style={{ display: "flex", gap: 6 }}>
                   {o.status === "pending" && (
                     <>
-                      <button className="btn btn-primary" style={{ padding: "4px 12px", fontSize: 13 }} onClick={() => act(o.id, "approve")}>Onayla</button>
-                      <button className="btn btn-secondary" style={{ padding: "4px 12px", fontSize: 13 }} onClick={() => act(o.id, "reject")}>Reddet</button>
+                      <button className="btn btn-primary" style={{ padding: "4px 12px", fontSize: 13 }} onClick={() => act(o, "approve")}>Onayla</button>
+                      <button className="btn btn-secondary" style={{ padding: "4px 12px", fontSize: 13 }} onClick={() => act(o, "reject")}>Reddet</button>
                     </>
                   )}
                 </td>

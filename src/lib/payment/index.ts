@@ -9,10 +9,16 @@ import { tamiConfigured } from "./tami";
  */
 export type PaymentProviderId = "manual" | "mock" | "tami";
 
+/**
+ * Geçici olarak kartlı ödeme kapalı: Tami yapılandırılmış olsa bile sipariş "manual" akışa düşer
+ * (kullanıcı sipariş verir, ödeme iletişimle alınır, admin onaylar). Kartı geri açmak için true yap.
+ */
+export const CARD_PAYMENT_ENABLED = false;
+
 export function paymentProvider(): { id: PaymentProviderId; requiresCard: boolean } {
   const wanted = process.env.PAYMENT_PROVIDER ?? process.env.PAYMENT_MODE;
   if (wanted === "mock") return { id: "mock", requiresCard: false };
-  if (wanted === "tami") {
+  if (wanted === "tami" && CARD_PAYMENT_ENABLED) {
     if (tamiConfigured()) return { id: "tami", requiresCard: true };
     console.error("PAYMENT_PROVIDER=tami ama TAMI_* env değerleri eksik; manual moda düşüldü.");
   }

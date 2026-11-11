@@ -26,6 +26,10 @@ test("Luhn", () => {
 test("bireysel fatura yalnızca ad ve e-posta ister; kurumsal tam bilgi ister", () => {
   assert.equal(billingSchema.safeParse({ invoice_type: "bireysel", full_name: base.full_name, email: base.email }).success, true);
   assert.equal(billingSchema.safeParse({ invoice_type: "bireysel", full_name: base.full_name, email: "gecersiz" }).success, false);
+  // bireysel telefon isteğe bağlı: boş/yok geçer, doluysa geçerli olmalı
+  assert.equal(billingSchema.safeParse({ invoice_type: "bireysel", full_name: base.full_name, email: base.email, phone: "" }).success, true);
+  assert.equal(billingSchema.safeParse({ invoice_type: "bireysel", full_name: base.full_name, email: base.email, phone: "0532 123 45 67" }).success, true);
+  assert.equal(billingSchema.safeParse({ invoice_type: "bireysel", full_name: base.full_name, email: base.email, phone: "123" }).success, false);
   const corp = { ...base, invoice_type: "kurumsal", company_name: "Acme A.Ş.", tax_office: "Kadıköy", tax_number: "1234567890" };
   assert.equal(billingSchema.safeParse(corp).success, true);
   assert.equal(billingSchema.safeParse({ ...corp, tax_number: "123" }).success, false);

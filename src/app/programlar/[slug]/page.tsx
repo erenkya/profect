@@ -130,7 +130,7 @@ export default async function ProgramPage({ params }: Props) {
               <Corners />
               <div className="card-kicker" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 8 }}><Award size={16} strokeWidth={1.5} aria-hidden /> Program sertifikası</div>
               <p className="card-body" style={{ fontSize: 16, margin: 0 }}>
-                Her kursu kendi sertifikasıyla bitirirsin. Programdaki tüm kursların sertifikasını aldığında program sertifikan otomatik düzenlenir; kursları istediğin sırayla bitirebilirsin.
+                Her kursu tamamladığında o kursun sertifikasını kazanırsın. Programdaki tüm kursların sertifikasını aldığında program sertifikan otomatik olarak hazırlanır. Kursları dilediğin sırayla tamamlayabilirsin.
               </p>
             </div>
           </div>

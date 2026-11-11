@@ -27,7 +27,7 @@ export const BILLING_COLUMNS = `invoice_type = ?, full_name = ?, email = ?, phon
 export function billingValues(b: Billing, ip: string) {
   const k = b.invoice_type === "kurumsal" ? b : null;
   return [
-    b.invoice_type, b.full_name, b.email, k ? normalizePhone(k.phone) : null, null,
+    b.invoice_type, b.full_name, b.email, b.phone ? normalizePhone(b.phone) : null, null,
     k?.company_name ?? null, k?.tax_office ?? null, k?.tax_number ?? null,
     k?.address ?? null, k?.city ?? null, k?.district ?? null, k?.zip_code ?? null, ip,
   ];

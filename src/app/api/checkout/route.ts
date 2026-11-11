@@ -10,6 +10,7 @@ import { fulfillOrder } from "@/lib/lms";
 import { paymentProvider } from "@/lib/payment";
 import { allocateVat, withVat } from "@/lib/vat";
 import { startTamiCheckout } from "@/lib/payment/start-tami";
+import { notifyNewOrder } from "@/lib/order-notify";
 
 /**
  * Sepetten sipariş oluşturur. Fiyat DAİMA sunucuda DB'den hesaplanır (istemciden tutar alınmaz).
@@ -58,7 +59,10 @@ export async function POST(request: Request) {
       await fulfillOrder(orderId);
       return ok({ orderId, status: "paid" }, 201);
     }
-    if (provider.id === "manual") return ok({ orderId, status: "pending" }, 201);
+    if (provider.id === "manual") {
+      await notifyNewOrder(orderId, getBaseUrl(request));
+      return ok({ orderId, status: "pending" }, 201);
+    }
 
     // ── Tami 3D Secure ──
     const grossPrices = allocateVat(allocateDiscount(quote.payable.map((x) => x.price), discount));
