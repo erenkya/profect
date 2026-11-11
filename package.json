@@ -14,6 +14,7 @@
     "r2:orphans": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/r2-orphans.mjs",
     "db:seed": "node --env-file=.env scripts/seed.mjs",
     "videos:upload": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/upload-lesson-videos.mjs",
+    "db:seed-lessons": "node --env-file=.env scripts/seed-lessons.mjs",
     "db:seed-posts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/seed-posts.mjs",
     "db:create-admin": "node --env-file=.env scripts/create-admin.mjs",
     "test:api": "node --env-file=.env scripts/test-api.mjs",
