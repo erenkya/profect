@@ -13,18 +13,6 @@ import { listPublishedPosts, type PostListItem } from "@/lib/posts";
 import { ProgramCard } from "@/components/ProgramCard";
 import { getProgramOffer, listPublishedPrograms, type ProgramOffer } from "@/lib/programs";
 
-// Sertifika üzerindeki sahte QR deseni — tasarımdaki sabit tohumlu üreteçle aynı.
-function qrCells() {
-  let n = 7;
-  return Array.from({ length: 121 }, (_, i) => {
-    const x = i % 11;
-    const y = Math.floor(i / 11);
-    const finder = (x < 3 && y < 3) || (x > 7 && y < 3) || (x < 3 && y > 7);
-    n = (n * 9301 + 49297) % 233280;
-    return finder || n / 233280 > 0.55;
-  });
-}
-
 // Blog/haber bölümü ana sayfayı düşürmesin: okunamazsa bölüm gösterilmez.
 async function latestPosts(type: "blog" | "news", limit: number): Promise<PostListItem[]> {
   try {
@@ -57,9 +45,8 @@ export default async function HomePage() {
   const owned = user ? await listAccessibleCourseIds(user.id) : new Set<number>();
   const companyMember = user ? await isActiveMember(user.id) : false;
   const titles = published.map((c) => c.title);
-  const demoCourse = titles[0] ?? "Profect Kursu"; // hero kartı ve örnek sertifika gerçek bir kurs adı gösterir
+  const demoCourse = titles[0] ?? "Profect Kursu"; // hero kartı gerçek bir kurs adı gösterir
   const marquee = [...titles, ...titles].map((t, i) => ({ t, c: i % 2 ? PURP : BLUE }));
-  const qr = qrCells();
 
   return (
     <>
@@ -272,50 +259,6 @@ export default async function HomePage() {
             </div>
           </section>
         )}
-
-        {/* CERTIFICATE */}
-        <section id="sertifika" className="anchor" style={{ position: "relative", overflow: "hidden", borderTop: "1px solid var(--color-divider)", background: "var(--color-surface)" }}>
-          <div className="wrap section-pad" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,440px),1fr))", gap: 64, alignItems: "center" }}>
-            <div data-reveal="1">
-              <div className="eyebrow" style={{ color: "var(--color-accent-2-700)" }}>05 — Sertifikasyon</div>
-              <h2 className="h-section" style={{ margin: "0 0 22px" }}>Sınavla kazanılır, numarayla belgelenir</h2>
-              <p style={{ fontSize: 17, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", maxWidth: 480, textWrap: "pretty", marginBottom: 32 }}>
-                Final sınavını geçen her öğrenciye benzersiz numaralı bir sertifika verilir.
-              </p>
-            </div>
-
-            <div aria-hidden style={{ position: "relative", minHeight: 440, display: "grid", placeItems: "center" }}>
-              <div data-fx="1" data-py="0.15" data-rot="0.03" data-br="45" style={{ position: "absolute", width: 420, height: 420, maxWidth: "100%", border: "1px solid var(--color-accent-2-300)", transform: "rotate(45deg)" }} />
-              <div data-fx="1" data-py="-0.1" data-rot="-0.015" data-br="-3" style={{ position: "relative", width: "min(100%,520px)", transform: "rotate(-3deg)" }}>
-                <div className="blueprint elev-lg" style={{ background: "#ffffff", padding: 14 }}>
-                  <Corners />
-                  <div style={{ border: "1px solid var(--color-accent-300)", padding: "clamp(20px,5vw,34px) clamp(20px,5vw,34px) clamp(20px,4vw,28px)", position: "relative" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
-                      <Image src="/profect-logo.jpeg" alt="" width={173} height={47} style={{ height: 30, width: "auto", mixBlendMode: "multiply" }} />
-                      <div style={{ fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted-55)", textAlign: "right" }}>No. {DEMO_CERT.number}</div>
-                    </div>
-                    <div style={{ fontSize: 12, letterSpacing: ".2em", textTransform: "uppercase", color: "var(--color-accent-2)", fontWeight: 600, marginBottom: 8 }}>Başarı Sertifikası</div>
-                    <div style={{ fontFamily: "var(--font-heading)", fontSize: 46, lineHeight: 1, fontWeight: 600, marginBottom: 14 }}>{DEMO_CERT.holder}</div>
-                    <p style={{ fontSize: 14, color: "var(--muted-72)", marginBottom: 26, textWrap: "pretty" }}>
-                      {demoCourse} programını tamamlamış ve final sınavını %92 başarıyla geçmiştir.
-                    </p>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 16 }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,auto)", gap: "6px 28px", fontSize: 12 }}>
-                        <span style={{ color: "color-mix(in srgb,var(--color-text) 50%,transparent)" }}>Tarih</span>
-                        <span style={{ color: "color-mix(in srgb,var(--color-text) 50%,transparent)" }}>Ders sayısı</span>
-                        <span style={{ fontWeight: 600 }}>{DEMO_CERT.date}</span>
-                        <span style={{ fontWeight: 600 }}>24 ders</span>
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(11,6px)", gap: 1, padding: 6, border: "1px solid var(--color-divider)" }}>
-                        {qr.map((on, i) => <span key={i} style={{ width: 6, height: 6, background: on ? "#17142b" : "transparent" }} />)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
 
         <HomePosts blog={blog} news={news} />
       </main>
