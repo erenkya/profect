@@ -10,6 +10,8 @@ import { listAccessibleCourseIds, listPublishedCourses } from "@/lib/lms";
 import Image from "next/image";
 import { HomePosts } from "@/components/posts/HomePosts";
 import { listPublishedPosts, type PostListItem } from "@/lib/posts";
+import { ProgramCard } from "@/components/ProgramCard";
+import { getProgramOffer, listPublishedPrograms, type ProgramOffer } from "@/lib/programs";
 
 // Sertifika üzerindeki sahte QR deseni — tasarımdaki sabit tohumlu üreteçle aynı.
 function qrCells() {
@@ -33,11 +35,25 @@ async function latestPosts(type: "blog" | "news", limit: number): Promise<PostLi
   }
 }
 
+// Program bölümü de ana sayfayı düşürmesin: okunamazsa bölüm gösterilmez.
+// Girişliyse fiyatlar kişiye özel (sahip olunan kurslar düşülür).
+async function featuredPrograms(userId: number | null, limit: number): Promise<ProgramOffer[]> {
+  try {
+    const programs = (await listPublishedPrograms()).slice(0, limit);
+    const offers = await Promise.all(programs.map((p) => getProgramOffer(p.slug, userId)));
+    return offers.filter((o) => o !== null);
+  } catch (err) {
+    console.error("[HomePage] programlar okunamadı", err);
+    return [];
+  }
+}
+
 export default async function HomePage() {
   const published = await listPublishedCourses();
   const courses = published.slice(0, 6);
   const [blog, news] = await Promise.all([latestPosts("blog", 3), latestPosts("news", 4)]);
   const user = await getCurrentUser();
+  const programs = await featuredPrograms(user?.id ?? null, 3);
   const owned = user ? await listAccessibleCourseIds(user.id) : new Set<number>();
   const companyMember = user ? await isActiveMember(user.id) : false;
   const titles = published.map((c) => c.title);
@@ -238,11 +254,30 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* PROGRAMS */}
+        {programs.length > 0 && (
+          <section className="wrap section-pad" style={{ paddingTop: 0 }}>
+            <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 56 }}>
+              <div>
+                <div className="eyebrow">04 — Uzmanlık programları</div>
+                <h2 className="h-section" style={{ maxWidth: 720 }}>Birkaç kursu tek pakette topla</h2>
+              </div>
+              <Link href="/programlar" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px" }}>
+                Tüm programlar
+                <ArrowRight size={16} strokeWidth={1.5} />
+              </Link>
+            </div>
+            <div className="course-grid">
+              {programs.map((offer, i) => <ProgramCard key={offer.program.id} offer={offer} color={courseColor(i)} delay={courseDelay(i)} loggedIn={!!user} />)}
+            </div>
+          </section>
+        )}
+
         {/* CERTIFICATE */}
         <section id="sertifika" className="anchor" style={{ position: "relative", overflow: "hidden", borderTop: "1px solid var(--color-divider)", background: "var(--color-surface)" }}>
           <div className="wrap section-pad" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,440px),1fr))", gap: 64, alignItems: "center" }}>
             <div data-reveal="1">
-              <div className="eyebrow" style={{ color: "var(--color-accent-2-700)" }}>04 — Sertifikasyon</div>
+              <div className="eyebrow" style={{ color: "var(--color-accent-2-700)" }}>05 — Sertifikasyon</div>
               <h2 className="h-section" style={{ margin: "0 0 22px" }}>Sınavla kazanılır, numarayla belgelenir</h2>
               <p style={{ fontSize: 17, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", maxWidth: 480, textWrap: "pretty", marginBottom: 32 }}>
                 Final sınavını geçen her öğrenciye benzersiz numaralı bir sertifika verilir.
