@@ -5,6 +5,7 @@ import "@/components/checkout/checkout.css";
 import { Corners } from "@/components/Corners";
 import { formatPrice } from "@/lib/format";
 import { useCart } from "@/lib/cart";
+import { VAT_PERCENT, withVat } from "@/lib/vat";
 import { CartLines } from "./CartLines";
 import { useQuote } from "./useQuote";
 
@@ -27,6 +28,7 @@ export function CartView() {
   if (q.failed) return <p role="alert" style={{ color: "var(--color-accent-2-700)" }}>Sepet yüklenemedi. Sayfayı yenileyip tekrar dene.</p>;
 
   const checkoutHref = "/odeme";
+  const pay = withVat(q.total);
   return (
     <div className="checkout-grid">
       <div className="card blueprint" style={{ background: "#fff", padding: "8px 24px" }}>
@@ -37,7 +39,9 @@ export function CartView() {
         <Corners />
         <div className="dialog-title" style={{ fontSize: 24, textTransform: "uppercase" }}>Sipariş özeti</div>
         <div className="sum-row"><span>Ürün sayısı</span><span>{q.payable.length}</span></div>
-        <div className="sum-row sum-total"><span>Toplam (KDV dahil)</span><span>{formatPrice(q.total)}</span></div>
+        <div className="sum-row"><span>Ara toplam (KDV hariç)</span><span>{formatPrice(pay.net)}</span></div>
+        <div className="sum-row"><span>KDV (%{VAT_PERCENT})</span><span>{formatPrice(pay.vat)}</span></div>
+        <div className="sum-row sum-total"><span>Toplam (KDV dahil)</span><span>{formatPrice(pay.gross)}</span></div>
         {q.payable.length > 0 ? (
           <Link href={q.loggedIn ? checkoutHref : `/giris?next=${encodeURIComponent(checkoutHref)}`} className="btn btn-primary blueprint btn-block" style={{ fontSize: 18, padding: 14 }}>
             <Corners />

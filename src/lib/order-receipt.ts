@@ -3,6 +3,7 @@ import type { RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { sendOrderReceiptEmail } from "@/lib/mail";
+import { orderVat } from "@/lib/vat";
 
 /**
  * Ödenmiş siparişin özetini alıcıya e-postalar. Mail hatası ödemeyi/erişimi etkilemesin diye asla fırlatmaz.
@@ -33,6 +34,7 @@ export async function sendOrderReceipt(orderId: number): Promise<void> {
       items: lines,
       discount: Number(o.discount_amount ?? 0),
       couponCode: o.coupon_code,
+      vat: orderVat(Number(o.amount), lines.reduce((s, l) => s + l.price, 0), Number(o.discount_amount ?? 0)),
       total: Number(o.amount),
       maskedCard: o.masked_card,
       url: `${(process.env.APP_URL || "http://localhost:3000").replace(/\/+$/, "")}/hesabim/kurslarim`,

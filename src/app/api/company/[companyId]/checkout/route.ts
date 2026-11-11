@@ -8,6 +8,7 @@ import { getProgramOffer } from "@/lib/programs";
 import { programSeatOrderTitle } from "@/lib/program-seat-rules";
 import { paymentProvider } from "@/lib/payment";
 import { startTamiCheckout } from "@/lib/payment/start-tami";
+import { withVat } from "@/lib/vat";
 
 /**
  * Şirket kontenjanı siparişi (şirket admini ya da ana admin): kurs ya da program (`kind`, varsayılan kurs) + adet. Fiyat DAİMA sunucuda DB'den (birim fiyat × adet) hesaplanır;
@@ -35,15 +36,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
       const total = Math.round(offer.calc.effectivePrice * quantity * 100) / 100;
       const title = programSeatOrderTitle(offer.program.title, quantity);
       const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-      const orderId = await createProgramSeatOrder({ userId, companyId, programId: offer.program.id, title, quantity, total, billing, provider: provider.id, ip });
+      const charge = withVat(total).gross; // satır toplamı KDV hariç; tahsil edilen tutar KDV dahil
+      const orderId = await createProgramSeatOrder({ userId, companyId, programId: offer.program.id, title, quantity, total, amount: charge, billing, provider: provider.id, ip });
       if (provider.id === "mock") {
         await fulfillOrder(orderId);
         return ok({ orderId, status: "paid" }, 201);
       }
       if (provider.id === "manual") return ok({ orderId, status: "pending" }, 201);
       const r = await startTamiCheckout({
-        orderId, total, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
-        basket: [{ key: `program-seats:${offer.program.slug}`, title, subCategory: "Kontenjan", price: total }],
+        orderId, total: charge, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
+        basket: [{ key: `program-seats:${offer.program.slug}`, title, subCategory: "Kontenjan", price: charge }],
       });
       if (!r.ok) return fail(r.message, 400);
       return ok({ orderId, status: "redirect", threeDSHtmlContent: r.threeDSHtmlContent }, 201);
@@ -56,7 +58,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     const total = Math.round(course.price * quantity * 100) / 100;
     const title = seatOrderTitle(course.title, quantity);
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-    const orderId = await createSeatOrder({ userId, companyId, courseId: course.id, title, quantity, total, billing, provider: provider.id, ip });
+    const charge = withVat(total).gross; // satır toplamı KDV hariç; tahsil edilen tutar KDV dahil
+    const orderId = await createSeatOrder({ userId, companyId, courseId: course.id, title, quantity, total, amount: charge, billing, provider: provider.id, ip });
 
     if (provider.id === "mock") {
       await fulfillOrder(orderId);
@@ -65,8 +68,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     if (provider.id === "manual") return ok({ orderId, status: "pending" }, 201);
 
     const r = await startTamiCheckout({
-      orderId, total, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
-      basket: [{ key: `seats:${course.slug}`, title, subCategory: "Kontenjan", price: total }],
+      orderId, total: charge, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
+      basket: [{ key: `seats:${course.slug}`, title, subCategory: "Kontenjan", price: charge }],
     });
     if (!r.ok) return fail(r.message, 400);
     return ok({ orderId, status: "redirect", threeDSHtmlContent: r.threeDSHtmlContent }, 201);

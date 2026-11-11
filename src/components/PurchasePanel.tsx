@@ -7,6 +7,7 @@ import { Corners } from "./Corners";
 import { addToCart, useCart } from "@/lib/cart";
 import { RequestCourseButton } from "@/components/company/RequestCourseButton";
 import { formatIstanbul } from "@/lib/due-rules";
+import { formatPrice } from "@/lib/format";
 
 type Props = {
   slug: string;
@@ -43,6 +44,7 @@ export function PurchasePanel({ slug, courseId, priceLabel, oldPriceLabel, inclu
           <span style={{ fontFamily: "var(--font-heading)", fontSize: 52, lineHeight: 1, fontWeight: 700, color: "var(--color-accent-2)" }}>{priceLabel}</span>
           {oldPriceLabel && <span style={{ fontSize: 15, textDecoration: "line-through", color: "color-mix(in srgb,var(--color-text) 45%,transparent)" }}>{oldPriceLabel}</span>}
         </div>
+        {priceLabel !== formatPrice(0) && <div style={{ fontSize: 13, color: "var(--muted-55)", marginTop: -8 }}>KDV dahil değildir; ödeme adımında eklenir.</div>}
 
         {hasAccess ? (
           <Link href={`/ogrenim/${slug}`} className="btn btn-primary blueprint btn-block" style={big}>

@@ -19,7 +19,7 @@ export function DistanceSalesContent() {
       </p>
       <h3>3. Ürün ve bedel</h3>
       <p>
-        Ürün/hizmetin adı, süresi, birim fiyatı ve toplam bedeli sipariş özetinde gösterilir; Alıcı sipariş onayından önce bunları görüntülediğini kabul eder. Fiyatlara KDV dahildir.
+        Ürün/hizmetin adı, süresi, birim fiyatı ve toplam bedeli sipariş özetinde gösterilir; Alıcı sipariş onayından önce bunları görüntülediğini kabul eder. Gösterilen fiyatlara KDV dahil değildir; KDV, ödeme adımında sipariş özetinde ayrıca gösterilir ve toplam bedele eklenir.
       </p>
       <h3>4. Ödeme</h3>
       <p>

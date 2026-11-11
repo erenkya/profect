@@ -8,6 +8,7 @@ import { validateCoupon } from "@/lib/coupons";
 import { createCartOrder } from "@/lib/orders";
 import { fulfillOrder } from "@/lib/lms";
 import { paymentProvider } from "@/lib/payment";
+import { allocateVat, withVat } from "@/lib/vat";
 import { startTamiCheckout } from "@/lib/payment/start-tami";
 
 /**
@@ -43,10 +44,11 @@ export async function POST(request: Request) {
       total = d.total;
     }
     const free = total <= 0; // %100 indirim: tahsilat yok, sipariş anında tamamlanır
+    const charge = withVat(total).gross; // fiyatlar KDV hariç; tahsil edilen tutar KDV dahil
     if (!free && provider.requiresCard && !card) return fail("Kart bilgileri eksik.", 400);
 
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-    const orderId = await createCartOrder({ userId, lines: quote.payable, total, billing, provider: free ? "free" : provider.id, ip, coupon, discount });
+    const orderId = await createCartOrder({ userId, lines: quote.payable, total: charge, billing, provider: free ? "free" : provider.id, ip, coupon, discount });
 
     if (free) {
       await fulfillOrder(orderId);
@@ -59,11 +61,11 @@ export async function POST(request: Request) {
     if (provider.id === "manual") return ok({ orderId, status: "pending" }, 201);
 
     // ── Tami 3D Secure ──
-    const netPrices = allocateDiscount(quote.payable.map((x) => x.price), discount);
+    const grossPrices = allocateVat(allocateDiscount(quote.payable.map((x) => x.price), discount));
     const r = await startTamiCheckout({
-      orderId, total, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
-      // Sepet toplamı tahsil edilen tutara eşit olmalı: kupon indirimi kalemlere orantılı dağıtılır.
-      basket: quote.payable.map((l, i) => ({ key: l.key, title: l.title, subCategory: l.item.type === "program" ? "Program" : "Kurs", price: netPrices[i] })),
+      orderId, total: charge, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
+      // Sepet toplamı tahsil edilen tutara eşit olmalı: kupon indirimi kalemlere orantılı dağıtılır, ardından KDV eklenir.
+      basket: quote.payable.map((l, i) => ({ key: l.key, title: l.title, subCategory: l.item.type === "program" ? "Program" : "Kurs", price: grossPrices[i] })),
     });
     if (!r.ok) return fail(r.message, 400);
     return ok({ orderId, status: "redirect", threeDSHtmlContent: r.threeDSHtmlContent }, 201);

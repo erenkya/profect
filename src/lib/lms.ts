@@ -8,6 +8,7 @@ import { giftOrderLabel } from "@/lib/gift-rules";
 import { sendOrderReceipt } from "@/lib/order-receipt";
 import { enrollInProgram, ensureProgramProgress } from "@/lib/programs";
 import { FREE_PREVIEW_LESSONS } from "@/lib/preview";
+import { orderVat } from "@/lib/vat";
 import type { LessonFileItem } from "@/lib/lesson-files";
 
 export type CourseRow = {
@@ -577,6 +578,8 @@ export type MyOrderDetail = {
   subtotal: number;
   coupon_code: string | null;
   discount: number;
+  /** Tutara dahil KDV (KDV öncesi eski siparişlerde 0). */
+  vat: number;
   total: number;
   masked_card: string | null;
   error_message: string | null;
@@ -623,6 +626,7 @@ export async function getMyOrderDetail(userId: number, orderId: number): Promise
     subtotal: items.reduce((s, i) => s + i.price, 0),
     coupon_code: o.coupon_code,
     discount,
+    vat: orderVat(Number(o.amount), items.reduce((s, i) => s + i.price, 0), discount),
     total: Number(o.amount),
     masked_card: o.masked_card,
     error_message: o.error_message,

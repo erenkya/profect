@@ -5,6 +5,7 @@ import { PageTitle } from "@/components/account/PageTitle";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDate, formatPrice } from "@/lib/format";
 import { getMyOrderDetail } from "@/lib/lms";
+import { VAT_PERCENT } from "@/lib/vat";
 
 export const metadata: Metadata = { title: "Sipariş detayı" };
 
@@ -75,11 +76,14 @@ export default async function MyOrderDetailPage({ params }: Props) {
           ))}
         </ul>
         <dl className="order-sum">
-          {(order.discount > 0 || order.items.length > 1) && (
+          {(order.discount > 0 || order.vat > 0 || order.items.length > 1) && (
             <div><dt>Ara toplam</dt><dd>{formatPrice(order.subtotal)}</dd></div>
           )}
           {order.discount > 0 && (
             <div><dt>İndirim{order.coupon_code ? ` (${order.coupon_code})` : ""}</dt><dd>−{formatPrice(order.discount)}</dd></div>
+          )}
+          {order.vat > 0 && (
+            <div><dt>KDV (%{VAT_PERCENT})</dt><dd>{formatPrice(order.vat)}</dd></div>
           )}
           <div className="order-total"><dt>{order.status === "paid" ? "Ödenen tutar" : "Tutar"}</dt><dd>{formatPrice(order.total)}</dd></div>
         </dl>

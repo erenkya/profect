@@ -87,6 +87,7 @@ export function ProgramPricePanel({ slug, loggedIn, member, sellable, payable, p
                 <span style={{ fontSize: 15 }}>Ödeyeceğin tutar</span>
                 <span style={{ fontFamily: "var(--font-heading)", fontSize: 48, lineHeight: 1, fontWeight: 700, color: "var(--color-accent-2)" }}>{formatPrice(payable)}</span>
               </div>
+              {payable > 0 && <div style={{ fontSize: 13, color: "var(--muted-55)", textAlign: "right" }}>KDV dahil değildir; ödeme adımında eklenir.</div>}
             </div>
 
             {joinable ? (

@@ -34,7 +34,10 @@ export type GiftTarget = { kind: "course"; courseId: number; title: string } | {
 export async function createGiftOrder(i: {
   senderId: number;
   target: GiftTarget;
+  /** Kalem fiyatı (KDV hariç): `order_items.unit_price`. */
   price: number;
+  /** Tahsil edilen tutar (KDV dahil): `orders.amount`. */
+  amount: number;
   recipientEmail: string;
   message: string | null;
   billing: Billing;
@@ -46,8 +49,8 @@ export async function createGiftOrder(i: {
     await conn.beginTransaction();
     const t = i.target;
     const [o] = t.kind === "course"
-      ? await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, course_id, amount, provider) VALUES (?, 'single', ?, ?, ?)", [i.senderId, t.courseId, i.price, i.provider])
-      : await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, amount, provider) VALUES (?, 'cart', ?, ?)", [i.senderId, i.price, i.provider]);
+      ? await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, course_id, amount, provider) VALUES (?, 'single', ?, ?, ?)", [i.senderId, t.courseId, i.amount, i.provider])
+      : await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, amount, provider) VALUES (?, 'cart', ?, ?)", [i.senderId, i.amount, i.provider]);
     const orderId = o.insertId;
     await conn.execute(`UPDATE orders SET ${BILLING_COLUMNS} WHERE id = ?`, [...billingValues(i.billing, i.ip), orderId]);
     if (t.kind === "course") {

@@ -1,5 +1,6 @@
 import "server-only";
 import nodemailer from "nodemailer";
+import { VAT_PERCENT } from "@/lib/vat";
 
 function transporter() {
   const user = process.env.GOOGLE_MAIL_USER;
@@ -102,6 +103,8 @@ export type OrderReceipt = {
   items: { title: string; price: number }[];
   discount: number;
   couponCode?: string | null;
+  /** Toplama dahil KDV; 0 ise satır gösterilmez. */
+  vat?: number;
   total: number;
   maskedCard?: string | null;
   url: string;
@@ -130,7 +133,8 @@ function receiptLayout(r: OrderReceipt) {
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:2px solid #162357">${lines}</table>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:8px">
         ${r.discount > 0 ? row(r.couponCode ? `İndirim (${r.couponCode})` : "İndirim", `-${money(r.discount)}`) : ""}
-        ${row("Toplam", money(r.total), true)}
+        ${r.vat ? row(`KDV (%${VAT_PERCENT})`, money(r.vat)) : ""}
+        ${row("Toplam (KDV dahil)", money(r.total), true)}
         ${row("Ödeme tarihi", r.paidAt)}
         ${r.maskedCard ? row("Kart", r.maskedCard) : ""}
       </table>
@@ -150,7 +154,8 @@ export async function sendOrderReceiptEmail(r: OrderReceipt) {
     "",
     ...r.items.map((i) => `- ${i.title}: ${money(i.price)}`),
     ...(r.discount > 0 ? [`İndirim${r.couponCode ? ` (${r.couponCode})` : ""}: -${money(r.discount)}`] : []),
-    `Toplam: ${money(r.total)}`,
+    ...(r.vat ? [`KDV (%${VAT_PERCENT}): ${money(r.vat)}`] : []),
+    `Toplam (KDV dahil): ${money(r.total)}`,
     `Ödeme tarihi: ${r.paidAt}`,
     "",
     `Kurslarım: ${r.url}`,

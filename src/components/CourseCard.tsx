@@ -39,8 +39,11 @@ export function CourseCard({ course, color, delay, loggedIn, hasAccess, companyM
               <span className="card-meta" style={{ fontSize: 13 }}>
                 {[`${course.lesson_count} ders`, course.rating ? `★ ${course.rating}` : ""].filter(Boolean).join(" · ")}
               </span>
-              <span style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 600, color: "var(--color-accent-2)" }}>
-                {formatPrice(course.price)}
+              <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                <span style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 600, color: "var(--color-accent-2)" }}>
+                  {formatPrice(course.price)}
+                </span>
+                {course.price > 0 && <span style={{ fontSize: 11, color: "var(--muted-55)" }}>KDV dahil değildir</span>}
               </span>
             </div>
           </div>

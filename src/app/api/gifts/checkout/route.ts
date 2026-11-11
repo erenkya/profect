@@ -8,6 +8,7 @@ import { fulfillOrder, getCourseBySlug } from "@/lib/lms";
 import { paymentProvider } from "@/lib/payment";
 import { startTamiCheckout } from "@/lib/payment/start-tami";
 import { getProgramOffer } from "@/lib/programs";
+import { allocateVat, withVat } from "@/lib/vat";
 
 /**
  * Tek kurs ya da Uzmanlık Programı hediyesi için sipariş oluşturur (`kind`, varsayılan "course"; slug ona göre aranır, yani
@@ -57,8 +58,9 @@ export async function POST(request: Request) {
     if (provider.requiresCard && !card) return fail("Kart bilgileri eksik.", 400);
 
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+    const charge = withVat(price).gross; // fiyat KDV hariç; tahsil edilen tutar KDV dahil
     const { orderId } = await createGiftOrder({
-      senderId: userId, target, price,
+      senderId: userId, target, price, amount: charge,
       recipientEmail: recipient_email, message: message || null, billing, provider: provider.id, ip,
     });
 
@@ -69,8 +71,8 @@ export async function POST(request: Request) {
     if (provider.id === "manual") return ok({ orderId, status: "pending" }, 201);
 
     const r = await startTamiCheckout({
-      orderId, total: price, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
-      basket: [basketItem],
+      orderId, total: charge, billing, card: card!, ip, userId, baseUrl: getBaseUrl(request),
+      basket: [{ ...basketItem, price: allocateVat([price])[0] }],
     });
     if (!r.ok) {
       await cancelGiftsForOrder(orderId);

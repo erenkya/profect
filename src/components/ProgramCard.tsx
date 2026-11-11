@@ -48,9 +48,12 @@ export function ProgramCard({ offer, color, delay, loggedIn }: { offer: ProgramO
               ) : !offer.sellable ? (
                 <span style={{ fontSize: 13, color: "var(--muted-55)" }}>Şu an satışta değil</span>
               ) : (
-                <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  {calc.listTotal > shown && <span style={{ fontSize: 14, textDecoration: "line-through", color: "var(--muted-55)" }}>{formatPrice(calc.listTotal)}</span>}
-                  <span style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 600, color: "var(--color-accent-2)" }}>{formatPrice(shown)}</span>
+                <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                  <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                    {calc.listTotal > shown && <span style={{ fontSize: 14, textDecoration: "line-through", color: "var(--muted-55)" }}>{formatPrice(calc.listTotal)}</span>}
+                    <span style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 600, color: "var(--color-accent-2)" }}>{formatPrice(shown)}</span>
+                  </span>
+                  {shown > 0 && <span style={{ fontSize: 11, color: "var(--muted-55)" }}>KDV dahil değildir</span>}
                 </span>
               )}
             </div>

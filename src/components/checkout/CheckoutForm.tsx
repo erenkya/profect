@@ -15,6 +15,7 @@ import { giftCheckoutSchema } from "@/lib/gift-rules";
 import { SEAT_MAX_QUANTITY, seatQuantitySchema } from "@/lib/seat-quantity";
 import { useCart } from "@/lib/cart";
 import { formatPrice } from "@/lib/format";
+import { VAT_PERCENT, withVat } from "@/lib/vat";
 import { CartLines } from "./CartLines";
 import { GiftRecipientFields } from "./GiftRecipientFields";
 import { ConsentCheckbox } from "./ConsentCheckbox";
@@ -62,8 +63,9 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
   const qty = Number(quantity);
   const qtyOk = seatQuantitySchema.safeParse(qty).success;
   const seatsTotal = seats && qtyOk ? Math.round(seats.unitPrice * qty * 100) / 100 : 0;
-  const effTotal = gift ? gift.price : seats ? seatsTotal : coupon ? coupon.total : q.total;
-  const needsCard = provider === "tami" && effTotal > 0;
+  const effTotal = gift ? gift.price : seats ? seatsTotal : coupon ? coupon.total : q.total; // KDV hariç
+  const pay = withVat(effTotal);
+  const needsCard = provider === "tami" && pay.gross > 0;
   const brand = detectCardBrand(card.number);
   const expiryProblem = card.expiry.length === 5 && !isValidExpiry(card.expiry) ? "Kartın son kullanma tarihi geçmiş ya da geçersiz." : "";
   const fp = (f: CardField) => ({ onFocus: () => setCardFocus(f), onBlur: () => setCardFocus(null) });
@@ -176,7 +178,7 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
               <label htmlFor="co-quantity">Kaç kişilik kontenjan?</label>
               <input id="co-quantity" className="input" type="number" inputMode="numeric" min={1} max={SEAT_MAX_QUANTITY} step={1} value={quantity} onChange={(e) => { setQuantity(e.target.value); setErrors((s) => ({ ...s, quantity: "" })); }} aria-invalid={!!errors.quantity} aria-describedby="co-quantity-hint" style={{ ...input, maxWidth: 160 }} />
               {errors.quantity && <div role="alert" className="field-err">{errors.quantity}</div>}
-              <div id="co-quantity-hint" style={{ fontSize: 13, color: "var(--muted-55)" }}>Satın aldığınız {seats.kind === "program" ? "program kontenjanını" : "kontenjanı"} şirket panelinden çalışanlarınıza atarsınız. Birim fiyat: {formatPrice(seats.unitPrice)}</div>
+              <div id="co-quantity-hint" style={{ fontSize: 13, color: "var(--muted-55)" }}>Satın aldığınız {seats.kind === "program" ? "program kontenjanını" : "kontenjanı"} şirket panelinden çalışanlarınıza atarsınız. Birim fiyat: {formatPrice(seats.unitPrice)} + KDV</div>
             </div>
           </section>
         )}
@@ -226,7 +228,7 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
           ) : provider === "mock" ? (
             <FormMessage kind="ok">Test modu: ödeme alınmaz, sipariş anında “ödendi” sayılır ve erişim açılır. Kart bilgileri hiçbir yere gönderilmez.</FormMessage>
           ) : null}
-            {effTotal <= 0 ? (
+            {pay.gross <= 0 ? (
               <FormMessage kind="ok">Kuponla bu sipariş için ödeme gerekmiyor; siparişi tamamladığında erişimin hemen açılır.</FormMessage>
             ) : (
             <div className="pay-row">
@@ -303,7 +305,13 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
             <div className="sum-row" style={{ color: "#1d8a55" }}><span>Kupon indirimi</span><span>−{formatPrice(coupon.discount)}</span></div>
           </>
         )}
-        <div className="sum-row sum-total"><span>Toplam (KDV dahil)</span><span>{formatPrice(effTotal)}</span></div>
+        {pay.gross > 0 && (
+          <>
+            <div className="sum-row"><span>Tutar (KDV hariç)</span><span>{formatPrice(pay.net)}</span></div>
+            <div className="sum-row"><span>KDV (%{VAT_PERCENT})</span><span>{formatPrice(pay.vat)}</span></div>
+          </>
+        )}
+        <div className="sum-row sum-total"><span>Toplam (KDV dahil)</span><span>{formatPrice(pay.gross)}</span></div>
         <div className="co-consents" style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--color-divider)", paddingTop: 14 }}>
           <ConsentCheckbox id="consent-distance-sales" checked={consents.distance_sales} onChange={setConsent("distance_sales")} linkText="Mesafeli Satış Sözleşmesi" suffix="’ni okudum ve kabul ediyorum." title="Mesafeli Satış Sözleşmesi">
             <DistanceSalesContent />
@@ -322,7 +330,7 @@ export function CheckoutForm({ defaults, gift, seats }: { defaults: Defaults; gi
         {error && <FormMessage kind="error">{error}</FormMessage>}
         <button type="submit" disabled={busy || !allConsents} className="btn btn-primary blueprint btn-block" style={{ fontSize: 18, padding: 14 }}>
           <Corners />
-          {busy ? "İşleniyor…" : effTotal <= 0 ? "Siparişi tamamla (ücretsiz)" : provider === "tami" ? `${formatPrice(effTotal)} öde` : gift ? "Hediyeyi satın al" : seats ? (seats.kind === "program" ? "Program kontenjanını satın al" : "Kontenjanı satın al") : BUTTON_LABEL[provider]}
+          {busy ? "İşleniyor…" : pay.gross <= 0 ? "Siparişi tamamla (ücretsiz)" : provider === "tami" ? `${formatPrice(pay.gross)} öde` : gift ? "Hediyeyi satın al" : seats ? (seats.kind === "program" ? "Program kontenjanını satın al" : "Kontenjanı satın al") : BUTTON_LABEL[provider]}
         </button>
         {!allConsents && <div style={{ fontSize: 13, color: "var(--muted-55)", textAlign: "center" }}>Devam etmek için dört onayın tümünü işaretle.</div>}
         <PaymentBadges secured={needsCard} />

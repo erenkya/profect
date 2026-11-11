@@ -14,7 +14,10 @@ export async function createProgramSeatOrder(i: {
   programId: number;
   title: string;
   quantity: number;
+  /** Satır toplamı (KDV hariç): `order_items.unit_price`. */
   total: number;
+  /** Tahsil edilen tutar (KDV dahil): `orders.amount`. */
+  amount: number;
   billing: Billing;
   provider: string;
   ip: string;
@@ -22,7 +25,7 @@ export async function createProgramSeatOrder(i: {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [res] = await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, amount, provider, company_id) VALUES (?, 'cart', ?, ?, ?)", [i.userId, i.total, i.provider, i.companyId]);
+    const [res] = await conn.execute<ResultSetHeader>("INSERT INTO orders (user_id, plan, amount, provider, company_id) VALUES (?, 'cart', ?, ?, ?)", [i.userId, i.amount, i.provider, i.companyId]);
     const orderId = res.insertId;
     await conn.execute(`UPDATE orders SET ${BILLING_COLUMNS} WHERE id = ?`, [...billingValues(i.billing, i.ip), orderId]);
     await conn.execute("INSERT INTO order_items (order_id, item_type, program_id, title, unit_price, quantity) VALUES (?, 'program_seats', ?, ?, ?, ?)", [orderId, i.programId, i.title, i.total, i.quantity]);
