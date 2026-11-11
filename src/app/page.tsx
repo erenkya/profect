@@ -221,16 +221,6 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* PARALLAX WORD BAND */}
-        <section aria-hidden style={{ position: "relative", overflow: "hidden", padding: "16px 0", borderTop: "1px solid var(--color-divider)", borderBottom: "1px solid var(--color-divider)" }}>
-          <div data-fx="1" data-pxx="0.5" style={{ whiteSpace: "nowrap", fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: "clamp(40px,5.5vw,84px)", lineHeight: 1.3, color: "transparent", WebkitTextStroke: "1px var(--color-accent-300)", marginLeft: "-10%" }}>
-            {Array(5).fill("Perfect ◆ Your ◆ Profession").join(" ◆ ")}
-          </div>
-          <div data-fx="1" data-pxx="-0.5" style={{ whiteSpace: "nowrap", fontFamily: "var(--font-heading)", fontWeight: 700, textTransform: "uppercase", fontSize: "clamp(40px,5.5vw,84px)", lineHeight: 1.3, color: "transparent", WebkitTextStroke: "1px var(--color-accent-2-300)", marginLeft: "-25%" }}>
-            {Array(10).fill("Profect").join(" ◆ ")}
-          </div>
-        </section>
-
         {/* FEATURED COURSES */}
         <section className="wrap section-pad">
           <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 56 }}>
