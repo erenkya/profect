@@ -6,7 +6,8 @@ import { updateProgramSchema } from "@/lib/admin-schemas";
 import { countProgramMembers, getCourseEligibility, getProgramById, listProgramCourses } from "@/lib/programs";
 import { courseProblems, priceProblem } from "@/lib/program-rules";
 import { coverKeyForProgram } from "@/lib/cover-key";
-import { deleteCover, headCover } from "@/lib/r2";
+import { deleteCover, deleteVideo, headCover, headVideo } from "@/lib/r2";
+import { programVideoKeyFor } from "@/lib/video-key";
 
 type Ctx = { params: Promise<{ programId: string }> };
 
@@ -59,6 +60,13 @@ export async function PATCH(request: Request, { params }: Ctx) {
       if (!(await headCover(newCover))) return fail("Kapak resmi R2'de bulunamadı; yeniden yükleyin.", 400);
     }
 
+    // Tanıtım videosu değişiyorsa: yeni anahtar bu programa ait ve R2'de var olmalı; eski dosya güncellemeden sonra silinir.
+    const newVideo = fields.intro_video_key;
+    if (newVideo) {
+      if (!programVideoKeyFor(newVideo, programId)) return fail("Geçersiz tanıtım videosu.", 400);
+      if (!(await headVideo(newVideo))) return fail("Tanıtım videosu R2'de bulunamadı; yeniden yükleyin.", 400);
+    }
+
     // Kaydedildikten sonraki durum üzerinden doğrula.
     const publishing = fields.is_published === true;
     const checkPrice = fields.price !== undefined || !!courseIds || publishing;
@@ -93,6 +101,7 @@ export async function PATCH(request: Request, { params }: Ctx) {
       conn.release();
     }
     if (newCover !== undefined && current.thumbnail_url && current.thumbnail_url !== newCover) await deleteCover(current.thumbnail_url);
+    if (newVideo !== undefined && current.intro_video_key && current.intro_video_key !== newVideo) await deleteVideo(current.intro_video_key);
     return ok({ message: "Program güncellendi." });
   } catch (err) {
     const code = (err as { code?: string }).code;

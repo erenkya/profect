@@ -20,6 +20,23 @@ export function buildVideoKey(courseSlug: string, moduleId: number, moduleTitle:
   return `${moduleFolder(courseSlug, moduleId, moduleTitle)}${random}-${slugify(lessonTitle, "ders")}.mp4`;
 }
 
+// Program tanıtım videosu: programlar/<programId>/<random>-tanitim.mp4 (ders videolarından ayrı düzen, kurs slug'ına bağlı değil)
+const PROGRAM_KEY_RE = /^programlar\/([0-9]+)\/[a-f0-9]{8}-tanitim\.mp4$/;
+
+export function buildProgramVideoKey(programId: number, random: string): string {
+  return `programlar/${programId}/${random}-tanitim.mp4`;
+}
+
+export function isProgramVideoKey(key: string): boolean {
+  return PROGRAM_KEY_RE.test(key);
+}
+
+/** Anahtar geçerli biçimde ve bu programa mı ait? */
+export function programVideoKeyFor(key: string, programId: number): boolean {
+  const m = PROGRAM_KEY_RE.exec(key);
+  return !!m && Number(m[1]) === programId;
+}
+
 export function randomId(): string {
   const b = crypto.getRandomValues(new Uint8Array(4));
   return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");

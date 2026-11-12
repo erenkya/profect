@@ -53,6 +53,7 @@ export default async function ProgramPage({ params }: Props) {
   const completed = standings ? courses.filter((c) => standings.get(c.id)?.certificate_code).length : 0;
   const lessons = courses.reduce((s, c) => s + c.lesson_count, 0);
   const cover = coverUrl(program.thumbnail_url);
+  const introVideo = !!program.intro_video_key;
   const joinable = !offer.member && offer.sellable && calc.payable === 0 && courses.length > 0 && calc.ownedCount === courses.length;
 
   return (
@@ -78,7 +79,20 @@ export default async function ProgramPage({ params }: Props) {
               <span>{courses.length} kurs · {lessons} ders</span>
               <span>Ayrı ayrı <strong style={{ fontWeight: 600 }}>{formatPrice(calc.listTotal)}</strong></span>
             </div>
-            {cover && (
+            {introVideo ? (
+              <div data-reveal="1" data-delay="400" style={{ marginTop: 32, aspectRatio: "16 / 9", border: "1px solid var(--color-divider)", overflow: "hidden", background: "#0b0b14" }}>
+                <video
+                  src={`/api/programs/${program.id}/video`}
+                  poster={cover ?? undefined}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  controlsList="nodownload"
+                  aria-label={`${program.title} tanıtım videosu`}
+                  style={{ width: "100%", height: "100%", display: "block" }}
+                />
+              </div>
+            ) : cover && (
               <div data-reveal="1" data-delay="400" style={{ marginTop: 32, aspectRatio: "16 / 9", border: "1px solid var(--color-divider)", overflow: "hidden", background: "var(--color-divider)" }}>
                 <img src={cover} alt={`${program.title} kapak resmi`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               </div>

@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/auth";
 import { fail, serverError } from "@/lib/http";
 import { parseByteRange } from "@/lib/byte-range";
 import { getVideoRange, headVideo } from "@/lib/r2";
-import { VIDEO_CHUNK_BYTES, isVideoKey } from "@/lib/video-key";
+import { VIDEO_CHUNK_BYTES, isProgramVideoKey, isVideoKey } from "@/lib/video-key";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   if (guard.error) return guard.error;
 
   const key = request.nextUrl.searchParams.get("key") ?? "";
-  if (!isVideoKey(key)) return fail("Geçersiz video.", 400);
+  if (!isVideoKey(key) && !isProgramVideoKey(key)) return fail("Geçersiz video.", 400);
 
   try {
     const head = await headVideo(key);

@@ -2,7 +2,7 @@
 // Yetim kaynakları: yüklenip derse/kursa kaydedilmeyen dosyalar (imzalı PUT kayıt tutmaz) ve R2 silmesi hata verip DB satırı gitmiş nesneler.
 import { isCoverKey } from "./cover-key.ts";
 import { isLessonFileKey } from "./lesson-file.ts";
-import { isVideoKey } from "./video-key.ts";
+import { isProgramVideoKey, isVideoKey } from "./video-key.ts";
 
 export type R2Object = { key: string; size: number; modified: Date };
 
@@ -13,7 +13,7 @@ export const MAX_ORPHAN_RATIO = 0.5;
 
 /** Uygulamanın kendi ürettiği biçimdeki anahtarlar; başka biçimdeki (elle konmuş) nesneler yönetilmez. */
 export function isManagedKey(key: string): boolean {
-  return isVideoKey(key) || isCoverKey(key) || isLessonFileKey(key);
+  return isVideoKey(key) || isProgramVideoKey(key) || isCoverKey(key) || isLessonFileKey(key);
 }
 
 export function findOrphans(

@@ -25,7 +25,7 @@ const s3 = new S3Client({
 const Bucket = process.env.R2_BUCKET;
 const db = await mysql.createConnection({ host: process.env.DB_HOST, user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME });
 
-/** DB'nin anan tüm R2 anahtarları: ders videoları, ders dosyaları, kurs/program kapakları. */
+/** DB'nin anan tüm R2 anahtarları: ders videoları, ders dosyaları, kurs/program kapakları, program tanıtım videoları. */
 async function referencedKeys() {
   const out = new Set();
   for (const sql of [
@@ -33,6 +33,7 @@ async function referencedKeys() {
     "SELECT storage_key k FROM lesson_files",
     "SELECT thumbnail_url k FROM courses WHERE thumbnail_url IS NOT NULL",
     "SELECT thumbnail_url k FROM programs WHERE thumbnail_url IS NOT NULL",
+    "SELECT intro_video_key k FROM programs WHERE intro_video_key IS NOT NULL",
   ]) {
     const [rows] = await db.query(sql);
     for (const r of rows) out.add(String(r.k));

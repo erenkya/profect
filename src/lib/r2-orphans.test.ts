@@ -8,10 +8,11 @@ const VIDEO = "kurslar/web-tasarim/34-giris/a1b2c3d4-html-temelleri.mp4";
 const VIDEO2 = "kurslar/web-tasarim/34-giris/b2c3d4e5-css.mp4";
 const COVER = "kapaklar/7-a1b2c3d4.png";
 const FILE = "dosyalar/7/a1b2c3d4-sunum.pptx";
+const PROGRAM_VIDEO = "programlar/3/a1b2c3d4-tanitim.mp4";
 const obj = (key: string, age = MIN_ORPHAN_AGE_MS * 2) => ({ key, size: 1, modified: ago(age) });
 
 test("isManagedKey: yalnızca uygulamanın ürettiği biçimler", () => {
-  for (const k of [VIDEO, COVER, FILE]) assert.ok(isManagedKey(k), k);
+  for (const k of [VIDEO, COVER, FILE, PROGRAM_VIDEO]) assert.ok(isManagedKey(k), k);
   for (const k of ["elle/konan.mp4", "kurslar/x.mp4", "kapaklar/abc.png", "dosyalar/7/../x"]) assert.ok(!isManagedKey(k), k);
 });
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { slugify, buildVideoKey, isVideoKey, keyInModule, randomId, moduleFolder, MAX_VIDEO_BYTES, VIDEO_CHUNK_BYTES, QUOTA_MULTIPLIER, isQuotaExceeded } from "./video-key.ts";
+import { slugify, buildVideoKey, isVideoKey, keyInModule, randomId, buildProgramVideoKey, isProgramVideoKey, programVideoKeyFor, moduleFolder, MAX_VIDEO_BYTES, VIDEO_CHUNK_BYTES, QUOTA_MULTIPLIER, isQuotaExceeded } from "./video-key.ts";
 
 const KEY = "kurslar/web-tasarim/34-giris/a1b2c3d4-html-temelleri.mp4";
 
@@ -64,4 +64,16 @@ test("isQuotaExceeded: günlük akış video boyutunun 5 katına ulaşınca true
   assert.equal(isQuotaExceeded(5 * total - 1, total), false);
   assert.equal(isQuotaExceeded(5 * total, total), true);
   assert.equal(isQuotaExceeded(9 * total, total), true);
+});
+
+test("program tanıtım videosu anahtarı üretilir ve yalnızca kendi programına ait sayılır", () => {
+  const k = buildProgramVideoKey(12, "a1b2c3d4");
+  assert.equal(k, "programlar/12/a1b2c3d4-tanitim.mp4");
+  assert.equal(isProgramVideoKey(k), true);
+  assert.equal(programVideoKeyFor(k, 12), true);
+  assert.equal(programVideoKeyFor(k, 1), false);
+  assert.equal(isVideoKey(k), false); // ders videosu düzeniyle karışmaz
+  for (const bad of ["programlar/../x.mp4", "programlar/12/zzzzzzzz-tanitim.mp4", "programlar/12/a1b2c3d4-baska.mp4", "programlar/12/a1b2c3d4-tanitim.mp4/../x", "programlar/a/a1b2c3d4-tanitim.mp4"]) {
+    assert.equal(isProgramVideoKey(bad), false, bad);
+  }
 });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_VIDEO_BYTES, isVideoKey } from "./video-key.ts";
+import { MAX_VIDEO_BYTES, isProgramVideoKey, isVideoKey } from "./video-key.ts";
 import { MAX_COVER_BYTES, isCoverKey, isCoverType } from "./cover-key.ts";
 import { MAX_POST_IMAGE_BYTES, isPostImageKey, isPostImageType } from "./post-key.ts";
 import { validatePool } from "./quiz-pool.ts";
@@ -49,6 +49,7 @@ const programFields = {
   price: money, // B: programın kendi sabit fiyatı
   course_ids: z.array(z.coerce.number().int().positive()).min(1, "Programda en az bir kurs olmalı.").max(50, "Bir programda en çok 50 kurs olabilir."), // dizi sırası = roadmap sırası
   thumbnail_url: courseFields.thumbnail_url,
+  intro_video_key: z.string().trim().max(255).refine(isProgramVideoKey, "Geçersiz tanıtım videosu.").nullable(), // R2 nesne anahtarı
   is_published: courseFields.is_published,
   sort_order: courseFields.sort_order,
 };
@@ -90,6 +91,13 @@ export const lessonSchema = z
 export const videoUploadSchema = z.object({
   module_id: z.coerce.number().int().positive(),
   lesson_title: z.string().trim().min(1).max(255),
+  content_type: z.literal("video/mp4", { errorMap: () => ({ message: "Yalnızca MP4 yüklenebilir." }) }),
+  size: z.number().int().min(1).max(MAX_VIDEO_BYTES, "Video en çok 2 GB olabilir."),
+});
+
+/** Yönetici program tanıtım videosu yüklemesini başlatırken gönderilir (dosyanın kendisi değil, meta bilgisi). */
+export const programVideoUploadSchema = z.object({
+  program_id: z.coerce.number().int().positive(),
   content_type: z.literal("video/mp4", { errorMap: () => ({ message: "Yalnızca MP4 yüklenebilir." }) }),
   size: z.number().int().min(1).max(MAX_VIDEO_BYTES, "Video en çok 2 GB olabilir."),
 });

@@ -18,6 +18,7 @@ export type ProgramRow = {
   description: string;
   category: string;
   thumbnail_url: string | null;
+  intro_video_key: string | null;
   price: number;
   is_published: boolean;
   sort_order: number;
@@ -35,7 +36,7 @@ export type ProgramCourse = {
   sort_order: number;
 };
 
-const PROGRAM_COLUMNS = `p.id, p.slug, p.code, p.title, p.description, p.category, p.thumbnail_url, p.price, p.is_published, p.sort_order`;
+const PROGRAM_COLUMNS = `p.id, p.slug, p.code, p.title, p.description, p.category, p.thumbnail_url, p.intro_video_key, p.price, p.is_published, p.sort_order`;
 
 /** Final sınavı: module_id IS NULL bir quiz ve en az bir puanlanan (scenario olmayan) soru — lms.ts QUIZ_TOTAL_SQL ile tutarlı. */
 const HAS_FINAL_QUIZ_SQL = `EXISTS (SELECT 1 FROM quizzes q WHERE q.course_id = c.id AND q.module_id IS NULL
@@ -50,6 +51,7 @@ function mapProgram(r: RowDataPacket): ProgramRow {
     description: r.description,
     category: r.category,
     thumbnail_url: r.thumbnail_url,
+    intro_video_key: r.intro_video_key,
     price: Number(r.price),
     is_published: !!r.is_published,
     sort_order: Number(r.sort_order),
