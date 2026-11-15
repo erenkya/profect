@@ -23,9 +23,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ mod
     }
     if (d.instructor_id !== null && !(await isStaffUser(d.instructor_id))) return fail("Eğitmen olarak yalnızca eğitmen ya da yönetici seçilebilir.", 400);
     const [res] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO lessons (module_id, title, lesson_type, content, duration_minutes, instructor_id, sort_order)
-       SELECT ?, ?, ?, ?, ?, ?, COALESCE(MAX(sort_order) + 1, 0) FROM lessons WHERE module_id = ?`,
-      [moduleId, d.title, d.lesson_type, d.content, d.duration_minutes, d.instructor_id, moduleId],
+      `INSERT INTO lessons (module_id, title, lesson_type, content, duration_minutes, instructor_id, is_free_preview, sort_order)
+       SELECT ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(sort_order) + 1, 0) FROM lessons WHERE module_id = ?`,
+      [moduleId, d.title, d.lesson_type, d.content, d.duration_minutes, d.instructor_id, d.is_free_preview ? 1 : 0, moduleId],
     );
     return ok({ lessonId: res.insertId }, 201);
   } catch (err) {

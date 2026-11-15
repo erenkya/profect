@@ -31,8 +31,8 @@ export async function PATCH(request: Request, { params }: Ctx) {
     }
     if (d.instructor_id !== null && !(await isStaffUser(d.instructor_id))) return fail("Eğitmen olarak yalnızca eğitmen ya da yönetici seçilebilir.", 400);
     const [res] = await pool.execute<ResultSetHeader>(
-      "UPDATE lessons SET title = ?, lesson_type = ?, content = ?, duration_minutes = ?, instructor_id = ? WHERE id = ?",
-      [d.title, d.lesson_type, d.content, d.duration_minutes, d.instructor_id, id],
+      "UPDATE lessons SET title = ?, lesson_type = ?, content = ?, duration_minutes = ?, instructor_id = ?, is_free_preview = ? WHERE id = ?",
+      [d.title, d.lesson_type, d.content, d.duration_minutes, d.instructor_id, d.is_free_preview ? 1 : 0, id],
     );
     if (!res.affectedRows) return fail("Ders bulunamadı.", 404);
     // Video değiştiyse (ya da derse metne çevrildiyse) eski nesne R2'de sahipsiz kalmasın.

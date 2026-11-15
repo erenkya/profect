@@ -196,7 +196,7 @@ function ModuleCard({ mod, index, courseId, siblings, instructors, run }: { mod:
             <div key={l.id} style={{ display: "flex", flexDirection: "column", gap: 8, padding: "6px 8px", border: "1px solid var(--color-divider)" }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {l.lesson_type === "video" ? <CirclePlay size={16} strokeWidth={1.5} /> : <FileText size={16} strokeWidth={1.5} />}
-              <span style={{ flex: 1, fontSize: 15 }}>{l.title}{l.duration_minutes ? <span style={{ color: "var(--muted-55)" }}> · {l.duration_minutes} dk</span> : null}</span>
+              <span style={{ flex: 1, fontSize: 15 }}>{l.title}{l.duration_minutes ? <span style={{ color: "var(--muted-55)" }}> · {l.duration_minutes} dk</span> : null}{l.is_free_preview && <span className="tag tag-accent" style={{ fontSize: 10, marginLeft: 8 }}>Ücretsiz</span>}</span>
               {l.lesson_type === "video" && isVideoKey(l.content) && (
                 <button className="btn btn-icon btn-ghost" style={iconBtn} aria-label={watching === l.id ? "Videoyu kapat" : "Videoyu izle"} title={watching === l.id ? "Videoyu kapat" : "Videoyu izle"} onClick={() => setWatching(watching === l.id ? null : l.id)}>
                   {watching === l.id ? <X size={15} strokeWidth={1.5} /> : <Play size={15} strokeWidth={1.5} />}
@@ -223,15 +223,15 @@ function ModuleCard({ mod, index, courseId, siblings, instructors, run }: { mod:
   );
 }
 
-function LessonForm({ moduleId, instructors, initial, submitLabel, onSubmit, onCancel }: { moduleId: number; instructors: Instructor[]; initial?: AdminLesson; submitLabel: string; onSubmit: (v: { title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number; instructor_id: number | null }) => void; onCancel: () => void }) {
-  const [v, setV] = useState({ title: initial?.title ?? "", lesson_type: initial?.lesson_type ?? ("text" as "video" | "text"), content: initial?.content ?? "", duration: initial?.duration_minutes == null ? "" : String(initial.duration_minutes), instructor: initial?.instructor_id == null ? "" : String(initial.instructor_id) });
+function LessonForm({ moduleId, instructors, initial, submitLabel, onSubmit, onCancel }: { moduleId: number; instructors: Instructor[]; initial?: AdminLesson; submitLabel: string; onSubmit: (v: { title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number; instructor_id: number | null; is_free_preview: boolean }) => void; onCancel: () => void }) {
+  const [v, setV] = useState({ title: initial?.title ?? "", lesson_type: initial?.lesson_type ?? ("text" as "video" | "text"), content: initial?.content ?? "", duration: initial?.duration_minutes == null ? "" : String(initial.duration_minutes), instructor: initial?.instructor_id == null ? "" : String(initial.instructor_id), free: initial?.is_free_preview ?? false });
   const [uploading, setUploading] = useState(false);
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         if (v.lesson_type === "video" && !v.content) return;
-        onSubmit({ title: v.title, lesson_type: v.lesson_type, content: v.content, duration_minutes: Number(v.duration), instructor_id: v.instructor ? Number(v.instructor) : null });
+        onSubmit({ title: v.title, lesson_type: v.lesson_type, content: v.content, duration_minutes: Number(v.duration), instructor_id: v.instructor ? Number(v.instructor) : null, is_free_preview: v.free });
       }}
       style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, background: "var(--color-accent-100)" }}
     >
@@ -247,6 +247,10 @@ function LessonForm({ moduleId, instructors, initial, submitLabel, onSubmit, onC
         <option value="">Eğitmen atanmadı (sorular yöneticilere gider)</option>
         {instructors.map((i) => <option key={i.id} value={i.id}>{i.full_name}{i.role === "admin" ? " (yönetici)" : ""}</option>)}
       </select>
+      <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
+        <input type="checkbox" checked={v.free} onChange={(e) => setV({ ...v, free: e.target.checked })} />
+        Ücretsiz önizleme (satın almadan izlenebilir)
+      </label>
       {v.lesson_type === "video" ? (
         <VideoUploadField
           moduleId={moduleId}

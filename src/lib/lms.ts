@@ -7,7 +7,6 @@ import { activateGiftForOrder, sendGiftEmails } from "@/lib/gifts";
 import { giftOrderLabel } from "@/lib/gift-rules";
 import { sendOrderReceipt } from "@/lib/order-receipt";
 import { enrollInProgram, ensureProgramProgress } from "@/lib/programs";
-import { FREE_PREVIEW_LESSONS } from "@/lib/preview";
 import { orderVat } from "@/lib/vat";
 import type { LessonFileItem } from "@/lib/lesson-files";
 
@@ -104,7 +103,7 @@ export async function getCourseById(id: number): Promise<CourseRow | null> {
 }
 
 // ── Müfredat ağacı ────────────────────────────────────────────────────────────
-export type LessonNode = { id: number; title: string; lesson_type: "video" | "text"; duration_minutes: number | null; sort_order: number; completed?: boolean };
+export type LessonNode = { id: number; title: string; lesson_type: "video" | "text"; duration_minutes: number | null; sort_order: number; is_free_preview: boolean; completed?: boolean };
 /**
  * Sınavda öğrenciye gösterilen soru sayısı (SQL ifadesi): havuz modunda `draw_count`, değilse (ya da NULL = hepsi) puanlanan soru sayısı.
  * `alias`: quizzes tablosunun sorgudaki adı.
@@ -123,7 +122,7 @@ export async function getCourseTree(courseId: number, userId?: number): Promise<
     [courseId],
   );
   const [lessonRows] = await pool.query<RowDataPacket[]>(
-    `SELECT l.id, l.module_id, l.title, l.lesson_type, l.duration_minutes, l.sort_order
+    `SELECT l.id, l.module_id, l.title, l.lesson_type, l.duration_minutes, l.sort_order, l.is_free_preview
        FROM lessons l JOIN modules m ON m.id = l.module_id
       WHERE m.course_id = ? ORDER BY l.sort_order, l.id`,
     [courseId],
@@ -174,6 +173,7 @@ export async function getCourseTree(courseId: number, userId?: number): Promise<
         lesson_type: l.lesson_type,
         duration_minutes: l.duration_minutes,
         sort_order: l.sort_order,
+        is_free_preview: !!l.is_free_preview,
         completed: userId ? completed.has(l.id) : undefined,
       })),
   }));
@@ -236,16 +236,15 @@ export async function listAccessibleCourseIds(userId: number): Promise<Set<numbe
   return new Set(rows.map((r) => Number(r.id)));
 }
 
-/** Ders, yayınlanmış bir kursun ücretsiz önizleme derslerinden biri mi? (müfredat sırası: previewLessonIds ile aynı) */
+/** Ders, yayınlanmış bir kursun ücretsiz önizleme olarak işaretlenmiş derslerinden biri mi? */
 export async function isPreviewLesson(courseId: number, lessonId: number): Promise<boolean> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT l.id FROM lessons l
+    `SELECT 1 FROM lessons l
        JOIN modules m ON m.id = l.module_id JOIN courses c ON c.id = m.course_id
-      WHERE m.course_id = ? AND c.is_published = 1
-      ORDER BY m.sort_order, m.id, l.sort_order, l.id LIMIT ${FREE_PREVIEW_LESSONS}`,
-    [courseId],
+      WHERE l.id = ? AND m.course_id = ? AND c.is_published = 1 AND l.is_free_preview = 1`,
+    [lessonId, courseId],
   );
-  return rows.some((r) => r.id === lessonId);
+  return rows.length > 0;
 }
 
 /** Sınav sayısı (soru içeren) ve kullanıcının geçtiği sınav sayısı; soru içermeyen sınav geçilemez, sayılmaz. */
@@ -647,7 +646,7 @@ export async function getAccountProfile(userId: number): Promise<AccountProfile 
 }
 
 // ── Yönetici görünümü (içerik dahil) ──────────────────────────────────────────
-export type AdminLesson = { id: number; module_id: number; title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null; instructor_id: number | null; sort_order: number; files: LessonFileItem[] };
+export type AdminLesson = { id: number; module_id: number; title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number | null; instructor_id: number | null; sort_order: number; is_free_preview: boolean; files: LessonFileItem[] };
 export type AdminQuizRef = { id: number; title: string; module_id: number | null; passing_score_percentage: number; question_count: number; pool_count: number };
 export type AdminModule = { id: number; title: string; sort_order: number; lessons: AdminLesson[] };
 
@@ -656,7 +655,7 @@ export async function getCourseAdminTree(courseId: number) {
   if (!course) return null;
   const [modules] = await pool.query<RowDataPacket[]>("SELECT id, title, sort_order FROM modules WHERE course_id = ? ORDER BY sort_order, id", [courseId]);
   const [lessons] = await pool.query<RowDataPacket[]>(
-    `SELECT l.id, l.module_id, l.title, l.lesson_type, l.content, l.duration_minutes, l.instructor_id, l.sort_order
+    `SELECT l.id, l.module_id, l.title, l.lesson_type, l.content, l.duration_minutes, l.instructor_id, l.sort_order, l.is_free_preview
        FROM lessons l JOIN modules m ON m.id = l.module_id WHERE m.course_id = ? ORDER BY l.sort_order, l.id`,
     [courseId],
   );
@@ -682,7 +681,7 @@ export async function getCourseAdminTree(courseId: number) {
       id: m.id,
       title: m.title,
       sort_order: m.sort_order,
-      lessons: lessons.filter((l) => l.module_id === m.id).map((l) => ({ ...l, files: filesOf(l.id) }) as AdminLesson),
+      lessons: lessons.filter((l) => l.module_id === m.id).map((l) => ({ ...l, is_free_preview: !!l.is_free_preview, files: filesOf(l.id) }) as AdminLesson),
     })),
     finalQuiz: quizzes.map(toQuiz)[0] ?? null,
   };
