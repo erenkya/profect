@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, CirclePlay, FileText, Pencil, Play, Trash2, X } from "lucide-react";
 import { Corners } from "@/components/Corners";
 import { Toast, useFlash } from "./Toast";
@@ -11,6 +11,8 @@ import type { AdminLesson, AdminModule, AdminQuizRef, CourseRow } from "@/lib/lm
 import { adminApi } from "./api";
 import { VideoUploadField } from "./VideoUploadField";
 import { LessonFilesField } from "./LessonFilesField";
+import { PendingFilesField } from "./PendingFilesField";
+import { uploadLessonFile } from "./lesson-file-upload";
 import { CoverUploadField } from "./CoverUploadField";
 import { CategoryField } from "./CategoryField";
 import { isVideoKey } from "@/lib/video-key";
@@ -56,7 +58,7 @@ export function CourseBuilder({ course, modules, finalQuiz, categories, instruct
   );
 }
 
-type Run = (p: ReturnType<typeof adminApi>, okText?: string) => Promise<{ ok: boolean }>;
+type Run = (p: ReturnType<typeof adminApi>, okText?: string) => Promise<{ ok: boolean; json: Record<string, unknown> }>;
 
 function CourseForm({ course, categories, run, onDeleted }: { course: CourseRow; categories: string[]; run: Run; onDeleted: () => void }) {
   const [f, setF] = useState({
@@ -191,7 +193,7 @@ function ModuleCard({ mod, index, courseId, siblings, instructors, run }: { mod:
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {mod.lessons.map((l, i) =>
           editing === l.id ? (
-            <LessonForm key={l.id} moduleId={mod.id} instructors={instructors} initial={l} submitLabel="Kaydet" onCancel={() => setEditing(null)} onSubmit={async (v) => (await run(adminApi("PATCH", `/api/admin/lessons/${l.id}`, v), "Ders güncellendi.")).ok && setEditing(null)} />
+            <LessonForm key={l.id} moduleId={mod.id} instructors={instructors} initial={l} submitLabel="Kaydet" onCancel={() => setEditing(null)} onSubmit={async (v) => { const r = await run(adminApi("PATCH", `/api/admin/lessons/${l.id}`, v), "Ders güncellendi."); if (r.ok) setEditing(null); return r; }} />
           ) : (
             <div key={l.id} style={{ display: "flex", flexDirection: "column", gap: 8, padding: "6px 8px", border: "1px solid var(--color-divider)" }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -214,7 +216,7 @@ function ModuleCard({ mod, index, courseId, siblings, instructors, run }: { mod:
           ),
         )}
         {adding ? (
-          <LessonForm moduleId={mod.id} instructors={instructors} submitLabel="Ders ekle" onCancel={() => setAdding(false)} onSubmit={async (v) => (await run(adminApi("POST", `/api/admin/modules/${mod.id}/lessons`, v), "Ders eklendi.")).ok && setAdding(false)} />
+          <LessonForm moduleId={mod.id} instructors={instructors} submitLabel="Ders ekle" onCancel={() => setAdding(false)} onSubmit={(v) => run(adminApi("POST", `/api/admin/modules/${mod.id}/lessons`, v), "Ders eklendi.")} />
         ) : (
           <button className="btn btn-ghost" style={{ alignSelf: "flex-start" }} onClick={() => setAdding(true)}>+ Ders ekle</button>
         )}
@@ -223,15 +225,47 @@ function ModuleCard({ mod, index, courseId, siblings, instructors, run }: { mod:
   );
 }
 
-function LessonForm({ moduleId, instructors, initial, submitLabel, onSubmit, onCancel }: { moduleId: number; instructors: Instructor[]; initial?: AdminLesson; submitLabel: string; onSubmit: (v: { title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number; instructor_id: number | null; is_free_preview: boolean }) => void; onCancel: () => void }) {
+function LessonForm({ moduleId, instructors, initial, submitLabel, onSubmit, onCancel }: { moduleId: number; instructors: Instructor[]; initial?: AdminLesson; submitLabel: string; onSubmit: (v: { title: string; lesson_type: "video" | "text"; content: string; duration_minutes: number; instructor_id: number | null; is_free_preview: boolean }) => Promise<{ ok: boolean; json: Record<string, unknown> }>; onCancel: () => void }) {
   const [v, setV] = useState({ title: initial?.title ?? "", lesson_type: initial?.lesson_type ?? ("text" as "video" | "text"), content: initial?.content ?? "", duration: initial?.duration_minutes == null ? "" : String(initial.duration_minutes), instructor: initial?.instructor_id == null ? "" : String(initial.instructor_id), free: initial?.is_free_preview ?? false });
+  const router = useRouter();
   const [uploading, setUploading] = useState(false);
+  // Yeni derste seçilen dosyalar: ders oluşturulduktan sonra sırayla R2'ye yüklenir.
+  const [pending, setPending] = useState<File[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [created, setCreated] = useState(false);
+  const [fileProgress, setFileProgress] = useState<{ name: string; progress: number } | null>(null);
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
+  const xhr = useRef<XMLHttpRequest | null>(null);
+  const cancelled = useRef(false);
+  useEffect(() => () => xhr.current?.abort(), []);
+
+  async function submit() {
+    if (v.lesson_type === "video" && !v.content) return;
+    setSaving(true);
+    const r = await onSubmit({ title: v.title, lesson_type: v.lesson_type, content: v.content, duration_minutes: Number(v.duration), instructor_id: v.instructor ? Number(v.instructor) : null, is_free_preview: v.free });
+    // Düzenlemede ebeveyn formu kapatır; yeni derste dosyalar burada yüklenir.
+    if (initial || !r.ok) { if (!r.ok) setSaving(false); return; }
+    setCreated(true);
+    const lessonId = r.json.lessonId as number;
+    cancelled.current = false;
+    const problems: string[] = [];
+    for (const f of pending) {
+      if (cancelled.current) { problems.push(`${f.name}: yükleme iptal edildi.`); continue; }
+      const problem = await uploadLessonFile(lessonId, f, (progress) => setFileProgress({ name: f.name, progress }), (req) => { xhr.current = req; });
+      if (problem) problems.push(problem);
+    }
+    setFileProgress(null);
+    setSaving(false);
+    router.refresh(); // dosyalar ders ağacına yansısın
+    if (problems.length === 0) return onCancel();
+    setFileErrors(problems);
+  }
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (v.lesson_type === "video" && !v.content) return;
-        onSubmit({ title: v.title, lesson_type: v.lesson_type, content: v.content, duration_minutes: Number(v.duration), instructor_id: v.instructor ? Number(v.instructor) : null, is_free_preview: v.free });
+        void submit();
       }}
       style={{ display: "flex", flexDirection: "column", gap: 10, padding: 12, background: "var(--color-accent-100)" }}
     >
@@ -274,11 +308,18 @@ function LessonForm({ moduleId, instructors, initial, submitLabel, onSubmit, onC
       {initial ? (
         <LessonFilesField lessonId={initial.id} files={initial.files} />
       ) : (
-        <p style={{ margin: 0, fontSize: 13, color: "var(--muted-55)" }}>Dosyaları ders kaydedildikten sonra ekleyebilirsiniz.</p>
+        <PendingFilesField files={pending} onChange={setPending} current={fileProgress} locked={saving || created} onCancelUpload={() => { cancelled.current = true; xhr.current?.abort(); }} />
+      )}
+      {fileErrors.length > 0 && (
+        <div role="alert" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, color: "#b00020" }}>
+          <strong>Ders eklendi, ancak bazı dosyalar yüklenemedi:</strong>
+          {fileErrors.map((m) => <span key={m}>{m}</span>)}
+          <span style={{ color: "var(--muted-55)" }}>Dersi düzenleyerek bu dosyaları yeniden ekleyebilirsiniz.</span>
+        </div>
       )}
       <div style={{ display: "flex", gap: 10 }}>
-        <button type="submit" className="btn btn-primary" disabled={uploading || (v.lesson_type === "video" && !v.content)}>{submitLabel}</button>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>Vazgeç</button>
+        {!created && <button type="submit" className="btn btn-primary" disabled={uploading || saving || (v.lesson_type === "video" && !v.content)}>{saving ? "Kaydediliyor…" : submitLabel}</button>}
+        <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving && created}>{created ? "Kapat" : "Vazgeç"}</button>
       </div>
     </form>
   );

@@ -4,13 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Paperclip, Pencil, Trash2, Upload } from "lucide-react";
 import type { LessonFileItem } from "@/lib/lesson-files";
-import { MAX_LESSON_FILE_BYTES, cleanFileName, formatFileSize, isBlockedFileName } from "@/lib/lesson-file";
+import { formatFileSize } from "@/lib/lesson-file";
 import { adminApi } from "./api";
+import { uploadLessonFile } from "./lesson-file-upload";
 
 type Props = { lessonId: number; files: LessonFileItem[] };
-
-/** Dosya adından görünen ad önerisi: uzantısız ad. */
-const defaultTitle = (fileName: string) => cleanFileName(fileName).replace(/\.[^.]+$/, "").slice(0, 120) || "Dosya";
 
 /**
  * Ders dosyaları: listeleme, yeniden adlandırma, silme ve çoklu yükleme.
@@ -27,44 +25,13 @@ export function LessonFilesField({ lessonId, files }: Props) {
 
   useEffect(() => () => xhr.current?.abort(), []);
 
-  async function uploadOne(f: File): Promise<string | null> {
-    if (isBlockedFileName(f.name)) return `${f.name}: bu dosya türü yüklenemez.`;
-    if (f.size < 1) return `${f.name}: dosya boş.`;
-    if (f.size > MAX_LESSON_FILE_BYTES) return `${f.name}: dosya en çok 150 MB olabilir.`;
-    setCurrent({ name: f.name, progress: 0 });
-    try {
-      const init = await adminApi("POST", `/api/admin/lessons/${lessonId}/files/upload`, { file_name: f.name, size: f.size });
-      if (!init.ok) return `${f.name}: ${init.message}`;
-      const { key, upload: u } = init.json as { key: string; upload: { url: string; headers: Record<string, string> } };
-
-      await new Promise<void>((resolve, reject) => {
-        const req = new XMLHttpRequest();
-        xhr.current = req;
-        req.open("PUT", u.url);
-        for (const [k, val] of Object.entries(u.headers)) req.setRequestHeader(k, val);
-        req.upload.onprogress = (e) => e.lengthComputable && setCurrent({ name: f.name, progress: Math.round((e.loaded / e.total) * 100) });
-        req.onload = () => (req.status >= 200 && req.status < 300 ? resolve() : reject(new Error(`Yükleme başarısız (${req.status}).`)));
-        req.onerror = () => reject(new Error("Bağlantı hatası; yükleme yarıda kaldı."));
-        req.onabort = () => reject(new Error("Yükleme iptal edildi."));
-        req.send(f);
-      });
-
-      const reg = await adminApi("POST", `/api/admin/lessons/${lessonId}/files`, { key, title: defaultTitle(f.name), file_name: f.name, content_type: f.type || "application/octet-stream" });
-      return reg.ok ? null : `${f.name}: ${reg.message}`;
-    } catch (err) {
-      return `${f.name}: ${err instanceof Error ? err.message : "Yükleme başarısız."}`;
-    } finally {
-      xhr.current = null;
-    }
-  }
-
   async function uploadAll(list: FileList | File[]) {
     if (busy) return;
     setBusy(true);
     setErrors([]);
     const problems: string[] = [];
     for (const f of Array.from(list)) {
-      const problem = await uploadOne(f);
+      const problem = await uploadLessonFile(lessonId, f, (progress) => setCurrent({ name: f.name, progress }), (req) => { xhr.current = req; });
       if (problem) problems.push(problem);
     }
     setCurrent(null);
