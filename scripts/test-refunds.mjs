@@ -38,6 +38,14 @@ async function addCourse(label = "k") {
   const [l] = await db.query("INSERT INTO lessons (module_id, title, lesson_type, content, sort_order) VALUES (?, 'D1', 'video', 'x', 1)", [m.insertId]);
   return { courseId: c.insertId, lessonId: l.insertId };
 }
+/** Program + verilen kurslar. programId döner. */
+async function addProgram(courseIds, label = "p") {
+  const n = ++seq;
+  const [p] = await db.query("INSERT INTO programs (slug, code, title, description, price, is_published) VALUES (?, ?, ?, 'e2e', 150, 1)", [`e2e-refund-${stamp}-${label}${n}`, `E2RP-${stamp}-${n}`.slice(0, 30), `E2E İade Programı ${n}`]);
+  let i = 0;
+  for (const cid of courseIds) await db.query("INSERT INTO program_courses (program_id, course_id, sort_order) VALUES (?, ?, ?)", [p.insertId, cid, ++i]);
+  return p.insertId;
+}
 /**
  * Ödenmiş sipariş (+ kalemler + purchase kaydı). items: [{ type: "course", courseId }].
  * paidAgoDays: ödeme tarihi; null ise paid_at NULL ve created_at paidAgoCreated gün önce.
@@ -49,6 +57,10 @@ async function addPaidOrder(userId, items, { paidAgoDays = 1, amount = 100, prov
   for (const it of items) {
     await db.query("INSERT INTO order_items (order_id, item_type, course_id, program_id, title, unit_price, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)", [o.insertId, it.type, it.courseId ?? null, it.programId ?? null, "E2E kalem", amount, it.quantity ?? 1]);
     if (it.type === "course") await db.query("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'purchase')", [userId, it.courseId]);
+    if (it.type === "program") {
+      await db.query("INSERT IGNORE INTO program_enrollments (user_id, program_id, source) VALUES (?, ?, 'purchase')", [userId, it.programId]);
+      await db.query("INSERT IGNORE INTO enrollments (user_id, course_id, status, source) SELECT ?, course_id, 'active', 'purchase' FROM program_courses WHERE program_id = ?", [userId, it.programId]);
+    }
   }
   return o.insertId;
 }
@@ -243,13 +255,97 @@ try {
     check("refunded sipariş erişimi yeniden açmadı, durum refunded", e.n === 0 && (await order(x.orderId)).status === "refunded");
   }
 
+  // ── Etkiler (erişim, hediye, kontenjan, kupon) ────────────────────────────────
+  /** Verilen siparişe başvurur ve mock ile onaylar (iade hemen sonuçlanır). */
+  async function refundNow(orderId) {
+    const r = await refund(uCookie, orderId);
+    if (r.status !== 201) throw new Error("başvuru açılamadı: " + JSON.stringify(r.json));
+    const d = await decide(r.json.requestId, { action: "approve" });
+    if (d.status !== 200 || d.json.status !== "refunded") throw new Error("iade sonuçlanmadı: " + JSON.stringify(d.json));
+    return r.json.requestId;
+  }
+  const enr = async (userId, courseId) => (await db.query("SELECT source FROM enrollments WHERE user_id=? AND course_id=?", [userId, courseId]))[0][0];
+  {
+    const a = await addCourse("erisim");
+    const id = await addPaidOrder(uId, [{ type: "course", courseId: a.courseId }], { provider: "mock" });
+    check("iade öncesi kurs erişimi var", (await enr(uId, a.courseId))?.source === "purchase");
+    await refundNow(id);
+    check("kurs iadesi: purchase kaydı silindi", !(await enr(uId, a.courseId)));
+  }
+  {
+    const a = await addCourse("admin");
+    await db.query("INSERT INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'admin')", [uId, a.courseId]);
+    const id = await addPaidOrder(uId, [{ type: "course", courseId: a.courseId }], { provider: "mock" }); // INSERT IGNORE: admin kaydı kalır
+    await refundNow(id);
+    check("admin kaynaklı kurs erişimi iade yüzünden silinmedi", (await enr(uId, a.courseId))?.source === "admin");
+  }
+  {
+    const a = await addCourse("ikisiparis");
+    const id1 = await addPaidOrder(uId, [{ type: "course", courseId: a.courseId }], { provider: "mock", paidAgoDays: 3 });
+    await addPaidOrder(uId, [{ type: "course", courseId: a.courseId }], { provider: "mock", paidAgoDays: 2 });
+    await refundNow(id1);
+    check("aynı kursu karşılayan başka ödenmiş sipariş varsa erişim kalır", (await enr(uId, a.courseId))?.source === "purchase");
+  }
+  {
+    const c1 = await addCourse("prog1"), c2 = await addCourse("prog2");
+    const prog = await addProgram([c1.courseId, c2.courseId]);
+    await db.query("INSERT INTO enrollments (user_id, course_id, status, source) VALUES (?, ?, 'active', 'gift')", [uId, c2.courseId]); // c2'ye ayrıca hediyeyle sahip
+    const id = await addPaidOrder(uId, [{ type: "program", programId: prog }], { provider: "mock" });
+    await refundNow(id);
+    const [pe] = await db.query("SELECT 1 FROM program_enrollments WHERE user_id=? AND program_id=?", [uId, prog]);
+    check("program iadesi: program üyeliği silindi", pe.length === 0);
+    check("program iadesi: purchase kaynaklı kurs kaydı silindi", !(await enr(uId, c1.courseId)));
+    check("program iadesi: hediyeyle gelen kurs kaydı kaldı", (await enr(uId, c2.courseId))?.source === "gift");
+  }
+  {
+    const a = await addCourse("hediyeiptal");
+    const id = await addPaidOrder(uId, [{ type: "course", courseId: a.courseId }], { provider: "mock" });
+    await db.query("INSERT INTO gifts (order_id, sender_id, course_id, recipient_email, status, token_hash) VALUES (?, ?, ?, ?, 'pending', ?)", [id, uId, a.courseId, mail("alici4"), "a".repeat(64)]);
+    await refundNow(id);
+    const [[g]] = await db.query("SELECT status, token_hash FROM gifts WHERE order_id=?", [id]);
+    check("hediye iadesi: gifts.status cancelled, token_hash NULL", g.status === "cancelled" && g.token_hash === null, JSON.stringify(g));
+  }
+  {
+    const a = await addCourse("kontenjan2");
+    const [co] = await db.query("INSERT INTO companies (name, code) VALUES (?, ?)", [`E2E Şirket2 ${stamp}`, `E2ER-${stamp}-2`.slice(0, 30)]);
+    const id = await addPaidOrder(uId, [{ type: "seats", courseId: a.courseId, quantity: 3 }], { provider: "mock", companyId: co.insertId });
+    await db.query("INSERT INTO company_allocations (company_id, course_id, quantity, source, order_id) VALUES (?, ?, 3, 'purchase', ?)", [co.insertId, a.courseId, id]);
+    await refundNow(id);
+    const [[t]] = await db.query("SELECT COALESCE(SUM(quantity),0) AS total FROM company_allocations WHERE company_id=? AND course_id=?", [co.insertId, a.courseId]);
+    check("kontenjan iadesi: şirket toplamı düştü", Number(t.total) === 0, JSON.stringify(t));
+  }
+  {
+    const a = await addCourse("pkontenjan");
+    const prog = await addProgram([a.courseId]);
+    const [co] = await db.query("INSERT INTO companies (name, code) VALUES (?, ?)", [`E2E Şirket3 ${stamp}`, `E2ER-${stamp}-3`.slice(0, 30)]);
+    const id = await addPaidOrder(uId, [{ type: "program_seats", programId: prog, quantity: 2 }], { provider: "mock", companyId: co.insertId });
+    await db.query("INSERT INTO company_program_allocations (company_id, program_id, quantity, source, order_id) VALUES (?, ?, 2, 'purchase', ?)", [co.insertId, prog, id]);
+    await refundNow(id);
+    const [[t]] = await db.query("SELECT COALESCE(SUM(quantity),0) AS total FROM company_program_allocations WHERE company_id=? AND program_id=?", [co.insertId, prog]);
+    check("program kontenjanı iadesi: şirket toplamı düştü", Number(t.total) === 0, JSON.stringify(t));
+  }
+  {
+    const a = await addCourse("kupon");
+    const code = `E2ER${stamp}K`;
+    const [cp] = await db.query("INSERT INTO coupons (code, discount_type, discount_value, is_active) VALUES (?, 'fixed', 10, 1)", [code]);
+    const id = await addPaidOrder(uId, [{ type: "course", courseId: a.courseId }], { provider: "mock", amount: 90 });
+    await db.query("UPDATE orders SET coupon_id=?, coupon_code=?, discount_amount=10 WHERE id=?", [cp.insertId, code, id]);
+    await db.query("INSERT INTO coupon_redemptions (coupon_id, user_id, order_id, discount_amount) VALUES (?, ?, ?, 10)", [cp.insertId, uId, id]);
+    await refundNow(id);
+    const [red] = await db.query("SELECT 1 FROM coupon_redemptions WHERE order_id=?", [id]);
+    check("kupon iadesi: coupon_redemptions satırı silindi (kupon tekrar kullanılabilir)", red.length === 0);
+    check("kupon iadesi: iade tutarı indirim sonrası ödenen (90.00)", (await request(id)).amount === "90.00");
+  }
+
   // @@NEXT-SECTIONS@@
 } catch (e) {
   failN++; console.error("✗ BEKLENMEYEN HATA", e);
 } finally {
   await db.query("DELETE FROM users WHERE email LIKE ?", [`e2e-refund-${stamp}-%@example.invalid`]); // siparişler/başvurular/kayıtlar cascade
   await db.query("DELETE FROM companies WHERE code LIKE ?", [`E2ER-${stamp}%`]);
+  await db.query("DELETE FROM programs WHERE slug LIKE ?", [`e2e-refund-${stamp}-%`]);
   await db.query("DELETE FROM courses WHERE slug LIKE ?", [`e2e-refund-${stamp}-%`]);
+  await db.query("DELETE FROM coupons WHERE code LIKE ?", [`E2ER${stamp}%`]);
   const [[left]] = await db.query("SELECT (SELECT COUNT(*) FROM users WHERE email LIKE ?) u, (SELECT COUNT(*) FROM courses WHERE slug LIKE ?) c, (SELECT COUNT(*) FROM companies WHERE code LIKE ?) co", [`e2e-refund-${stamp}-%`, `e2e-refund-${stamp}-%`, `E2ER-${stamp}%`]);
   console.log(`temizlik: kalan test kullanıcısı=${left.u}, kalan test kursu=${left.c}, kalan test şirketi=${left.co}`);
   await db.end();
