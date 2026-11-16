@@ -31,7 +31,11 @@ export function Footer() {
           height={47}
           style={{ height: 30, width: "auto", mixBlendMode: "multiply", marginBottom: 14 }}
         />
-        <div style={{ color: "var(--muted-55)" }}>© 2026 Profect. Tüm hakları saklıdır.</div>
+        <div style={{ color: "var(--muted-55)", lineHeight: 1.6 }}>
+          <div>© 2026 {COMPANY.name}. Tüm hakları saklıdır.</div>
+          <div style={{ marginTop: 8 }}>{COMPANY.address}</div>
+          <div>MERSİS: {COMPANY.mersis}</div>
+        </div>
       </div>
       <div className="footer-col">
         <div className="footer-title">Platform</div>
@@ -42,8 +46,11 @@ export function Footer() {
       <div className="footer-col">
         <div className="footer-title">Şirket</div>
         <Link href="/hakkimizda">Hakkımızda</Link>
-        <a href={`mailto:${COMPANY.email}`}>İletişim</a>
+        <Link href="/iletisim">İletişim</Link>
         <a href="https://www.linkedin.com/company/profect-academy/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        <Link href="/mesafeli-satis-sozlesmesi">Mesafeli Satış Sözleşmesi</Link>
+        <Link href="/iade-ve-iptal">Teslimat, İade ve İptal</Link>
+        <Link href="/gizlilik-ve-guvenlik">Gizlilik ve Güvenlik</Link>
         <Link href="/kvkk">KVKK Aydınlatma Metni</Link>
         <Link href="/cerez-politikasi">Çerez Politikası</Link>
         <Link href="/icerik-bildirimi">İçerik ve Telif Bildirimi</Link>

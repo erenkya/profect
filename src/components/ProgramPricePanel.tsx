@@ -120,7 +120,7 @@ export function ProgramPricePanel({ slug, loggedIn, member, sellable, payable, p
             <Gift size={16} aria-hidden /> Hediye Et
           </Link>
         )}
-        {!member && !draft && sellable && !joinable && <div style={{ fontSize: 13, textAlign: "center", color: "var(--muted-55)" }}>14 gün içinde koşulsuz iade</div>}
+        {!member && !draft && sellable && !joinable && <div style={{ fontSize: 13, textAlign: "center", color: "var(--muted-55)" }}>14 gün içinde iade (kursa başlanmamışsa)</div>}
         <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12, fontSize: 15 }}>
           {["Tüm kurslara kalıcı erişim", "Her kurs için ayrı sertifika", "Tüm kursları bitirince program sertifikası", "Sahip olduğun kurslar fiyattan düşülür"].map((t) => (
             <div key={t} style={{ display: "flex", gap: 12, alignItems: "center" }}>

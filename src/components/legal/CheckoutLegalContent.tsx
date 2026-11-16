@@ -2,7 +2,7 @@ import { COMPANY } from "./company";
 import "@/components/checkout/checkout.css";
 
 // Taslak metinlerdir: yayından önce bir hukukçu tarafından incelenmeli ve şirket bilgileri (company.ts) doldurulmalıdır.
-// İade süresi sitede verilen "14 gün içinde koşulsuz iade" taahhüdüyle tutarlıdır.
+// İade koşulu sitede verilen "14 gün içinde, kursa başlanmamışsa iade" ifadesiyle tutarlıdır.
 
 export function DistanceSalesContent() {
   return (
@@ -32,7 +32,8 @@ export function DistanceSalesContent() {
       </p>
       <h3>6. Cayma ve iade</h3>
       <p>
-        Alıcı, ödeme tarihinden itibaren 14 (on dört) gün içinde, gerekçe göstermeksizin sözleşmeden cayabilir ve bedelin iadesini talep edebilir. Ayrıntılar “Teslimat, İade ve İptal Koşulları”nda yer alır.
+        Alıcı, ödeme tarihinden itibaren 14 (on dört) gün içinde, gerekçe göstermeksizin sözleşmeden cayabilir ve bedelin iadesini talep edebilir. Ancak eğitim içeriği elektronik ortamda anında ifa edilen bir hizmet olduğundan,
+        Alıcı’nın kursa başlaması (herhangi bir dersi açması veya izlemesi) hâlinde ifa başlamış sayılır ve bu durumda cayma hakkı kullanılamaz, iade yapılmaz. Alıcı, sipariş onayıyla bu hususu bildiğini ve kabul ettiğini beyan eder. Ayrıntılar “Teslimat, İade ve İptal Koşulları”nda yer alır.
       </p>
       <h3>7. Uyuşmazlık</h3>
       <p>
@@ -74,7 +75,10 @@ export function DeliveryReturnContent() {
       <p>Erişimin açıldığı hesabınızdaki “Kurslarım” sayfasında ve sipariş sırasında verdiğiniz e-posta adresinde bildirilir.</p>
       <h3>3. Cayma ve iade</h3>
       <p>
-        Ödeme tarihinden itibaren <strong>14 gün</strong> içinde {COMPANY.email} adresine başvurarak siparişinizi iptal edebilir ve ödediğiniz tutarın iadesini isteyebilirsiniz.
+        Ödeme tarihinden itibaren <strong>14 gün</strong> içinde ve <strong>kursa başlamamış olmanız kaydıyla</strong> {COMPANY.email} adresine başvurarak siparişinizi iptal edebilir ve ödediğiniz tutarın iadesini isteyebilirsiniz.
+      </p>
+      <p>
+        <strong>Kursa başlanmışsa iade yapılmaz.</strong> Kursa başlamak, hesabınızdan herhangi bir dersi açmak veya izlemek anlamına gelir. Eğitim içeriği anında ifa edilen dijital bir hizmet olduğundan, başladıktan sonra cayma hakkı kullanılamaz.
       </p>
       <h3>4. İade yöntemi ve süre</h3>
       <p>Onaylanan iadeler, ödemenin yapıldığı karta, bankanın işlem süreleri saklı kalmak kaydıyla en geç 10 iş günü içinde yansıtılır.</p>

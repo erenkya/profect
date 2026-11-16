@@ -79,7 +79,7 @@ export function PurchasePanel({ slug, courseId, priceLabel, oldPriceLabel, inclu
             <Gift size={16} aria-hidden /> Hediye Et
           </Link>
         )}
-        <div style={{ fontSize: 13, textAlign: "center", color: "var(--muted-55)" }}>14 gün içinde koşulsuz iade</div>
+        <div style={{ fontSize: 13, textAlign: "center", color: "var(--muted-55)" }}>14 gün içinde iade (kursa başlanmamışsa)</div>
         <div style={{ borderTop: "1px solid var(--color-divider)", paddingTop: 16, display: "flex", flexDirection: "column", gap: 12, fontSize: 15 }}>
           {includes.map((t) => (
             <div key={t} style={{ display: "flex", gap: 12, alignItems: "center" }}>

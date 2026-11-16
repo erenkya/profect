@@ -1,8 +1,7 @@
-// TODO: Yayına çıkmadan önce adres ve MERSİS no alanlarını gerçek bilgilerle doldurun.
 // Satış, gizlilik, iade, KVKK ve çerez metinlerinin tamamı bu bilgileri kullanır.
 export const COMPANY = {
   name: "Profect",
-  address: "[Adres]",
-  mersis: "[MERSİS no]",
+  address: "Erenköy Mah. Yesari Asım Arsoy Sk 9/7 34738 Kadıköy İstanbul Türkiye",
+  mersis: "0733145208700001",
   email: "info@profect.com.tr",
 };
