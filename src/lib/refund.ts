@@ -2,8 +2,12 @@ import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import pool from "@/lib/db";
 import { isWatched } from "@/lib/company-rules";
+import { applyRefundEffects } from "@/lib/refund-effects";
+import { isAutomaticProvider, refundOrder } from "@/lib/payment/refund";
 import {
   REFUND_WINDOW_DAYS,
+  canOverride,
+  canTransition,
   evaluateRefund,
   type RefundBlockReason,
   type RefundFacts,
@@ -176,3 +180,192 @@ export async function createRefundRequest(i: { userId: number; orderId: number; 
 
 /** Yeni iade talebinde admine bildirim (Task 7'de doldurulur). */
 export async function notifyRefundRequested(_requestId: number, _baseUrl: string): Promise<void> {}
+
+// ── Karar akışı ──────────────────────────────────────────────────────────────
+
+export type DecideAction = "approve" | "reject" | "mark_refunded";
+export type DecideResult =
+  | { ok: true; status: RefundStatus }
+  | { ok: false; reason: "not_found" | "bad_state" | "note_required" }
+  | { ok: false; reason: "ineligible"; blocks: RefundBlockReason[] };
+
+type RequestRow = { id: number; order_id: number; status: RefundStatus; provider_ref: string | null };
+
+/**
+ * Başvuru + siparişi kilitler. Kilit sırası HER YERDE aynı: önce sipariş, sonra başvuru (karşılıklı kilitlenme olmasın).
+ * Başvuru yoksa null.
+ */
+async function lockRequest(conn: PoolConnection, requestId: number): Promise<RequestRow | null> {
+  const [first] = await conn.query<RowDataPacket[]>("SELECT order_id FROM refund_requests WHERE id = ?", [requestId]);
+  if (!first[0]) return null;
+  await conn.query("SELECT id FROM orders WHERE id = ? FOR UPDATE", [first[0].order_id]);
+  const [rows] = await conn.query<RowDataPacket[]>("SELECT id, order_id, status, provider_ref FROM refund_requests WHERE id = ? FOR UPDATE", [requestId]);
+  return (rows[0] as RequestRow | undefined) ?? null;
+}
+
+export async function decideRefund(i: { requestId: number; adminId: number; action: DecideAction; note?: string; override?: boolean }): Promise<DecideResult> {
+  if (i.action === "reject") return rejectRefund(i.requestId, i.adminId, i.note);
+  if (i.action === "mark_refunded") return markRefunded(i.requestId);
+  return approveRefund(i);
+}
+
+async function rejectRefund(requestId: number, adminId: number, note?: string): Promise<DecideResult> {
+  if (!note?.trim()) return { ok: false, reason: "note_required" };
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const rr = await lockRequest(conn, requestId);
+    if (!rr) {
+      await conn.rollback();
+      return { ok: false, reason: "not_found" };
+    }
+    if (!canTransition(rr.status, "rejected")) {
+      await conn.rollback();
+      return { ok: false, reason: "bad_state" };
+    }
+    const [res] = await conn.execute<ResultSetHeader>(
+      "UPDATE refund_requests SET status = 'rejected', decided_by = ?, decided_at = NOW(), decision_note = ? WHERE id = ? AND status IN ('requested','failed')",
+      [adminId, note.trim(), requestId],
+    );
+    if (res.affectedRows === 0) {
+      await conn.rollback();
+      return { ok: false, reason: "bad_state" };
+    }
+    await conn.commit();
+    return { ok: true, status: "rejected" };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+async function approveRefund(i: { requestId: number; adminId: number; note?: string; override?: boolean }): Promise<DecideResult> {
+  const conn = await pool.getConnection();
+  let order: RefundOrder;
+  let providerRef: string | null;
+  try {
+    await conn.beginTransaction();
+    const rr = await lockRequest(conn, i.requestId);
+    if (!rr) {
+      await conn.rollback();
+      return { ok: false, reason: "not_found" };
+    }
+    const loaded = await loadRefundFacts(conn, rr.order_id, i.requestId);
+    if (!loaded) {
+      await conn.rollback();
+      return { ok: false, reason: "not_found" };
+    }
+    // `approved` yeniden girilebilir yalnızca otomatik sağlayıcıda (çağrı sonrası çökme kurtarması); manual'de ikinci onay anlamsız.
+    const reentry = rr.status === "approved" && isAutomaticProvider(loaded.order.provider);
+    if (!reentry && !canTransition(rr.status, "approved")) {
+      await conn.rollback();
+      return { ok: false, reason: "bad_state" };
+    }
+    const blocks = evaluateRefund(loaded.facts, new Date()).reasons;
+    // Yeniden girişte uygunluk yeniden sorulmaz: onay ve (varsa) sağlayıcı çağrısı zaten verildi.
+    if (!reentry && blocks.length > 0) {
+      if (!(i.override && canOverride(blocks))) {
+        await conn.rollback();
+        return { ok: false, reason: "ineligible", blocks };
+      }
+      if (!i.note?.trim()) {
+        await conn.rollback();
+        return { ok: false, reason: "note_required" };
+      }
+    }
+    if (!reentry) {
+      const [res] = await conn.execute<ResultSetHeader>(
+        `UPDATE refund_requests SET status = 'approved', decided_by = ?, decided_at = NOW(), override = ?, decision_note = COALESCE(?, decision_note), error_message = NULL
+          WHERE id = ? AND status IN ('requested','failed')`,
+        [i.adminId, blocks.length > 0 ? 1 : 0, i.note?.trim() || null, i.requestId],
+      );
+      if (res.affectedRows === 0) {
+        await conn.rollback();
+        return { ok: false, reason: "bad_state" };
+      }
+    }
+    await conn.commit();
+    order = loaded.order;
+    providerRef = rr.provider_ref;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+
+  // Sağlayıcı çağrısı kilidin DIŞINDA (uzun ağ çağrısı bağlantı tutmasın). Çağrı daha önce başarılıysa (provider_ref dolu) tekrarlanmaz.
+  if (providerRef === null) {
+    const out = await refundOrder({ id: order.id, provider: order.provider, amount: order.amount, provider_ref: null }, i.requestId);
+    if (out.kind === "manual_pending") return { ok: true, status: "approved" };
+    if (out.kind === "failed") {
+      await pool.execute("UPDATE refund_requests SET status = 'failed', error_message = ? WHERE id = ? AND status = 'approved'", [out.message.slice(0, 255), i.requestId]);
+      return { ok: true, status: "failed" };
+    }
+    providerRef = out.providerRef;
+    // Çağrıdan hemen sonra yazılır: sonuçlandırma düşse bile yeniden deneme çağrıyı tekrarlamaz.
+    await pool.execute("UPDATE refund_requests SET provider_ref = ? WHERE id = ? AND status = 'approved'", [providerRef, i.requestId]);
+  }
+  return finalizeRefund(i.requestId, providerRef);
+}
+
+async function markRefunded(requestId: number): Promise<DecideResult> {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const rr = await lockRequest(conn, requestId);
+    if (!rr) {
+      await conn.rollback();
+      return { ok: false, reason: "not_found" };
+    }
+    const [o] = await conn.query<RowDataPacket[]>("SELECT provider FROM orders WHERE id = ?", [rr.order_id]);
+    // Yalnızca elle ödemede: otomatik sağlayıcı parayı kendisi iade eder.
+    if (rr.status !== "approved" || !o[0] || isAutomaticProvider(o[0].provider)) {
+      await conn.rollback();
+      return { ok: false, reason: "bad_state" };
+    }
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+  return finalizeRefund(requestId, null);
+}
+
+/**
+ * İadeyi sonuçlandırır (tek transaction): başvuru `refunded`, sipariş `refunded`, yan etkiler geri alınır.
+ * Koşullu UPDATE'ler çift sonuçlandırmayı engeller: kaybeden `bad_state` alır.
+ */
+async function finalizeRefund(requestId: number, providerRef: string | null): Promise<DecideResult> {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const rr = await lockRequest(conn, requestId);
+    if (!rr || rr.status !== "approved") {
+      await conn.rollback();
+      return { ok: false, reason: rr ? "bad_state" : "not_found" };
+    }
+    const [res] = await conn.execute<ResultSetHeader>(
+      "UPDATE refund_requests SET status = 'refunded', refunded_at = NOW(), provider_ref = COALESCE(?, provider_ref) WHERE id = ? AND status = 'approved'",
+      [providerRef, requestId],
+    );
+    const [ores] = await conn.execute<ResultSetHeader>("UPDATE orders SET status = 'refunded', refunded_at = NOW() WHERE id = ? AND status = 'paid'", [rr.order_id]);
+    if (res.affectedRows === 0 || ores.affectedRows === 0) {
+      await conn.rollback();
+      return { ok: false, reason: "bad_state" };
+    }
+    const [orows] = await conn.query<RowDataPacket[]>("SELECT id, user_id, company_id FROM orders WHERE id = ?", [rr.order_id]);
+    await applyRefundEffects(conn, orows[0] as { id: number; user_id: number; company_id: number | null });
+    await conn.commit();
+    return { ok: true, status: "refunded" };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}

@@ -143,6 +143,106 @@ try {
     check("atama yoksa kontenjan siparişi 201", r.status === 201, JSON.stringify(r.json));
   }
 
+  // ── Karar (onay / red / iade yapıldı) ─────────────────────────────────────────
+  const decide = (id, body, cookie = admCookie) => api(`/api/admin/refunds/${id}`, { method: "PATCH", cookie, body });
+  /** Kurs siparişi + açık iade başvurusu. { orderId, requestId, ...course } döner. */
+  async function openRequest(provider, label = "karar") {
+    const c = await addCourse(label);
+    const orderId = await addPaidOrder(uId, [{ type: "course", courseId: c.courseId }], { provider });
+    const r = await refund(uCookie, orderId);
+    if (r.status !== 201) throw new Error("başvuru açılamadı: " + JSON.stringify(r.json));
+    return { orderId, requestId: r.json.requestId, ...c };
+  }
+  {
+    const x = await openRequest("manual");
+    let r = await decide(x.requestId, { action: "mark_refunded" });
+    check("requested iken mark_refunded 409", r.status === 409, JSON.stringify(r.json));
+    r = await decide(x.requestId, { action: "approve" });
+    check("manual: approve 200, durum approved", r.status === 200 && r.json.status === "approved", JSON.stringify(r.json));
+    check("manual: onaydan sonra sipariş hâlâ paid", (await order(x.orderId)).status === "paid");
+    r = await decide(x.requestId, { action: "approve" });
+    check("manual: ikinci approve 409 (bad_state)", r.status === 409, JSON.stringify(r.json));
+    r = await decide(x.requestId, { action: "mark_refunded" });
+    check("manual: mark_refunded 200, durum refunded", r.status === 200 && r.json.status === "refunded", JSON.stringify(r.json));
+    const o = await order(x.orderId);
+    check("manual: sipariş refunded ve refunded_at dolu", o.status === "refunded" && o.refunded_at !== null);
+    check("manual: başvuru refunded, decided_by dolu", (await request(x.orderId)).status === "refunded" && (await request(x.orderId)).decided_by !== null);
+  }
+  {
+    const x = await openRequest("mock");
+    const r = await decide(x.requestId, { action: "approve" });
+    check("mock: approve tek çağrıda refunded", r.status === 200 && r.json.status === "refunded", JSON.stringify(r.json));
+    const req = await request(x.orderId);
+    check("mock: provider_ref = mock-refund-<id>", req.provider_ref === `mock-refund-${x.requestId}`, req.provider_ref);
+    check("mock: mark_refunded otomatik sağlayıcıda 409", (await decide(x.requestId, { action: "mark_refunded" })).status === 409);
+  }
+  {
+    const x = await openRequest("tami");
+    let r = await decide(x.requestId, { action: "approve" });
+    check("tami: approve 200, durum failed", r.status === 200 && r.json.status === "failed", JSON.stringify(r.json));
+    check("tami: error_message dolu, sipariş hâlâ paid", !!(await request(x.orderId)).error_message && (await order(x.orderId)).status === "paid");
+    r = await decide(x.requestId, { action: "approve" });
+    check("tami: failed yeniden denenebilir (yine failed)", r.status === 200 && r.json.status === "failed", JSON.stringify(r.json));
+    r = await decide(x.requestId, { action: "mark_refunded" });
+    check("tami: failed iken mark_refunded 409", r.status === 409);
+    r = await decide(x.requestId, { action: "reject", note: "Sağlayıcı iadesi yapılamadı" });
+    check("tami: failed başvuru reddedilebilir", r.status === 200 && r.json.status === "rejected", JSON.stringify(r.json));
+  }
+  {
+    const x = await openRequest("manual");
+    let r = await decide(x.requestId, { action: "reject" });
+    check("reject notsuz 400", r.status === 400, JSON.stringify(r.json));
+    r = await decide(x.requestId, { action: "reject", note: "Politika dışı" });
+    check("reject notlu 200, durum rejected", r.status === 200 && r.json.status === "rejected", JSON.stringify(r.json));
+    const req = await request(x.orderId);
+    check("reject: karar notu kayıtlı, sipariş paid kalır", req.decision_note === "Politika dışı" && (await order(x.orderId)).status === "paid");
+    check("reject sonrası approve 409", (await decide(x.requestId, { action: "approve" })).status === 409);
+  }
+  {
+    const x = await openRequest("mock", "cift");
+    const rs = await Promise.all([decide(x.requestId, { action: "approve" }), decide(x.requestId, { action: "approve" })]);
+    const codes = rs.map((r) => r.status).sort();
+    check("çift onay: biri 200, diğeri 409", codes[0] === 200 && codes[1] === 409, JSON.stringify(rs.map((r) => [r.status, r.json])));
+    const [reqs] = await db.query("SELECT status FROM refund_requests WHERE order_id=?", [x.orderId]);
+    check("çift onay: tek başvuru satırı, refunded", reqs.length === 1 && reqs[0].status === "refunded");
+    const rs2 = await Promise.all([decide(x.requestId, { action: "mark_refunded" }), decide(x.requestId, { action: "mark_refunded" })]);
+    check("refunded başvuruda iki mark_refunded de 409", rs2.every((r) => r.status === 409));
+  }
+  {
+    const x = await openRequest("mock", "baslama");
+    await db.query("INSERT INTO lesson_progress (user_id, lesson_id) VALUES (?, ?)", [uId, x.lessonId]);
+    let r = await decide(x.requestId, { action: "approve" });
+    check("başvurudan sonra başlandıysa approve 409 ineligible", r.status === 409 && r.json.blocks?.includes("already_started"), JSON.stringify(r.json));
+    r = await decide(x.requestId, { action: "approve", override: true });
+    check("notsuz override 400", r.status === 400, JSON.stringify(r.json));
+    r = await decide(x.requestId, { action: "approve", override: true, note: "Destek yazışması" });
+    check("notlu override 200, refunded", r.status === 200 && r.json.status === "refunded", JSON.stringify(r.json));
+    const req = await request(x.orderId);
+    check("override kaydı: override=1, not yazıldı", req.override === 1 && req.decision_note === "Destek yazışması");
+  }
+  {
+    const x = await openRequest("mock", "hediyeoverride");
+    await db.query("INSERT INTO gifts (order_id, sender_id, course_id, recipient_email, status) VALUES (?, ?, ?, ?, 'claimed')", [x.orderId, uId, x.courseId, mail("alici3")]);
+    const r = await decide(x.requestId, { action: "approve", override: true, note: "Zorla" });
+    check("alınmış hediye override ile de aşılamaz (409)", r.status === 409 && r.json.blocks?.includes("gift_claimed"), JSON.stringify(r.json));
+  }
+  {
+    const x = await openRequest("manual", "yetki");
+    const r = await decide(x.requestId, { action: "approve" }, uCookie);
+    check("admin olmayan 403", r.status === 403);
+    check("olmayan başvuru 404", (await decide(99999999, { action: "approve" })).status === 404);
+  }
+  {
+    // İade edilmiş sipariş, admin "onayla" API'siyle yeniden ödendi sayılıp erişimi yeniden açmamalı.
+    const x = await openRequest("mock", "yenidenacma");
+    await decide(x.requestId, { action: "approve" });
+    await db.query("DELETE FROM enrollments WHERE user_id=? AND course_id=?", [uId, x.courseId]);
+    const r = await api(`/api/admin/orders/${x.orderId}`, { method: "PATCH", cookie: admCookie, body: { action: "approve" } });
+    check("refunded siparişe admin 'onayla' 200 dönmez", r.status !== 200, JSON.stringify(r.json));
+    const [[e]] = await db.query("SELECT COUNT(*) n FROM enrollments WHERE user_id=? AND course_id=?", [uId, x.courseId]);
+    check("refunded sipariş erişimi yeniden açmadı, durum refunded", e.n === 0 && (await order(x.orderId)).status === "refunded");
+  }
+
   // @@NEXT-SECTIONS@@
 } catch (e) {
   failN++; console.error("✗ BEKLENMEYEN HATA", e);

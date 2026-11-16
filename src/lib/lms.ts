@@ -361,6 +361,11 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
       await conn.rollback();
       return { ok: true };
     }
+    // İade edilmiş sipariş yeniden "ödendi" sayılıp erişimi geri açamaz (admin "onayla" API'si ve Tami callback'i buradan geçer).
+    if (o.status === "refunded") {
+      await conn.rollback();
+      return { ok: false, reason: "İade edilmiş sipariş yeniden onaylanamaz." };
+    }
     await conn.execute("UPDATE orders SET status = 'paid', paid_at = NOW() WHERE id = ?", [orderId]);
     // Hediye siparişinde kurs siparişi verene DEĞİL, alıcıya gider: burada yalnızca hediye aktive edilir (token + mailler).
     const gift = await activateGiftForOrder(conn, orderId);
