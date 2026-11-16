@@ -379,6 +379,57 @@ try {
     check("admin: sekmelerde 'İadeler' var", p.text.includes("İadeler"));
   }
 
+  // ── Final inceleme düzeltmeleri ───────────────────────────────────────────────
+  {
+    // (1) Sağlayıcı çağrısı yarım kaldıysa (approved + provider_ref NULL) ikinci onay sağlayıcıyı TEKRAR çağırmamalı.
+    const x = await openRequest("mock", "yarim");
+    await db.query("UPDATE refund_requests SET status='approved' WHERE id=?", [x.requestId]);
+    let r = await decide(x.requestId, { action: "approve" });
+    check("approved + provider_ref yok: ikinci onay 409 (sağlayıcı yeniden çağrılmaz)", r.status === 409, JSON.stringify(r.json));
+    check("…ve başvuru approved kalır, sipariş paid", (await request(x.orderId)).status === "approved" && (await order(x.orderId)).status === "paid");
+    // Çağrı başarılı ama sonuçlandırma düşmüş (provider_ref dolu): yalnızca sonuçlandırılır, referans değişmez.
+    await db.query("UPDATE refund_requests SET provider_ref='onceki-ref' WHERE id=?", [x.requestId]);
+    r = await decide(x.requestId, { action: "approve" });
+    check("approved + provider_ref dolu: onay yalnızca sonuçlandırır (refunded)", r.status === 200 && r.json.status === "refunded", JSON.stringify(r.json));
+    check("…provider_ref değişmedi", (await request(x.orderId)).provider_ref === "onceki-ref");
+  }
+  {
+    // (2a) Onay ile "iade yapıldı" arasında hediye alınırsa iade sonuçlanmamalı.
+    const c = await addCourse("hediyegec");
+    const orderId = await addPaidOrder(uId, [{ type: "course", courseId: c.courseId }], { provider: "manual" });
+    await db.query("INSERT INTO gifts (order_id, sender_id, course_id, recipient_email, status) VALUES (?, ?, ?, ?, 'pending')", [orderId, uId, c.courseId, mail("alici5")]);
+    const rq = await refund(uCookie, orderId);
+    await decide(rq.json.requestId, { action: "approve" });
+    const PHRASE = "Hediye alıcı tarafından alındığı için";
+    const before = (await pageHtml("/admin/iadeler", admCookie)).text.split(PHRASE).length - 1;
+    await db.query("UPDATE gifts SET status='claimed' WHERE order_id=?", [orderId]);
+    const r = await decide(rq.json.requestId, { action: "mark_refunded" });
+    check("onaydan sonra hediye alındıysa mark_refunded 409 gift_claimed", r.status === 409 && r.json.blocks?.includes("gift_claimed"), JSON.stringify(r.json));
+    check("…sipariş paid kalır, başvuru approved kalır", (await order(orderId)).status === "paid" && (await request(orderId)).status === "approved");
+    const after = (await pageHtml("/admin/iadeler", admCookie)).text.split(PHRASE).length - 1;
+    check("…admin kuyruğu approved satırda yeni engeli gösterir (+1)", after === before + 1, `before=${before} after=${after}`);
+  }
+  {
+    // (2b) Onaydan sonra kontenjan atanırsa iade sonuçlanmamalı.
+    const c = await addCourse("kontgec");
+    const [co] = await db.query("INSERT INTO companies (name, code) VALUES (?, ?)", [`E2E Şirket4 ${stamp}`, `E2ER-${stamp}-4`.slice(0, 30)]);
+    const orderId = await addPaidOrder(uId, [{ type: "seats", courseId: c.courseId, quantity: 1 }], { provider: "manual", companyId: co.insertId });
+    await db.query("INSERT INTO company_allocations (company_id, course_id, quantity, source, order_id) VALUES (?, ?, 1, 'purchase', ?)", [co.insertId, c.courseId, orderId]);
+    const rq = await refund(uCookie, orderId);
+    await decide(rq.json.requestId, { action: "approve" });
+    await db.query("INSERT INTO company_assignments (company_id, course_id, user_id, status) VALUES (?, ?, ?, 'active')", [co.insertId, c.courseId, oId]);
+    const r = await decide(rq.json.requestId, { action: "mark_refunded" });
+    check("onaydan sonra kontenjan atandıysa mark_refunded 409 seats_assigned", r.status === 409 && r.json.blocks?.includes("seats_assigned"), JSON.stringify(r.json));
+    const [[t]] = await db.query("SELECT COALESCE(SUM(quantity),0) AS total FROM company_allocations WHERE company_id=? AND course_id=?", [co.insertId, c.courseId]);
+    check("…kontenjan satırı silinmedi, sipariş paid", Number(t.total) === 1 && (await order(orderId)).status === "paid");
+  }
+  {
+    // (4) Sağlayıcı hatası yönetici arayüzüne mesajla döner.
+    const x = await openRequest("tami", "hatamesaj");
+    const r = await decide(x.requestId, { action: "approve" });
+    check("sağlayıcı hatasında yanıt mesaj taşır", r.status === 200 && r.json.status === "failed" && typeof r.json.message === "string" && r.json.message.includes("başarısız"), JSON.stringify(r.json));
+  }
+
   // @@NEXT-SECTIONS@@
 } catch (e) {
   failN++; console.error("✗ BEKLENMEYEN HATA", e);

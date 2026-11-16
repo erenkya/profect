@@ -48,6 +48,9 @@ export function evaluateRefund(f: RefundFacts, now: Date): RefundVerdict {
   return { eligible: reasons.length === 0, reasons };
 }
 
+/** Sağlayıcı iadeyi kendisi yapıyorsa true (admin "İade yapıldı" demez); manual'de para elle gider. */
+export const isAutomaticProvider = (provider: string): boolean => provider === "tami" || provider === "mock";
+
 /** Admin yalnızca bu engelleri (gerekçe notuyla) aşabilir; diğerleri sistem tutarlılığı içindir. */
 const OVERRIDABLE: ReadonlySet<RefundBlockReason> = new Set(["already_started", "window_expired"]);
 

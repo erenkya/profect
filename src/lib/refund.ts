@@ -1,15 +1,17 @@
 import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import pool from "@/lib/db";
+import { lockCompany } from "@/lib/company-lock";
 import { isWatched } from "@/lib/company-rules";
 import { sendRefundDecisionEmail, sendRefundRequestNoticeEmail } from "@/lib/mail";
 import { applyRefundEffects } from "@/lib/refund-effects";
-import { isAutomaticProvider, refundOrder } from "@/lib/payment/refund";
+import { refundOrder } from "@/lib/payment/refund";
 import {
   REFUND_WINDOW_DAYS,
   canOverride,
   canTransition,
   evaluateRefund,
+  isAutomaticProvider,
   type RefundBlockReason,
   type RefundFacts,
   type RefundStatus,
@@ -288,8 +290,9 @@ async function approveRefund(i: { requestId: number; adminId: number; note?: str
       await conn.rollback();
       return { ok: false, reason: "not_found" };
     }
-    // `approved` yeniden girilebilir yalnızca otomatik sağlayıcıda (çağrı sonrası çökme kurtarması); manual'de ikinci onay anlamsız.
-    const reentry = rr.status === "approved" && isAutomaticProvider(loaded.order.provider);
+    // `approved` yeniden girilebilir YALNIZCA sağlayıcı çağrısı zaten başarılıysa (provider_ref dolu): kurtarma yalnızca sonuçlandırır.
+    // provider_ref boşken ikinci istek ya çağrı sürüyor ya da yarım kalmış demektir; sağlayıcıyı yeniden çağırmak çift iade riskidir.
+    const reentry = rr.status === "approved" && isAutomaticProvider(loaded.order.provider) && rr.provider_ref !== null;
     if (!reentry && !canTransition(rr.status, "approved")) {
       await conn.rollback();
       return { ok: false, reason: "bad_state" };
@@ -379,6 +382,18 @@ async function finalizeRefund(requestId: number, providerRef: string | null): Pr
     if (!rr || rr.status !== "approved") {
       await conn.rollback();
       return { ok: false, reason: rr ? "bad_state" : "not_found" };
+    }
+    // Onay ile sonuçlanma arası günler sürebilir (elle ödeme): aşılamaz engeller KİLİT ALTINDA yeniden bakılır.
+    // Kilit sırası orders → refund_requests → companies (applyRefundEffects ile aynı).
+    const [co] = await conn.query<RowDataPacket[]>("SELECT company_id FROM orders WHERE id = ?", [rr.order_id]);
+    if (co[0]?.company_id) await lockCompany(conn, co[0].company_id);
+    const recheck = await loadRefundFacts(conn, rr.order_id, requestId);
+    const late: RefundBlockReason[] = [];
+    if (recheck?.facts.giftClaimed) late.push("gift_claimed");
+    if (recheck?.facts.seatsWouldUndercut) late.push("seats_assigned");
+    if (late.length > 0) {
+      await conn.rollback();
+      return { ok: false, reason: "ineligible", blocks: late };
     }
     const [res] = await conn.execute<ResultSetHeader>(
       "UPDATE refund_requests SET status = 'refunded', refunded_at = NOW(), provider_ref = COALESCE(?, provider_ref) WHERE id = ? AND status = 'approved'",

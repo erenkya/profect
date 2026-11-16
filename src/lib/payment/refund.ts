@@ -7,9 +7,6 @@ import "server-only";
 
 export type RefundOutcome = { kind: "done"; providerRef: string } | { kind: "manual_pending" } | { kind: "failed"; message: string };
 
-/** Sağlayıcı iadeyi kendisi yapıyorsa true (admin "İade yapıldı" demez); manual'de para elle gider. */
-export const isAutomaticProvider = (provider: string): boolean => provider === "tami" || provider === "mock";
-
 /**
  * Siparişin parasını iade eder. `requestId` (refund_requests.id) sağlayıcıya idempotency anahtarı olarak gider:
  * aynı başvuru için çağrı tekrarlanırsa sağlayıcı ikinci kez iade etmemeli.

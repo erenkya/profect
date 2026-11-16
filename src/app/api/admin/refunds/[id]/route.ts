@@ -26,6 +26,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (r.ok) {
       // Kullanıcıya yalnızca sonuçlanan kararlar bildirilir (onay beklerken ya da sağlayıcı hatasında mail yok).
       if (r.status === "refunded" || r.status === "rejected") after(() => notifyRefundDecision(id, r.status as "refunded" | "rejected", getBaseUrl(request)));
+      if (r.status === "failed") return ok({ status: r.status, message: "Sağlayıcı iadesi başarısız oldu; başvuru hata durumunda, ayrıntı satırda." });
       return ok({ status: r.status });
     }
     switch (r.reason) {
