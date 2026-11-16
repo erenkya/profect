@@ -21,7 +21,7 @@ export default async function CheckoutResultPage({ searchParams }: { searchParam
   const [rows] = id
     ? await pool.query<RowDataPacket[]>("SELECT id, amount, status, error_message, company_id FROM orders WHERE id = ? AND user_id = ?", [id, user.id])
     : [[] as RowDataPacket[]];
-  const order = rows[0] as { id: number; amount: string; status: "pending" | "paid" | "rejected" | "refunded"; error_message: string | null; company_id: number | null } | undefined;
+  const order = rows[0] as { id: number; amount: string; status: "pending" | "paid" | "rejected" | "refunded" | "cancelled"; error_message: string | null; company_id: number | null } | undefined;
   // Hediye siparişi: erişim alıcıya gider, sepet boşaltılmaz; metinler buna göre.
   const [giftRows] = order ? await pool.query<RowDataPacket[]>("SELECT 1 FROM gifts WHERE order_id = ? LIMIT 1", [order.id]) : [[] as RowDataPacket[]];
   const isGift = giftRows.length > 0;
@@ -31,6 +31,8 @@ export default async function CheckoutResultPage({ searchParams }: { searchParam
 
   const view = order?.status === "refunded"
     ? { title: "Siparişin iade edildi", body: "Bu sipariş için ödemen iade edildi; bankana yansıma süresi bankanın işlem sürelerine bağlıdır.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } }
+    : order?.status === "cancelled"
+    ? { title: "Siparişin iptal edildi", body: "Bu sipariş senin tarafından iptal edildi.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } }
     : isSeats && order
     ? seatOrderResultView(order.status, order.error_message)
     : isGift && order
@@ -49,7 +51,7 @@ export default async function CheckoutResultPage({ searchParams }: { searchParam
 
   return (
     <main style={{ minHeight: "calc(100vh - 140px)", display: "grid", placeItems: "center", padding: "clamp(40px,8vw,96px) 20px" }}>
-      {order && !isGift && !isSeats && order.status !== "rejected" && <ClearCartOnMount />}
+      {order && !isGift && !isSeats && order.status !== "rejected" && order.status !== "cancelled" && <ClearCartOnMount />}
       <div className="card blueprint elev-md" style={{ width: "min(520px,100%)", background: "#fff", padding: "clamp(24px,5vw,40px)", gap: 16 }}>
         <Corners />
         <h1 style={{ fontSize: 34, textTransform: "uppercase", margin: 0 }}>{view.title}</h1>

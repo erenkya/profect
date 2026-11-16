@@ -8,8 +8,8 @@ import { formatDate, formatPrice } from "@/lib/format";
 import { adminApi } from "./api";
 import { giftOrderLabel } from "@/lib/gift-rules";
 
-export type OrderRow = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected" | "refunded"; provider: string; created_at: string; paid_at: string | null; user_name: string; user_email: string; course_title: string | null; items_summary: string | null; gift_to: string | null; invoice_type: "bireysel" | "kurumsal" | null; company_name: string | null; tckn: string | null; tax_number: string | null; tax_office: string | null; phone: string | null; address: string | null; city: string | null; district: string | null; error_message: string | null; coupon_code: string | null; discount_amount: string; has_open_refund: number };
-const STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi", refunded: "İade edildi" } as const;
+export type OrderRow = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected" | "refunded" | "cancelled"; provider: string; created_at: string; paid_at: string | null; user_name: string; user_email: string; course_title: string | null; items_summary: string | null; gift_to: string | null; invoice_type: "bireysel" | "kurumsal" | null; company_name: string | null; tckn: string | null; tax_number: string | null; tax_office: string | null; phone: string | null; address: string | null; city: string | null; district: string | null; error_message: string | null; coupon_code: string | null; discount_amount: string; has_open_refund: number };
+const STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi", refunded: "İade edildi", cancelled: "Kullanıcı iptal etti" } as const;
 
 export function OrdersTable({ orders }: { orders: OrderRow[] }) {
   const router = useRouter();

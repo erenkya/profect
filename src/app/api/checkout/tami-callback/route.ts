@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     await reject(ref, !secret || String(payload.success) === "true" ? "callback_signature_mismatch" : "3d_not_authenticated");
     return done(req, order.id);
   }
-  if (order.status === "paid" || order.status === "refunded") return done(req, order.id); // iade edilmiş siparişte tahsilat yeniden tamamlanmaz
+  if (order.status === "paid" || order.status === "refunded" || order.status === "cancelled") return done(req, order.id); // iade edilmiş siparişte tahsilat yeniden tamamlanmaz
 
   try {
     const data = await complete3DS(ref);

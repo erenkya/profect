@@ -3,7 +3,7 @@ import "server-only";
 import { after } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/lib/db";
-import { activateGiftForOrder, sendGiftEmails } from "@/lib/gifts";
+import { activateGiftForOrder, cancelGiftsForOrder, sendGiftEmails } from "@/lib/gifts";
 import { giftOrderLabel } from "@/lib/gift-rules";
 import { sendOrderReceipt } from "@/lib/order-receipt";
 import { enrollInProgram, ensureProgramProgress } from "@/lib/programs";
@@ -366,6 +366,11 @@ export async function fulfillOrder(orderId: number): Promise<{ ok: boolean; reas
       await conn.rollback();
       return { ok: false, reason: "İade edilmiş sipariş yeniden onaylanamaz." };
     }
+    // Kullanıcının iptal ettiği sipariş de yeniden açılamaz (admin "onayla" ve Tami callback'i buradan geçer).
+    if (o.status === "cancelled") {
+      await conn.rollback();
+      return { ok: false, reason: "İptal edilmiş sipariş onaylanamaz." };
+    }
     await conn.execute("UPDATE orders SET status = 'paid', paid_at = NOW() WHERE id = ?", [orderId]);
     // Hediye siparişinde kurs siparişi verene DEĞİL, alıcıya gider: burada yalnızca hediye aktive edilir (token + mailler).
     const gift = await activateGiftForOrder(conn, orderId);
@@ -555,7 +560,7 @@ export const ORDER_ITEMS_SUMMARY_SQL = `(SELECT GROUP_CONCAT(oi.title ORDER BY o
 /** Siparişe bağlı hediye varsa alıcının e-postası (hediye siparişi değilse NULL). */
 export const ORDER_GIFT_TO_SQL = `(SELECT g.recipient_email FROM gifts g WHERE g.order_id = o.id)`;
 
-export type MyOrder = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected" | "refunded"; created_at: string; paid_at: string | null; course_title: string | null; items_summary: string | null; gift_to: string | null };
+export type MyOrder = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected" | "refunded" | "cancelled"; created_at: string; paid_at: string | null; course_title: string | null; items_summary: string | null; gift_to: string | null };
 
 export async function listMyOrders(userId: number): Promise<MyOrder[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -566,6 +571,24 @@ export async function listMyOrders(userId: number): Promise<MyOrder[]> {
   return rows as MyOrder[];
 }
 
+/**
+ * Sipariş sahibi onay bekleyen siparişini iptal eder. Tek UPDATE ile atomik: yönetici aynı anda onaylarsa yalnızca biri kazanır.
+ * Kart ödemesi (tami) hariç: 3D doğrulama sürerken tahsilat bu işlemden bağımsız tamamlanabilir; o sipariş saniyeler içinde sonuçlanır.
+ * Kupon kullanımı ve kontenjan yalnızca onayda işlendiği için geri alınacak yan etki yoktur; ödenmemiş hediye iptal olur.
+ */
+export async function cancelMyOrder(userId: number, orderId: number): Promise<"cancelled" | "not_found" | "not_cancellable"> {
+  const [res] = await pool.execute<ResultSetHeader>(
+    "UPDATE orders SET status = 'cancelled' WHERE id = ? AND user_id = ? AND status = 'pending' AND provider <> 'tami'",
+    [orderId, userId],
+  );
+  if (res.affectedRows) {
+    await cancelGiftsForOrder(orderId);
+    return "cancelled";
+  }
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT 1 FROM orders WHERE id = ? AND user_id = ?", [orderId, userId]);
+  return rows.length ? "not_cancellable" : "not_found";
+}
+
 /** Sipariş ürün adı (eski ve yeni siparişler için tek yerden). */
 export function orderLabel(o: { plan: "single" | "plus" | "cart"; course_title: string | null; items_summary: string | null; gift_to?: string | null }): string {
   return giftOrderLabel(o.items_summary ?? (o.plan === "plus" ? "Profect Plus (aylık)" : o.course_title ?? "—"), o.gift_to);
@@ -574,7 +597,7 @@ export function orderLabel(o: { plan: "single" | "plus" | "cart"; course_title: 
 export type MyOrderItem = { type: "course" | "plus" | "program" | "seats" | "program_seats"; title: string; price: number; href: string | null };
 export type MyOrderDetail = {
   id: number;
-  status: "pending" | "paid" | "rejected" | "refunded";
+  status: "pending" | "paid" | "rejected" | "refunded" | "cancelled";
   provider: string;
   created_at: string;
   paid_at: string | null;

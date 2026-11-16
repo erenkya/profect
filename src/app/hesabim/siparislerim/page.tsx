@@ -9,7 +9,7 @@ import { withinRefundWindow } from "@/lib/refund-rules";
 
 export const metadata: Metadata = { title: "Siparişlerim" };
 
-const ORDER_STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi", refunded: "İade edildi" } as const;
+const ORDER_STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi", refunded: "İade edildi", cancelled: "İptal edildi" } as const;
 
 export default async function MyOrdersPage() {
   const user = await getCurrentUser();

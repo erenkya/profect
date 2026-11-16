@@ -15,7 +15,7 @@ export type RefundBlockReason =
   | "request_exists";
 
 export type RefundFacts = {
-  status: "pending" | "paid" | "rejected" | "refunded";
+  status: "pending" | "paid" | "rejected" | "refunded" | "cancelled";
   amount: number;
   /** Ödeme tarihi; boş `paid_at` olan eski siparişlerde çağıran taraf `created_at`'e düşer. */
   paidAt: Date | null;

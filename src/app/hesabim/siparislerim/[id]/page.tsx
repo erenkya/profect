@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PageTitle } from "@/components/account/PageTitle";
+import { CancelOrderSection } from "@/components/account/CancelOrderSection";
 import { RefundSection } from "@/components/account/RefundSection";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDate, formatPrice } from "@/lib/format";
@@ -11,7 +12,7 @@ import { VAT_PERCENT } from "@/lib/vat";
 
 export const metadata: Metadata = { title: "Sipariş detayı" };
 
-const ORDER_STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi", refunded: "İade edildi" } as const;
+const ORDER_STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi", refunded: "İade edildi", cancelled: "İptal edildi" } as const;
 const GIFT_STATUS = { awaiting_payment: "Ödeme bekliyor", pending: "Alıcının almasını bekliyor", claimed: "Alıcı aldı", expired: "Süresi doldu", cancelled: "İptal edildi" } as const;
 const PROVIDER = { manual: "Havale / elle onay", mock: "Test ödemesi", tami: "Kredi / banka kartı" } as Record<string, string>;
 const ITEM_TYPE = { course: "Kurs", program: "Uzmanlık Programı", plus: "Abonelik", seats: "Kontenjan", program_seats: "Program kontenjanı" } as const;
@@ -62,8 +63,11 @@ export default async function MyOrderDetailPage({ params }: Props) {
       <div className="order-status" data-status={order.status}>
         <strong>{ORDER_STATUS[order.status]}</strong>
         {order.status === "pending" && <span>Siparişin yönetici onayından sonra hesabına tanımlanır.</span>}
+        {order.status === "cancelled" && <span>Bu siparişi sen iptal ettin.</span>}
         {order.status === "rejected" && <span>{order.error_message || "Ödeme tamamlanamadı."}</span>}
       </div>
+
+      {order.status === "pending" && order.provider !== "tami" && <CancelOrderSection orderId={order.id} />}
 
       <section className="order-box">
         <h2>Ürünler</h2>
