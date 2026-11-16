@@ -22,6 +22,7 @@
     "test:lesson-files": "node --env-file=.env scripts/test-lesson-files.mjs",
     "test:admin-program-enrollment": "node --env-file=.env scripts/test-admin-program-enrollment.mjs",
     "test:programs": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-programs.mjs",
+    "test:refunds": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-refunds.mjs",
     "test:gifts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-gifts.mjs",
     "test:posts": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-posts.mjs",
     "test:company-programs": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning --import ./scripts/ts-register.mjs scripts/test-company-programs.mjs",
