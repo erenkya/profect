@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PageTitle } from "@/components/account/PageTitle";
+import { RefundSection } from "@/components/account/RefundSection";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDate, formatPrice } from "@/lib/format";
 import { getMyOrderDetail } from "@/lib/lms";
+import { getRefundView } from "@/lib/refund";
 import { VAT_PERCENT } from "@/lib/vat";
 
 export const metadata: Metadata = { title: "Sipariş detayı" };
@@ -27,6 +29,7 @@ export default async function MyOrderDetailPage({ params }: Props) {
   if (!Number.isSafeInteger(orderId)) notFound();
   const order = await getMyOrderDetail(user.id, orderId);
   if (!order) notFound();
+  const refundView = order.status === "paid" || order.status === "refunded" ? await getRefundView(user.id, orderId) : null;
 
   const inv = order.invoice;
   const addressLine = [inv.address, [inv.district, inv.city].filter(Boolean).join(" / "), inv.zip_code].filter(Boolean).join(", ");
@@ -106,6 +109,8 @@ export default async function MyOrderDetailPage({ params }: Props) {
           {paymentRows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
         </dl>
       </section>
+
+      {refundView && <RefundSection orderId={order.id} view={refundView} />}
 
       {invoiceRows.length > 0 && (
         <section className="order-box">

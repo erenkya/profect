@@ -64,6 +64,7 @@ async function addPaidOrder(userId, items, { paidAgoDays = 1, amount = 100, prov
   }
   return o.insertId;
 }
+const pageHtml = async (path, cookie = "") => { const res = await fetch(B + path, { headers: { cookie }, redirect: "manual" }); return { status: res.status, text: res.status === 200 ? await res.text() : "" }; };
 const refund = (cookie, orderId, reason) => api(`/api/orders/${orderId}/refund`, { cookie, body: reason === undefined ? {} : { reason } });
 const request = async (orderId) => (await db.query("SELECT * FROM refund_requests WHERE order_id=?", [orderId]))[0][0];
 const order = async (orderId) => (await db.query("SELECT * FROM orders WHERE id=?", [orderId]))[0][0];
@@ -335,6 +336,27 @@ try {
     const [red] = await db.query("SELECT 1 FROM coupon_redemptions WHERE order_id=?", [id]);
     check("kupon iadesi: coupon_redemptions satırı silindi (kupon tekrar kullanılabilir)", red.length === 0);
     check("kupon iadesi: iade tutarı indirim sonrası ödenen (90.00)", (await request(id)).amount === "90.00");
+  }
+
+  // ── Kullanıcı arayüzü ve yasal metin (sunucu çıktısı) ─────────────────────────
+  {
+    const a = await addCourse("ui1"), b = await addCourse("ui2");
+    const okId = await addPaidOrder(uId, [{ type: "course", courseId: a.courseId }]);
+    const lateId = await addPaidOrder(uId, [{ type: "course", courseId: b.courseId }], { paidAgoDays: 15 });
+    let p = await pageHtml(`/hesabim/siparislerim/${okId}`, uCookie);
+    check("detay: uygun siparişte 'İade talep et' bölümü ve #iade çapası", p.status === 200 && p.text.includes("İade talep et") && p.text.includes('id="iade"'), `status=${p.status}`);
+    p = await pageHtml(`/hesabim/siparislerim/${lateId}`, uCookie);
+    check("detay: 15 günlük siparişte bölüm nedeni gösterir (gizlenmez)", p.status === 200 && p.text.includes("günden fazla geçtiği için iade yapılamaz"));
+    p = await pageHtml("/hesabim/siparislerim", uCookie);
+    check("liste: uygun siparişte iade bağlantısı var", p.text.includes(`/hesabim/siparislerim/${okId}#iade`));
+    check("liste: 15 günlük siparişte iade bağlantısı yok", !p.text.includes(`/hesabim/siparislerim/${lateId}#iade`));
+    await refund(uCookie, okId, "UI testi");
+    p = await pageHtml(`/hesabim/siparislerim/${okId}`, uCookie);
+    check("detay: başvuru sonrası 'İade talebiniz inceleniyor' durumu", p.text.includes("İade talebiniz inceleniyor"));
+    p = await pageHtml(`/hesabim/siparislerim/${okId}`, oCookie);
+    check("detay: başkasının siparişi sayfası 404", p.status === 404);
+    p = await pageHtml("/iade-ve-iptal");
+    check("yasal sayfa: hesaptan başvuru yolunu gösterir", p.status === 200 && p.text.includes("Siparişlerim") && p.text.includes("/hesabim/siparislerim"));
   }
 
   // @@NEXT-SECTIONS@@

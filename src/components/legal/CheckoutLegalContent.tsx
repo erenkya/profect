@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { COMPANY } from "./company";
 import "@/components/checkout/checkout.css";
 
@@ -75,7 +76,7 @@ export function DeliveryReturnContent() {
       <p>Erişimin açıldığı hesabınızdaki “Kurslarım” sayfasında ve sipariş sırasında verdiğiniz e-posta adresinde bildirilir.</p>
       <h3>3. Cayma ve iade</h3>
       <p>
-        Ödeme tarihinden itibaren <strong>14 gün</strong> içinde ve <strong>kursa başlamamış olmanız kaydıyla</strong> {COMPANY.email} adresine başvurarak siparişinizi iptal edebilir ve ödediğiniz tutarın iadesini isteyebilirsiniz.
+        Ödeme tarihinden itibaren <strong>14 gün</strong> içinde ve <strong>kursa başlamamış olmanız kaydıyla</strong> hesabınızdaki <Link href="/hesabim/siparislerim">Siparişlerim</Link> sayfasından ya da {COMPANY.email} adresine başvurarak siparişinizi iptal edebilir ve ödediğiniz tutarın iadesini isteyebilirsiniz.
       </p>
       <p>
         <strong>Kursa başlanmışsa iade yapılmaz.</strong> Kursa başlamak, hesabınızdan herhangi bir dersi açmak veya izlemek anlamına gelir. Eğitim içeriği anında ifa edilen dijital bir hizmet olduğundan, başladıktan sonra cayma hakkı kullanılamaz.

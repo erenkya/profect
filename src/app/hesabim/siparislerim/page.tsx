@@ -5,6 +5,7 @@ import { PageTitle } from "@/components/account/PageTitle";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDate, formatPrice } from "@/lib/format";
 import { listMyOrders, orderLabel } from "@/lib/lms";
+import { withinRefundWindow } from "@/lib/refund-rules";
 
 export const metadata: Metadata = { title: "Siparişlerim" };
 
@@ -14,6 +15,7 @@ export default async function MyOrdersPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/giris?next=/hesabim/siparislerim");
   const orders = await listMyOrders(user.id);
+  const now = new Date();
   return (
     <>
       <PageTitle title="Siparişlerim" />
@@ -31,7 +33,13 @@ export default async function MyOrdersPage() {
                   <td>{formatPrice(o.amount)}</td>
                   <td>{ORDER_STATUS[o.status]}</td>
                   <td>{formatDate(o.created_at)}</td>
-                  <td><Link href={`/hesabim/siparislerim/${o.id}`}>Detay →</Link></td>
+                  <td>
+                    <Link href={`/hesabim/siparislerim/${o.id}`}>Detay →</Link>
+                    {/* Yalnızca ipucu: kesin uygunluk (başlandı mı, hediye vb.) detay sayfasında hesaplanır. */}
+                    {o.status === "paid" && withinRefundWindow(new Date(o.paid_at ?? o.created_at), now) && (
+                      <div><Link href={`/hesabim/siparislerim/${o.id}#iade`}>İade talep et</Link></div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

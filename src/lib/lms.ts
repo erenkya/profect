@@ -555,11 +555,11 @@ export const ORDER_ITEMS_SUMMARY_SQL = `(SELECT GROUP_CONCAT(oi.title ORDER BY o
 /** Siparişe bağlı hediye varsa alıcının e-postası (hediye siparişi değilse NULL). */
 export const ORDER_GIFT_TO_SQL = `(SELECT g.recipient_email FROM gifts g WHERE g.order_id = o.id)`;
 
-export type MyOrder = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected" | "refunded"; created_at: string; course_title: string | null; items_summary: string | null; gift_to: string | null };
+export type MyOrder = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected" | "refunded"; created_at: string; paid_at: string | null; course_title: string | null; items_summary: string | null; gift_to: string | null };
 
 export async function listMyOrders(userId: number): Promise<MyOrder[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT o.id, o.plan, o.amount, o.status, o.created_at, c.title AS course_title, ${ORDER_ITEMS_SUMMARY_SQL} AS items_summary, ${ORDER_GIFT_TO_SQL} AS gift_to
+    `SELECT o.id, o.plan, o.amount, o.status, o.created_at, o.paid_at, c.title AS course_title, ${ORDER_ITEMS_SUMMARY_SQL} AS items_summary, ${ORDER_GIFT_TO_SQL} AS gift_to
        FROM orders o LEFT JOIN courses c ON c.id = o.course_id WHERE o.user_id = ? ORDER BY o.created_at DESC LIMIT 50`,
     [userId],
   );
