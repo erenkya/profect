@@ -9,7 +9,7 @@ import { VAT_PERCENT } from "@/lib/vat";
 
 export const metadata: Metadata = { title: "Sipariş detayı" };
 
-const ORDER_STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi" } as const;
+const ORDER_STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi", refunded: "İade edildi" } as const;
 const GIFT_STATUS = { awaiting_payment: "Ödeme bekliyor", pending: "Alıcının almasını bekliyor", claimed: "Alıcı aldı", expired: "Süresi doldu", cancelled: "İptal edildi" } as const;
 const PROVIDER = { manual: "Havale / elle onay", mock: "Test ödemesi", tami: "Kredi / banka kartı" } as Record<string, string>;
 const ITEM_TYPE = { course: "Kurs", program: "Uzmanlık Programı", plus: "Abonelik", seats: "Kontenjan", program_seats: "Program kontenjanı" } as const;

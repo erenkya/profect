@@ -550,7 +550,7 @@ export const ORDER_ITEMS_SUMMARY_SQL = `(SELECT GROUP_CONCAT(oi.title ORDER BY o
 /** Siparişe bağlı hediye varsa alıcının e-postası (hediye siparişi değilse NULL). */
 export const ORDER_GIFT_TO_SQL = `(SELECT g.recipient_email FROM gifts g WHERE g.order_id = o.id)`;
 
-export type MyOrder = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected"; created_at: string; course_title: string | null; items_summary: string | null; gift_to: string | null };
+export type MyOrder = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected" | "refunded"; created_at: string; course_title: string | null; items_summary: string | null; gift_to: string | null };
 
 export async function listMyOrders(userId: number): Promise<MyOrder[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -569,7 +569,7 @@ export function orderLabel(o: { plan: "single" | "plus" | "cart"; course_title: 
 export type MyOrderItem = { type: "course" | "plus" | "program" | "seats" | "program_seats"; title: string; price: number; href: string | null };
 export type MyOrderDetail = {
   id: number;
-  status: "pending" | "paid" | "rejected";
+  status: "pending" | "paid" | "rejected" | "refunded";
   provider: string;
   created_at: string;
   paid_at: string | null;

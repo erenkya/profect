@@ -8,7 +8,7 @@ import { listMyOrders, orderLabel } from "@/lib/lms";
 
 export const metadata: Metadata = { title: "Siparişlerim" };
 
-const ORDER_STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi" } as const;
+const ORDER_STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi", refunded: "İade edildi" } as const;
 
 export default async function MyOrdersPage() {
   const user = await getCurrentUser();

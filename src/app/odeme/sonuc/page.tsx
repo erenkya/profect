@@ -21,7 +21,7 @@ export default async function CheckoutResultPage({ searchParams }: { searchParam
   const [rows] = id
     ? await pool.query<RowDataPacket[]>("SELECT id, amount, status, error_message, company_id FROM orders WHERE id = ? AND user_id = ?", [id, user.id])
     : [[] as RowDataPacket[]];
-  const order = rows[0] as { id: number; amount: string; status: "pending" | "paid" | "rejected"; error_message: string | null; company_id: number | null } | undefined;
+  const order = rows[0] as { id: number; amount: string; status: "pending" | "paid" | "rejected" | "refunded"; error_message: string | null; company_id: number | null } | undefined;
   // Hediye siparişi: erişim alıcıya gider, sepet boşaltılmaz; metinler buna göre.
   const [giftRows] = order ? await pool.query<RowDataPacket[]>("SELECT 1 FROM gifts WHERE order_id = ? LIMIT 1", [order.id]) : [[] as RowDataPacket[]];
   const isGift = giftRows.length > 0;
@@ -29,7 +29,9 @@ export default async function CheckoutResultPage({ searchParams }: { searchParam
 
   const isSeats = !!order?.company_id; // şirket kontenjan siparişi: erişim açmaz, sepeti etkilemez
 
-  const view = isSeats && order
+  const view = order?.status === "refunded"
+    ? { title: "Siparişin iade edildi", body: "Bu sipariş için ödemen iade edildi; bankana yansıma süresi bankanın işlem sürelerine bağlıdır.", cta: { href: "/hesabim/siparislerim", label: "Siparişlerim" } }
+    : isSeats && order
     ? seatOrderResultView(order.status, order.error_message)
     : isGift && order
     ? order.status === "paid"
