@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
-import { fail, ok, parseBody, parseId, serverError } from "@/lib/http";
-import { decideRefund } from "@/lib/refund";
+import { fail, getBaseUrl, ok, parseBody, parseId, serverError } from "@/lib/http";
+import { decideRefund, notifyRefundDecision } from "@/lib/refund";
 
 const schema = z
   .object({
@@ -23,7 +23,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.error) return body.error;
   try {
     const r = await decideRefund({ requestId: id, adminId: guard.payload.userId, ...body.data });
-    if (r.ok) return ok({ status: r.status });
+    if (r.ok) {
+      // Kullanıcıya yalnızca sonuçlanan kararlar bildirilir (onay beklerken ya da sağlayıcı hatasında mail yok).
+      if (r.status === "refunded" || r.status === "rejected") after(() => notifyRefundDecision(id, r.status as "refunded" | "rejected", getBaseUrl(request)));
+      return ok({ status: r.status });
+    }
     switch (r.reason) {
       case "not_found":
         return fail("İade başvurusu bulunamadı.", 404);

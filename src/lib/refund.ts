@@ -2,6 +2,7 @@ import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import pool from "@/lib/db";
 import { isWatched } from "@/lib/company-rules";
+import { sendRefundDecisionEmail, sendRefundRequestNoticeEmail } from "@/lib/mail";
 import { applyRefundEffects } from "@/lib/refund-effects";
 import { isAutomaticProvider, refundOrder } from "@/lib/payment/refund";
 import {
@@ -178,8 +179,38 @@ export async function createRefundRequest(i: { userId: number; orderId: number; 
   }
 }
 
-/** Yeni iade talebinde admine bildirim (Task 7'de doldurulur). */
-export async function notifyRefundRequested(_requestId: number, _baseUrl: string): Promise<void> {}
+type NotifyRow = { order_id: number; amount: string; reason: string | null; decision_note: string | null; user_name: string; user_email: string; order_email: string | null; full_name: string | null };
+
+async function loadNotifyRow(requestId: number): Promise<NotifyRow | undefined> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT r.order_id, r.amount, r.reason, r.decision_note, u.full_name AS user_name, u.email AS user_email, o.email AS order_email, o.full_name
+       FROM refund_requests r JOIN orders o ON o.id = r.order_id JOIN users u ON u.id = r.user_id WHERE r.id = ?`,
+    [requestId],
+  );
+  return rows[0] as NotifyRow | undefined;
+}
+
+/** Yeni iade talebinde admine bildirim. Başarısız olsa da başvuru geçerlidir; hata yalnızca loglanır (`order-notify.ts` gibi). */
+export async function notifyRefundRequested(requestId: number, baseUrl: string): Promise<void> {
+  try {
+    const r = await loadNotifyRow(requestId);
+    if (!r) return;
+    await sendRefundRequestNoticeEmail({ orderNo: r.order_id, customerName: r.full_name ?? r.user_name, amount: Number(r.amount), reason: r.reason, adminUrl: `${baseUrl}/admin/iadeler` });
+  } catch (err) {
+    console.error(`[refund-notify] #${requestId} talep bildirimi gönderilemedi:`, err);
+  }
+}
+
+/** İade kararında (iade edildi / reddedildi) kullanıcıya bildirim. Hata yalnızca loglanır. */
+export async function notifyRefundDecision(requestId: number, outcome: "refunded" | "rejected", baseUrl: string): Promise<void> {
+  try {
+    const r = await loadNotifyRow(requestId);
+    if (!r) return;
+    await sendRefundDecisionEmail({ to: r.order_email ?? r.user_email, orderNo: r.order_id, outcome, amount: Number(r.amount), note: r.decision_note, url: `${baseUrl}/hesabim/siparislerim/${r.order_id}` });
+  } catch (err) {
+    console.error(`[refund-notify] #${requestId} karar bildirimi gönderilemedi:`, err);
+  }
+}
 
 // ── Karar akışı ──────────────────────────────────────────────────────────────
 

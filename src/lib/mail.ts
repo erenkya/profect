@@ -240,6 +240,26 @@ export async function sendNewOrderNotificationEmail(n: NewOrderNotice, to = ORDE
   await deliver({ to, subject: `Yeni sipariş #${n.orderNo} — ${c.name}`, html, text });
 }
 
+/** Yeni iade talebi bildirimi (admine): kim, hangi sipariş, ne kadar, gerekçe. Tüm değerler `layout` içinde kaçışlanır. */
+export async function sendRefundRequestNoticeEmail(n: { orderNo: number; customerName: string; amount: number; reason: string | null; adminUrl: string }, to = ORDER_NOTIFY_TO) {
+  const intro = `${n.customerName}, #${n.orderNo} numaralı sipariş için ${money(n.amount)} tutarında iade talep etti.${n.reason ? ` Gerekçesi: ${n.reason}` : ""}`;
+  const notice = "Onaylamadan önce uygunluk özetini kontrol edin; onaylarsanız erişim hemen geri alınır.";
+  const text = [`Yeni iade talebi #${n.orderNo}`, "", intro, "", notice, "", `İadeler: ${n.adminUrl}`].join("\n");
+  await deliver({ to, subject: `Yeni iade talebi #${n.orderNo} — Profect`, html: layout(`Yeni iade talebi · #${n.orderNo}`, intro, "İadelere Git", n.adminUrl, notice), text });
+}
+
+/** İade kararı bildirimi (kullanıcıya): onaylandı/iade edildi ya da reddedildi (+ gerekçe). */
+export async function sendRefundDecisionEmail(r: { to: string; orderNo: number; outcome: "refunded" | "rejected"; amount: number; note: string | null; url: string }) {
+  const refunded = r.outcome === "refunded";
+  const subject = refunded ? `İadeniz onaylandı #${r.orderNo} — Profect` : `İade talebiniz sonuçlandı #${r.orderNo} — Profect`;
+  const intro = refunded
+    ? `#${r.orderNo} numaralı siparişiniz için ${money(r.amount)} tutarındaki iadeniz onaylandı. Tutar, ödemeyi yaptığınız yönteme bankanızın işlem sürelerine bağlı olarak en geç 10 iş günü içinde yansır. İlgili eğitimlere erişiminiz kapatıldı.`
+    : `#${r.orderNo} numaralı siparişiniz için iade talebiniz kabul edilmedi.${r.note ? ` Gerekçe: ${r.note}` : ""}`;
+  const notice = refunded ? "Bu iade ile ilgili sorularınız için bu e-postayı yanıtlayabilirsiniz." : "Kararla ilgili sorularınız için bu e-postayı yanıtlayarak bizimle iletişime geçebilirsiniz.";
+  const text = [subject, "", intro, "", notice, "", `Siparişlerim: ${r.url}`].join("\n");
+  await deliver({ to: r.to, subject, html: layout(refunded ? "İadeniz onaylandı" : "İade talebiniz sonuçlandı", intro, "Siparişlerim", r.url, notice), text });
+}
+
 export async function sendPasswordResetEmail(email: string, url: string) {
   const intro = "Hesabınız için bir şifre sıfırlama talebi aldık. Yeni şifrenizi belirlemek için aşağıdaki butonu kullanın.";
   const notice = "Bu bağlantı 10 dakika geçerlidir. Talebi siz yapmadıysanız bu e-postayı yok sayın; şifreniz değişmez.";
