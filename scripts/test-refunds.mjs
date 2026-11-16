@@ -359,6 +359,26 @@ try {
     check("yasal sayfa: hesaptan başvuru yolunu gösterir", p.status === 200 && p.text.includes("Siparişlerim") && p.text.includes("/hesabim/siparislerim"));
   }
 
+  // ── Admin arayüzü (sunucu çıktısı) ────────────────────────────────────────────
+  {
+    const a = await addCourse("adm1"), b = await addCourse("adm2");
+    const note = `ADMIN-UI-${stamp}`;
+    const openId = await addPaidOrder(uId, [{ type: "course", courseId: a.courseId }], { provider: "manual" });
+    await refund(uCookie, openId, note);
+    const doneId = await addPaidOrder(uId, [{ type: "course", courseId: b.courseId }], { provider: "mock" });
+    await refundNow(doneId);
+    let p = await pageHtml("/admin/iadeler", admCookie);
+    check("admin: /admin/iadeler açık başvuruyu gerekçesiyle listeler", p.status === 200 && p.text.includes(note), `status=${p.status}`);
+    check("admin: açık başvuruda Onayla ve Reddet eylemleri var", p.text.includes("Onayla") && p.text.includes("Reddet"));
+    p = await pageHtml("/admin/iadeler", uCookie);
+    check("admin: normal kullanıcı /admin/iadeler göremez", p.status !== 200);
+    p = await pageHtml("/admin/siparisler", admCookie);
+    check("admin: siparişler listesinde 'İade edildi' rozeti", p.status === 200 && p.text.includes("İade edildi"));
+    check("admin: açık başvurusu olan siparişte 'İade talebi var' bağlantısı", p.text.includes("İade talebi var"));
+    p = await pageHtml("/admin", admCookie);
+    check("admin: sekmelerde 'İadeler' var", p.text.includes("İadeler"));
+  }
+
   // @@NEXT-SECTIONS@@
 } catch (e) {
   failN++; console.error("✗ BEKLENMEYEN HATA", e);

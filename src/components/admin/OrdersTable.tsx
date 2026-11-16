@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Toast, useFlash } from "./Toast";
@@ -7,7 +8,7 @@ import { formatDate, formatPrice } from "@/lib/format";
 import { adminApi } from "./api";
 import { giftOrderLabel } from "@/lib/gift-rules";
 
-export type OrderRow = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected" | "refunded"; provider: string; created_at: string; paid_at: string | null; user_name: string; user_email: string; course_title: string | null; items_summary: string | null; gift_to: string | null; invoice_type: "bireysel" | "kurumsal" | null; company_name: string | null; tckn: string | null; tax_number: string | null; tax_office: string | null; phone: string | null; address: string | null; city: string | null; district: string | null; error_message: string | null; coupon_code: string | null; discount_amount: string };
+export type OrderRow = { id: number; plan: "single" | "plus" | "cart"; amount: string; status: "pending" | "paid" | "rejected" | "refunded"; provider: string; created_at: string; paid_at: string | null; user_name: string; user_email: string; course_title: string | null; items_summary: string | null; gift_to: string | null; invoice_type: "bireysel" | "kurumsal" | null; company_name: string | null; tckn: string | null; tax_number: string | null; tax_office: string | null; phone: string | null; address: string | null; city: string | null; district: string | null; error_message: string | null; coupon_code: string | null; discount_amount: string; has_open_refund: number };
 const STATUS = { pending: "Onay bekliyor", paid: "Ödendi", rejected: "Reddedildi", refunded: "İade edildi" } as const;
 
 export function OrdersTable({ orders }: { orders: OrderRow[] }) {
@@ -50,7 +51,10 @@ export function OrdersTable({ orders }: { orders: OrderRow[] }) {
                   {o.error_message && <div style={{ fontSize: 12, color: "var(--color-accent-2-700)" }}>{o.error_message}</div>}
                 </td>
                 <td>{formatPrice(o.amount)}</td>
-                <td><span className={`tag ${o.status === "paid" ? "tag-accent" : "tag-neutral"}`}>{STATUS[o.status]}</span></td>
+                <td>
+                  <span className={`tag ${o.status === "paid" ? "tag-accent" : "tag-neutral"}`}>{STATUS[o.status]}</span>
+                  {o.has_open_refund > 0 && <div style={{ fontSize: 12 }}><Link href="/admin/iadeler">İade talebi var</Link></div>}
+                </td>
                 <td>{formatDate(o.created_at)}</td>
                 <td style={{ display: "flex", gap: 6 }}>
                   {o.status === "pending" && (

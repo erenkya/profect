@@ -10,7 +10,8 @@ export default async function AdminOrders() {
     `SELECT o.id, o.plan, o.amount, o.status, o.provider, o.created_at, o.paid_at,
             o.invoice_type, o.company_name, o.tckn, o.tax_number, o.tax_office, o.phone, o.address, o.city, o.district, o.error_message, o.coupon_code, o.discount_amount,
             ${ORDER_ITEMS_SUMMARY_SQL} AS items_summary, ${ORDER_GIFT_TO_SQL} AS gift_to,
-            u.full_name AS user_name, u.email AS user_email, c.title AS course_title
+            u.full_name AS user_name, u.email AS user_email, c.title AS course_title,
+            EXISTS(SELECT 1 FROM refund_requests rr WHERE rr.order_id = o.id AND rr.status IN ('requested','approved','failed')) AS has_open_refund
        FROM orders o JOIN users u ON u.id = o.user_id LEFT JOIN courses c ON c.id = o.course_id
       ORDER BY (o.status = 'pending') DESC, o.created_at DESC LIMIT 500`,
   );
