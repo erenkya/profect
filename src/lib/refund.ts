@@ -37,7 +37,7 @@ export async function hasStartedSince(conn: Queryable, userId: number, courseId:
   return isWatched({ completedLessons: Number(rows[0].completed), streamBytes: Number(rows[0].bytes) });
 }
 
-export type RefundOrder = { id: number; user_id: number; company_id: number | null; amount: number; provider: string; status: RefundFacts["status"] };
+export type RefundOrder = { id: number; user_id: number; company_id: number | null; amount: number; provider: string; provider_ref: string | null; status: RefundFacts["status"] };
 
 /**
  * Siparişin uygunluk girdileri. Çağıran, karar anında sipariş satırını kendi transaction'ında `FOR UPDATE` kilitlemiş olmalı.
@@ -45,14 +45,14 @@ export type RefundOrder = { id: number; user_id: number; company_id: number | nu
  */
 export async function loadRefundFacts(conn: Queryable, orderId: number, excludeRequestId?: number): Promise<{ order: RefundOrder; facts: RefundFacts } | null> {
   const [orows] = await conn.query<RowDataPacket[]>(
-    `SELECT id, user_id, company_id, course_id, amount, provider, status,
+    `SELECT id, user_id, company_id, course_id, amount, provider, provider_ref, status,
             TIMESTAMPDIFF(SECOND, COALESCE(paid_at, created_at), NOW()) AS age_seconds
        FROM orders WHERE id = ?`,
     [orderId],
   );
   const o = orows[0];
   if (!o) return null;
-  const order: RefundOrder = { id: o.id, user_id: o.user_id, company_id: o.company_id, amount: Number(o.amount), provider: o.provider, status: o.status };
+  const order: RefundOrder = { id: o.id, user_id: o.user_id, company_id: o.company_id, amount: Number(o.amount), provider: o.provider, provider_ref: o.provider_ref ?? null, status: o.status };
   const ageSeconds = Number(o.age_seconds);
 
   const [irows] = await conn.query<RowDataPacket[]>("SELECT item_type, course_id, program_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
@@ -332,7 +332,7 @@ async function approveRefund(i: { requestId: number; adminId: number; note?: str
 
   // Sağlayıcı çağrısı kilidin DIŞINDA (uzun ağ çağrısı bağlantı tutmasın). Çağrı daha önce başarılıysa (provider_ref dolu) tekrarlanmaz.
   if (providerRef === null) {
-    const out = await refundOrder({ id: order.id, provider: order.provider, amount: order.amount, provider_ref: null }, i.requestId);
+    const out = await refundOrder({ id: order.id, provider: order.provider, amount: order.amount, provider_ref: order.provider_ref }, i.requestId);
     if (out.kind === "manual_pending") return { ok: true, status: "approved" };
     if (out.kind === "failed") {
       await pool.execute("UPDATE refund_requests SET status = 'failed', error_message = ? WHERE id = ? AND status = 'approved'", [out.message.slice(0, 255), i.requestId]);

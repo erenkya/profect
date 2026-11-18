@@ -6,6 +6,12 @@ import { authPayment3D } from "@/lib/payment/tami";
 
 type Card = z.infer<typeof cardSchema>;
 
+/** Tami 3D formunu base64 döndürür; tarayıcıda render edilebilmesi için HTML'e çevrilir (düz HTML gelirse dokunulmaz). */
+function decode3DSHtml(content: string): string {
+  const html = Buffer.from(content, "base64").toString("utf8");
+  return /<html|<form/i.test(html) ? html : content;
+}
+
 /**
  * Tami 3D Secure ödemesini başlatır: siparişe benzersiz bir provider_ref yazar, bankaya 3D isteğini yollar.
  * Başarısızlıkta sipariş "rejected" olur. `basket[].price` çağıranın hesapladığı NET (kupon sonrası) fiyattır.
@@ -29,7 +35,7 @@ export async function startTamiCheckout(a: {
   // Bireysel faturada adres/telefon/TCKN alınmaz; Tami'nin zorunlu alanları için sabit yer tutucular kullanılır.
   // TODO: yeni Tami hesabı bireysel için bu alanları kabul etmezse formda yeniden istenmeli.
   const k = billing.invoice_type === "kurumsal" ? billing : null;
-  const phone = k ? normalizePhone(k.phone)! : "5000000000";
+  const phone = normalizePhone(billing.phone ?? "") ?? "5000000000";
   const address = {
     address: k?.address ?? "Dijital ürün (adres alınmadı)", city: k?.city ?? "İstanbul", district: k?.district ?? "Merkez", country: "Türkiye", zipCode: k?.zip_code ?? "34000",
     companyName: k?.company_name,
@@ -61,5 +67,5 @@ export async function startTamiCheckout(a: {
     await pool.execute("UPDATE orders SET status = 'rejected', error_message = ? WHERE id = ?", [String(data.errorMessage).slice(0, 255), orderId]);
     return { ok: false, message: data.errorMessage || "Ödeme başlatılamadı." };
   }
-  return { ok: true, threeDSHtmlContent: data.threeDSHtmlContent };
+  return { ok: true, threeDSHtmlContent: decode3DSHtml(data.threeDSHtmlContent) };
 }

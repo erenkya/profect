@@ -82,6 +82,16 @@ export const complete3DS = (orderId: string) =>
     { orderId },
   );
 
+/**
+ * İade/iptal: Tami'de tek uç nokta. Satış gününün sonundan önce gelirse banka iptal (void), sonra gelirse iade olarak işler.
+ * `orderId` satışta gönderilen sipariş referansıdır (orders.provider_ref); `amount` boşsa tutarın tamamı iade edilir.
+ */
+export const refundPayment = (req: { orderId: string; amount?: number; reason?: string }) =>
+  call<{ success: true; orderId: string; amount: number; currency: string; bankAuthCode: string; bankReferenceNumber: string; correlationId: string } | TamiError>(
+    "/payment/refund",
+    req,
+  );
+
 export type TamiCallbackPayload = {
   orderId: string; mdStatus: string; maskedNumber: string; cardBrand: string; cardOrganization: string; cardType: string;
   installmentCount: string | number; txnAmount: string | number; currencyCode: string; systemTime: string; success: string | boolean; hashedData: string;

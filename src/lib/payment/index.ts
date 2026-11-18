@@ -10,10 +10,10 @@ import { tamiConfigured } from "./tami";
 export type PaymentProviderId = "manual" | "mock" | "tami";
 
 /**
- * Geçici olarak kartlı ödeme kapalı: Tami yapılandırılmış olsa bile sipariş "manual" akışa düşer
- * (kullanıcı sipariş verir, ödeme iletişimle alınır, admin onaylar). Kartı geri açmak için true yap.
+ * Kartlı ödeme anahtarı: false iken Tami yapılandırılmış olsa bile sipariş "manual" akışa düşer
+ * (kullanıcı sipariş verir, ödeme iletişimle alınır, admin onaylar).
  */
-export const CARD_PAYMENT_ENABLED = false;
+export const CARD_PAYMENT_ENABLED = true;
 
 export function paymentProvider(): { id: PaymentProviderId; requiresCard: boolean } {
   const wanted = process.env.PAYMENT_PROVIDER ?? process.env.PAYMENT_MODE;
