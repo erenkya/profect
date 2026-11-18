@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import path from "node:path";
 
 const nextConfig: NextConfig = {
+  experimental: { agentUpgrade: "security" },
   turbopack: { root: path.resolve(__dirname) },
   // Sertifika PDF'i çalışma anında font ve logo dosyalarını okur; sunucu paketine dahil edilmeli.
   outputFileTracingIncludes: {
