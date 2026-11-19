@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Check } from "lucide-react";
+import { LoadingVideo } from "@/components/LoadingVideo";
 import { Corners } from "@/components/Corners";
 import { useHandsFree } from "./useHandsFree";
 
@@ -107,8 +108,9 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
     <div>
       {type === "video" ? (
         videoReady ? (
-          <div className="lesson-video" style={{ position: "relative", aspectRatio: "16/9", background: "#0b0b14", maxWidth: 960 }}>
-            <video
+          <LoadingVideo
+            wrapperClassName="lesson-video"
+            wrapperStyle={{ aspectRatio: "16/9", maxWidth: 960 }}
               ref={videoEl}
               key={lessonId}
               src={videoSrc}
@@ -131,8 +133,7 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
                 if (v.duration > 0 && v.currentTime / v.duration >= COMPLETE_RATIO) markComplete();
               }}
               onError={explainVideoError}
-              style={{ width: "100%", height: "100%", display: "block" }}
-            />
+            >
             {needsTap && !videoError && (
               <button
                 type="button"
@@ -156,7 +157,7 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
                 {videoError}
               </div>
             )}
-          </div>
+          </LoadingVideo>
         ) : (
           <div role="status" className="lesson-video" style={{ aspectRatio: "16/9", maxWidth: 960, display: "grid", placeItems: "center", background: "#0b0b14", color: "#fff", padding: 24, textAlign: "center" }}>
             Bu dersin videosu henüz yüklenmedi.

@@ -16,6 +16,7 @@ import { uploadLessonFile } from "./lesson-file-upload";
 import { CoverUploadField } from "./CoverUploadField";
 import { CategoryField } from "./CategoryField";
 import { isVideoKey } from "@/lib/video-key";
+import { LoadingVideo } from "@/components/LoadingVideo";
 
 type Props = { course: CourseRow; modules: AdminModule[]; finalQuiz: AdminQuizRef | null; categories: string[]; instructors: Instructor[] };
 
@@ -210,7 +211,7 @@ function ModuleCard({ mod, index, courseId, siblings, instructors, run }: { mod:
               <button className="btn btn-icon btn-ghost" style={iconBtn} aria-label="Sil" onClick={() => confirm("Bu ders silinsin mi?") && run(adminApi("DELETE", `/api/admin/lessons/${l.id}`), "Ders silindi.")}><Trash2 size={15} strokeWidth={1.5} /></button>
               </div>
               {watching === l.id && (
-                <video key={l.content} src={`/api/admin/uploads/video/preview?key=${encodeURIComponent(l.content)}`} controls playsInline preload="metadata" style={{ width: "100%", maxWidth: 640, aspectRatio: "16/9", background: "#0b0b14" }} />
+                <LoadingVideo key={l.content} src={`/api/admin/uploads/video/preview?key=${encodeURIComponent(l.content)}`} controls playsInline preload="metadata" wrapperStyle={{ width: "100%", maxWidth: 640, aspectRatio: "16/9" }} />
               )}
             </div>
           ),

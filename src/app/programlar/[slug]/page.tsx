@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Award } from "lucide-react";
+import { LoadingVideo } from "@/components/LoadingVideo";
 import { Corners } from "@/components/Corners";
 import { ProgramPricePanel } from "@/components/ProgramPricePanel";
 import { getCurrentUser } from "@/lib/auth";
@@ -80,8 +81,8 @@ export default async function ProgramPage({ params }: Props) {
               <span>Ayrı ayrı <strong style={{ fontWeight: 600 }}>{formatPrice(calc.listTotal)}</strong></span>
             </div>
             {introVideo ? (
-              <div data-reveal="1" data-delay="400" style={{ marginTop: 32, aspectRatio: "16 / 9", border: "1px solid var(--color-divider)", overflow: "hidden", background: "#0b0b14" }}>
-                <video
+              <div data-reveal="1" data-delay="400" style={{ marginTop: 32 }}>
+                <LoadingVideo
                   src={`/api/programs/${program.id}/video`}
                   poster={cover ?? undefined}
                   controls
@@ -89,7 +90,7 @@ export default async function ProgramPage({ params }: Props) {
                   preload="metadata"
                   controlsList="nodownload"
                   aria-label={`${program.title} tanıtım videosu`}
-                  style={{ width: "100%", height: "100%", display: "block" }}
+                  wrapperStyle={{ aspectRatio: "16 / 9", border: "1px solid var(--color-divider)", overflow: "hidden" }}
                 />
               </div>
             ) : cover && (

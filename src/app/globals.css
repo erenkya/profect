@@ -617,3 +617,10 @@ a:hover > .acc-stat { transform: translateY(-4px); border-color: var(--color-acc
 .order-kv dt { color: var(--muted-72); }
 .order-kv dd { overflow-wrap: anywhere; }
 @media (max-width: 560px) { .order-kv > div { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Video yükleme göstergesi (LoadingVideo) */
+.video-loading { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(11, 11, 20, 0.35); pointer-events: none; }
+.video-spinner { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.25); border-top-color: #fff; animation: video-spin 0.8s linear infinite; }
+@keyframes video-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .video-spinner { animation-duration: 2s; } }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

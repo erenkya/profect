@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CirclePlay, Upload } from "lucide-react";
 import { adminApi } from "./api";
+import { LoadingVideo } from "@/components/LoadingVideo";
 
 type Props = {
   moduleId: number;
@@ -92,13 +93,13 @@ export function VideoUploadField({ moduleId, lessonTitle, value, onChange, onDur
       )}
 
       {!showPicker && !uploading && previewing && (
-        <video
+        <LoadingVideo
           key={value}
           src={`/api/admin/uploads/video/preview?key=${encodeURIComponent(value)}`}
           controls
           playsInline
           preload="metadata"
-          style={{ width: "100%", maxWidth: 640, aspectRatio: "16/9", background: "#0b0b14" }}
+          wrapperStyle={{ width: "100%", maxWidth: 640, aspectRatio: "16/9" }}
         />
       )}
 

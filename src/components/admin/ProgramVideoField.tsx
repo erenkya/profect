@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { CirclePlay, Upload } from "lucide-react";
 import { MAX_VIDEO_BYTES } from "@/lib/video-key";
 import { adminApi } from "./api";
+import { LoadingVideo } from "@/components/LoadingVideo";
 
 type Props = {
   programId: number;
@@ -93,13 +94,13 @@ export function ProgramVideoField({ programId, value, onChange, onBusyChange }: 
             </div>
             {value && <span style={{ color: "var(--muted-55)" }}>Değişiklik, kaydedilince geçerli olur.</span>}
             {value && previewing && (
-              <video
+              <LoadingVideo
                 key={value}
                 src={`/api/admin/uploads/video/preview?key=${encodeURIComponent(value)}`}
                 controls
                 playsInline
                 preload="metadata"
-                style={{ width: "100%", maxWidth: 640, aspectRatio: "16/9", background: "#0b0b14" }}
+                wrapperStyle={{ width: "100%", maxWidth: 640, aspectRatio: "16/9" }}
               />
             )}
           </>
