@@ -68,7 +68,7 @@ export function CouponsPanel({ coupons }: { coupons: CouponRowView[] }) {
           </div>
           <div className="field">
             <label htmlFor="cp-value">{f.discount_type === "percentage" ? "İndirim yüzdesi" : "İndirim tutarı (₺)"}</label>
-            <input id="cp-value" className="input" required inputMode="decimal" type="number" min="0.01" max={f.discount_type === "percentage" ? 100 : undefined} step={f.discount_type === "percentage" ? 1 : 0.01} value={f.discount_value} onChange={set("discount_value")} style={input} />
+            <input id="cp-value" className="input" required inputMode="decimal" type="number" min="0.01" max={f.discount_type === "percentage" ? 100 : undefined} step={0.01} value={f.discount_value} onChange={set("discount_value")} style={input} />
           </div>
           <div className="field"><label htmlFor="cp-from">Başlangıç (isteğe bağlı)</label><input id="cp-from" className="input" type="date" value={f.valid_from} onChange={set("valid_from")} style={input} /></div>
           <div className="field"><label htmlFor="cp-until">Bitiş (isteğe bağlı)</label><input id="cp-until" className="input" type="date" value={f.valid_until} min={f.valid_from || undefined} onChange={set("valid_until")} style={input} /></div>
