@@ -116,6 +116,8 @@ export async function loadRefundFacts(conn: Queryable, orderId: number, excludeR
 }
 
 export type RefundView = {
+  /** Siparişin ödeme sağlayıcısı: `manual` (havale) ise iade parası elle, banka havalesiyle gönderilir. */
+  provider: string;
   eligible: boolean;
   reasons: RefundBlockReason[];
   windowEndsAt: string | null;
@@ -132,6 +134,7 @@ export async function getRefundView(userId: number, orderId: number): Promise<Re
   const [rr] = await pool.query<RowDataPacket[]>("SELECT id, status, reason, decision_note, created_at FROM refund_requests WHERE order_id = ?", [orderId]);
   const r = rr[0];
   return {
+    provider: loaded.order.provider,
     eligible: verdict.eligible,
     reasons: verdict.reasons,
     windowEndsAt: loaded.facts.paidAt ? new Date(loaded.facts.paidAt.getTime() + REFUND_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString() : null,

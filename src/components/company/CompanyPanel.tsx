@@ -61,7 +61,7 @@ export function CompanyPanel({ data, platform = false }: { data: CompanyPanelDat
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [bulkFailed, setBulkFailed] = useState<{ userName: string; title: string; message: string }[]>([]);
-  const [grant, setGrant] = useState({ target: "", delta: "" });
+  const [grant, setGrant] = useState({ target: "", delta: "", paid: "" });
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const base = `/api/company/${data.company.id}`;
   const slugOf = (courseId: number) => data.courses.find((c) => c.id === courseId)?.slug;
@@ -141,8 +141,12 @@ export function CompanyPanel({ data, platform = false }: { data: CompanyPanelDat
     e.preventDefault();
     const delta = Number(grant.delta);
     if (!grant.target || !Number.isInteger(delta) || delta === 0) return setFlash({ kind: "error", text: "Eğitim ya da program seçin ve 0'dan farklı bir tam sayı girin." });
+    const paid = grant.paid.trim() === "" ? undefined : Number(grant.paid.replace(",", "."));
+    if (paid !== undefined && (!Number.isFinite(paid) || paid <= 0 || delta < 0)) return setFlash({ kind: "error", text: "Havale tutarı, kontenjan eklerken ve 0'dan büyük olarak girilmelidir." });
     const [kind, id] = grant.target.split(":");
-    void run(adminApi("POST", `${base}/allocations`, { ...(kind === "p" ? { program_id: Number(id) } : { course_id: Number(id) }), delta }), "Kontenjan güncellendi.").then((r) => { if (r.ok) setGrant({ target: "", delta: "" }); });
+    void adminApi("POST", `${base}/allocations`, { ...(kind === "p" ? { program_id: Number(id) } : { course_id: Number(id) }), delta, ...(paid !== undefined ? { paid_amount: paid } : {}) })
+      .then((res) => run(Promise.resolve(res), res.message))
+      .then((r) => { if (r.ok) setGrant({ target: "", delta: "", paid: "" }); });
   }
 
   async function copyCode() {
@@ -243,7 +247,13 @@ export function CompanyPanel({ data, platform = false }: { data: CompanyPanelDat
             <div className="field"><label htmlFor="grant-delta">Adet (azaltmak için −)</label>
               <input id="grant-delta" className="input" type="number" step={1} value={grant.delta} onChange={(e) => setGrant((g) => ({ ...g, delta: e.target.value }))} style={{ background: "#fff", width: 120 }} />
             </div>
+            <div className="field"><label htmlFor="grant-paid">Havale tutarı (KDV dahil, TL)</label>
+              <input id="grant-paid" className="input" type="number" min={0} step="0.01" inputMode="decimal" placeholder="Boşsa sipariş açılmaz" value={grant.paid} onChange={(e) => setGrant((g) => ({ ...g, paid: e.target.value }))} style={{ background: "#fff", width: 190 }} />
+            </div>
             <button type="submit" className="btn btn-secondary">Uygula</button>
+            <p style={{ flexBasis: "100%", margin: "4px 0 0", fontSize: 13, color: "var(--muted-55)" }}>
+              Havale tutarını girerseniz kontenjan &ldquo;ödendi&rdquo; bir havale siparişi olarak kaydedilir; şirket yöneticisi iade talebini bu siparişten gönderebilir. Tutar boşsa (sponsorlu / ücretsiz hak) sipariş açılmaz ve iade talebi gönderilemez.
+            </p>
           </form>
         )}
       </section>

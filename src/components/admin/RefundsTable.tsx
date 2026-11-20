@@ -27,7 +27,11 @@ export function RefundsTable({ refunds }: { refunds: RefundRow[] }) {
     }
     const summary = `#${r.order_id} · ${r.user_name} · ${formatPrice(r.amount)}`;
     const ask = {
-      approve: override ? `Uygunluk kurallarına takılan bu iade onaylansın mı?\n\n${summary}` : `İade onaylansın mı? Erişim hemen kapanır.\n\n${summary}`,
+      approve: override
+        ? `Uygunluk kurallarına takılan bu iade onaylansın mı?\n\n${summary}`
+        : isAutomaticProvider(r.provider)
+          ? `İade onaylansın mı? Erişim hemen kapanır.\n\n${summary}`
+          : `İade onaylansın mı? Havale siparişi: parayı bankadan elle iade edip "İade yapıldı"ya basana kadar erişim kapanmaz.\n\n${summary}`,
       reject: `İade reddedilsin mi?\n\n${summary}`,
       mark_refunded: `Banka iadesini yaptığından emin misin?\n\n${summary}`,
     }[action];

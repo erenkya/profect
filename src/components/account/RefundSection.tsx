@@ -15,6 +15,12 @@ const REQUEST_TEXT: Record<RefundStatus, string> = {
   failed: "İade işleminiz inceleniyor.",
 };
 
+// Havale siparişinde para kart yerine banka havalesiyle, elle iade edilir.
+const MANUAL_REQUEST_TEXT: Partial<Record<RefundStatus, string>> = {
+  approved: "İade talebiniz onaylandı. Tutar, ödemeyi yaptığınız hesaba banka havalesiyle iade edilecek; gerekirse hesap bilgisi için sizinle iletişime geçeceğiz.",
+  refunded: "İade edildi. Tutar banka havalesiyle hesabınıza gönderildi; bankanızın işlem sürelerine bağlı olarak en geç 10 iş günü içinde yansır.",
+};
+
 /** Sipariş detayındaki iade bölümü: uygunsa talep formu, değilse nedenler, başvuru varsa durumu (bölüm hiç gizlenmez). */
 export function RefundSection({ orderId, view }: { orderId: number; view: RefundView }) {
   const router = useRouter();
@@ -44,7 +50,7 @@ export function RefundSection({ orderId, view }: { orderId: number; view: Refund
       <h2>İade</h2>
       {req ? (
         <>
-          <p style={{ margin: 0 }}>{REQUEST_TEXT[req.status]}</p>
+          <p style={{ margin: 0 }}>{(view.provider === "manual" && MANUAL_REQUEST_TEXT[req.status]) || REQUEST_TEXT[req.status]}</p>
           {req.status === "rejected" && req.decisionNote && <p style={{ margin: "8px 0 0", color: "var(--muted-72)" }}>Gerekçe: {req.decisionNote}</p>}
           <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--muted-55)" }}>Başvuru tarihi: {formatDate(req.createdAt)}</p>
         </>
