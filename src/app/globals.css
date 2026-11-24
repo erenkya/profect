@@ -704,10 +704,11 @@ a:hover > .acc-stat { transform: translateY(-4px); border-color: var(--color-acc
 @media (prefers-reduced-motion: no-preference) { .meet-panel { animation: meet-in .6s cubic-bezier(.2,.8,.2,1) both; } }
 @media (max-width: 700px) { .meet-fields { grid-template-columns: 1fr; } .meet-name { font-size: 18px; } }
 
-/* — Gündem kartları — 6 kart her genişlikte eşit satırlara bölünür (6 → 3×2 → 2×3 → 1×6); tek kart aşağı düşmez, içerik yatay ve dikey ortalanır. */
-.agenda-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+/* — Gündem kartları — 6 kart her genişlikte eşit satırlara bölünür: önce 3×2, en dar durumda 2×3 (tek sütuna inmez); içerik yatay ve dikey ortalanır. */
+.agenda-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+a.agenda-card, a.agenda-card:hover { color: var(--color-text); text-decoration: none; }
 .agenda-card { height: 100%; min-height: 150px; padding: 20px 16px; gap: 16px; align-items: center; justify-content: center; text-align: center; background: #ffffff; }
-.agenda-card .card-title { font-size: 19px; }
-@media (max-width: 1100px) { .agenda-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 640px) { .agenda-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 340px) { .agenda-grid { grid-template-columns: minmax(0, 1fr); } }
+.agenda-card .card-title { font-size: 19px; overflow-wrap: anywhere; }
+.agenda-card:hover { border-color: var(--color-accent); }
+@media (max-width: 640px) { .agenda-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .agenda-card { min-height: 132px; padding: 16px 10px; } .agenda-card .card-title { font-size: 17px; } }
+@media (max-width: 380px) { .agenda-card { min-height: 120px; padding: 14px 8px; gap: 12px; } .agenda-card .card-title { font-size: 15px; } }
