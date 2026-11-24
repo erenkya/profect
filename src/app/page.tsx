@@ -261,7 +261,7 @@ export default async function HomePage() {
           </section>
         )}
 
-        <ExpertMeetings />
+        <div id="uzman-gorusme" className="anchor"><ExpertMeetings /></div>
 
         <HomePosts blog={blog} news={news} />
       </main>

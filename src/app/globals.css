@@ -628,7 +628,11 @@ a:hover > .acc-stat { transform: translateY(-4px); border-color: var(--color-acc
 /* ---- Uzmanlarla görüşme bölümü ---- */
 .meet-stage { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(8px, 3vw, 48px); max-width: 960px; margin: 0 auto; }
 .meet-card { --tone: #3a5fdc; position: relative; display: flex; flex-direction: column; gap: 6px; text-align: center; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; transition: opacity .45s ease, filter .45s ease, transform .45s cubic-bezier(.2,.8,.2,1); }
-.meet-card[data-tone="purple"] { --tone: #4a2a9e; }
+.meet-card[data-tone="purple"], .meet-head[data-tone="purple"] { --tone: #4a2a9e; }
+.meet-card { text-decoration: none; }
+.meet-head { --tone: #3a5fdc; display: flex; align-items: center; gap: clamp(16px, 4vw, 40px); margin-bottom: 28px; }
+.meet-head-photo { position: relative; flex: none; width: clamp(110px, 22vw, 200px); aspect-ratio: 6 / 7; isolation: isolate; }
+.meet-head-photo img { object-fit: contain; }
 /* Fotoğraf: kenarlar maskeyle sayfaya erir; şeffaf PNG verilirse aynı maske onunla da çalışır */
 .meet-photo { position: relative; display: block; aspect-ratio: 6 / 7; isolation: isolate; }
 .meet-photo img { object-fit: contain; object-position: 50% 40%; transition: transform .7s cubic-bezier(.2,.8,.2,1), filter .5s ease; filter: saturate(.95) drop-shadow(0 18px 24px color-mix(in srgb, var(--tone) 22%, transparent)); }
