@@ -30,7 +30,7 @@ export default async function PlanMeetingPage({ params }: { params: Promise<{ uz
     <main className="wrap section-pad" style={{ maxWidth: 960 }}>
       <Link href="/#uzman-gorusme" className="btn btn-ghost" style={{ marginBottom: 16 }}>← Tüm uzmanlar</Link>
       <header className="meet-head" data-tone={uzman === "kaan" ? "purple" : "blue"}>
-        <span className="meet-head-photo"><span className="meet-glow" aria-hidden /><Image src={x.photo} alt={x.name} fill sizes="200px" priority /></span>
+        <span className="meet-head-photo" style={{ position: "relative" }}><span className="meet-glow" aria-hidden /><Image src={x.photo} alt={x.name} fill sizes="200px" priority /></span>
         <div>
           <div className="eyebrow">Görüşme planla</div>
           <h1 className="h-section" style={{ margin: "0 0 6px" }}>{x.name}</h1>

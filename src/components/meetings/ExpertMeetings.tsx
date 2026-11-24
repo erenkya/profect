@@ -25,7 +25,7 @@ export async function ExpertMeetings() {
           const x = EXPERTS[id];
           return (
             <Link key={id} href={`/gorusme/planla/${id}`} data-tone={id === "kaan" ? "purple" : "blue"} className="meet-card" aria-label={`${x.name} ile görüşme planla`}>
-              <span className="meet-photo">
+              <span className="meet-photo" style={{ position: "relative" }}>
                 <span className="meet-glow" aria-hidden />
                 <span className="meet-ring" aria-hidden />
                 <Image src={x.photo} alt="" fill sizes="(max-width: 700px) 50vw, 30vw" />
