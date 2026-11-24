@@ -3,8 +3,8 @@ import { Award, BookOpen, Gift, KeyRound, LayoutDashboard, Layers, Receipt, User
 // Profil menüsü (Nav) ve hesap yan menüsü aynı listeden beslenir.
 export const ACCOUNT_ITEMS = [
   { href: "/hesabim", label: "Genel bakış", icon: LayoutDashboard, exact: true },
-  { href: "/hesabim/kurslarim", label: "Kurslarım", icon: BookOpen },
-  { href: "/hesabim/programlarim", label: "Programlarım", icon: Layers },
+  { href: "/hesabim/kurslarim", label: "Eğitimlerim", icon: BookOpen },
+  { href: "/hesabim/programlarim", label: "Uzmanlık Alanlarım", icon: Layers },
   { href: "/hesabim/sertifikalarim", label: "Sertifikalarım", icon: Award },
   { href: "/hesabim/siparislerim", label: "Siparişlerim", icon: Receipt },
   { href: "/hesabim/hediyeler", label: "Hediyelerim", icon: Gift },

@@ -12,7 +12,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const next = safeNext((await searchParams).next);
   if (await getCurrentUser()) redirect(next);
   return (
-    <AuthShell title="Giriş yap" subtitle="Kurslarına ve sertifikalarına eriş.">
+    <AuthShell title="Giriş yap" subtitle="Eğitimlerine ve sertifikalarına eriş.">
       <LoginForm siteKey={turnstileSiteKey()} next={next} />
     </AuthShell>
   );

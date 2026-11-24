@@ -7,7 +7,7 @@ import { PageTitle } from "@/components/account/PageTitle";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureProgramProgress, listMyPrograms } from "@/lib/programs";
 
-export const metadata: Metadata = { title: "Programlarım" };
+export const metadata: Metadata = { title: "Uzmanlık Alanlarım" };
 
 export default async function MyProgramsPage() {
   const user = await getCurrentUser();
@@ -21,9 +21,9 @@ export default async function MyProgramsPage() {
   const programs = await listMyPrograms(user.id);
   return (
     <>
-      <PageTitle title="Programlarım" hint="Üye olduğun uzmanlık programları ve kurs bazlı ilerlemen." />
+      <PageTitle title="Uzmanlık Alanlarım" hint="Üye olduğun uzmanlık alanları ve eğitim bazlı ilerlemen." />
       {programs.length === 0 ? (
-        <p style={{ color: "var(--muted-72)" }}>Henüz bir programa üye değilsin. <Link href="/programlar">Programları keşfet →</Link></p>
+        <p style={{ color: "var(--muted-72)" }}>Henüz bir uzmanlık alanına üye değilsin. <Link href="/programlar">Uzmanlık alanlarını keşfet →</Link></p>
       ) : (
         <div className="course-grid acc-grid">
           {programs.map((m, i) => {
@@ -33,12 +33,12 @@ export default async function MyProgramsPage() {
                 <div className="card blueprint" style={{ background: "#fff", padding: 22, gap: 12 }}>
                   <Corners />
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <span className="card-kicker" style={{ fontSize: 11 }}>{m.program.category || "Uzmanlık Programı"} · {m.program.code}</span>
+                    <span className="card-kicker" style={{ fontSize: 11 }}>{m.program.category || "Uzmanlık Alanı"} · {m.program.code}</span>
                     <span className={`tag ${m.certificate_code ? "tag-accent" : "tag-neutral"}`}>{m.certificate_code ? "Tamamlandı" : "Devam ediyor"}</span>
                   </div>
                   <div className="card-title" style={{ fontSize: 24 }}>{m.program.title}</div>
                   <div className="progress-track"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
-                  <div className="card-meta" style={{ fontSize: 12, justifyContent: "space-between" }}><span>{m.completed}/{m.total} kurs</span><span>%{pct}</span></div>
+                  <div className="card-meta" style={{ fontSize: 12, justifyContent: "space-between" }}><span>{m.completed}/{m.total} eğitim</span><span>%{pct}</span></div>
                   <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", fontSize: 14 }}>
                     {m.courses.map((c) => (
                       <li key={c.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "6px 0", borderTop: "1px dashed var(--color-divider)" }}>
@@ -50,7 +50,7 @@ export default async function MyProgramsPage() {
                     ))}
                   </ul>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
-                    {m.program.is_published && <Link href={`/programlar/${m.program.slug}`} className="btn btn-primary blueprint" style={{ padding: "8px 18px" }}><Corners />Programı gör</Link>}
+                    {m.program.is_published && <Link href={`/programlar/${m.program.slug}`} className="btn btn-primary blueprint" style={{ padding: "8px 18px" }}><Corners />Uzmanlık alanını gör</Link>}
                     {m.certificate_code && <Link href={`/sertifika/${m.certificate_code}`} className="btn btn-secondary" style={{ padding: "8px 18px" }}>Program sertifikası</Link>}
                   </div>
                 </div>
