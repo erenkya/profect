@@ -630,8 +630,8 @@ a:hover > .acc-stat { transform: translateY(-4px); border-color: var(--color-acc
 .meet-card { --tone: #3a5fdc; position: relative; display: flex; flex-direction: column; gap: 6px; text-align: center; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; transition: opacity .45s ease, filter .45s ease, transform .45s cubic-bezier(.2,.8,.2,1); }
 .meet-card[data-tone="purple"] { --tone: #4a2a9e; }
 /* Fotoğraf: kenarlar maskeyle sayfaya erir; şeffaf PNG verilirse aynı maske onunla da çalışır */
-.meet-photo { position: relative; display: block; aspect-ratio: 4 / 5; isolation: isolate; }
-.meet-photo img { object-fit: cover; object-position: 50% 12%; -webkit-mask-image: radial-gradient(ellipse 72% 70% at 50% 40%, #000 42%, transparent 100%); mask-image: radial-gradient(ellipse 72% 70% at 50% 40%, #000 42%, transparent 100%); transition: transform .7s cubic-bezier(.2,.8,.2,1), filter .5s ease; filter: saturate(.92) contrast(1.02); }
+.meet-photo { position: relative; display: block; aspect-ratio: 6 / 7; isolation: isolate; }
+.meet-photo img { object-fit: contain; object-position: 50% 40%; transition: transform .7s cubic-bezier(.2,.8,.2,1), filter .5s ease; filter: saturate(.95) drop-shadow(0 18px 24px color-mix(in srgb, var(--tone) 22%, transparent)); }
 .meet-glow { position: absolute; inset: 10% 4% 2%; z-index: -2; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--tone) 40%, transparent), transparent 74%); filter: blur(22px); opacity: .75; transition: opacity .5s ease, transform .6s ease; }
 .meet-ring { position: absolute; inset: 6% 10% 8%; z-index: -1; border-radius: 50%; border: 1px dashed color-mix(in srgb, var(--tone) 45%, transparent); opacity: .55; transition: opacity .4s ease, inset .6s ease; }
 .meet-ring::after { content: ""; position: absolute; top: 8%; left: 50%; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 14px var(--tone); }
@@ -647,7 +647,7 @@ a:hover > .acc-stat { transform: translateY(-4px); border-color: var(--color-acc
 .meet-card:hover .meet-topic, .meet-card:focus-visible .meet-topic, .meet-card-on .meet-topic { opacity: 1; transform: none; }
 .meet-card:hover .meet-name::after, .meet-card:focus-visible .meet-name::after, .meet-card-on .meet-name::after { transform: scaleX(1); }
 .meet-card:hover .meet-cta, .meet-card:focus-visible .meet-cta, .meet-card-on .meet-cta { opacity: 1; transform: none; }
-.meet-card:hover .meet-photo img, .meet-card:focus-visible .meet-photo img, .meet-card-on .meet-photo img { transform: scale(1.05) translateY(-6px); filter: saturate(1.12) contrast(1.04); }
+.meet-card:hover .meet-photo img, .meet-card:focus-visible .meet-photo img, .meet-card-on .meet-photo img { transform: scale(1.05) translateY(-6px); filter: saturate(1.1) drop-shadow(0 22px 28px color-mix(in srgb, var(--tone) 32%, transparent)); }
 .meet-card:hover .meet-glow, .meet-card:focus-visible .meet-glow, .meet-card-on .meet-glow { opacity: 1; transform: scale(1.12); }
 .meet-card:hover .meet-ring, .meet-card:focus-visible .meet-ring, .meet-card-on .meet-ring { opacity: .95; inset: 3% 6% 5%; }
 .meet-card:focus-visible { outline: 2px solid var(--tone); outline-offset: 6px; }
