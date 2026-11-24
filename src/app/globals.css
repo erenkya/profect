@@ -96,8 +96,29 @@ button { font: inherit; }
 .nav-profile { order: 3; }
 .nav-auth { order: 3; display: flex; gap: 10px; align-items: center; }
 .nav-burger { display: none; }
+/* "Kaynaklar" alt menüsü: masaüstünde tıkla-aç panel, mobilde menünün içinde düz liste. */
+.nav-res { position: relative; order: 1; }
+.nav-res-btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; }
+.nav-res-btn:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 4px; }
+.nav-res-chev { transition: transform 0.3s var(--ease); }
+.nav-res-btn[aria-expanded="true"] .nav-res-chev { transform: rotate(180deg); }
+.nav-res-label { display: none; }
+.nav-res-panel {
+  position: absolute; left: 0; top: calc(100% + 14px); z-index: 60; min-width: 160px; padding: 6px;
+  display: flex; flex-direction: column; background: #fff; border: 1px solid var(--color-divider); box-shadow: var(--shadow-lg);
+  opacity: 0; visibility: hidden; transform: translateY(-8px);
+  transition: opacity 0.18s ease, transform 0.22s var(--ease), visibility 0s linear 0.22s;
+}
+.nav-res[data-open="true"] .nav-res-panel { opacity: 1; visibility: visible; transform: none; transition: opacity 0.18s ease, transform 0.28s var(--ease), visibility 0s; }
+.nav-res-panel .nav-link { order: 0; padding: 10px 12px; border-left: 2px solid transparent; }
+.nav-res-panel .nav-link:hover, .nav-res-panel .nav-link[aria-current="page"] { background: var(--color-accent-100); border-left-color: var(--color-accent); }
 
 @media (max-width: 860px) {
+  .nav-res { order: 0; }
+  .nav-res-btn { display: none; }
+  .nav-res-label { display: block; padding: 13px 12px 4px; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted-55); }
+  .nav-res-panel { position: static; min-width: 0; padding: 0; border: 0; box-shadow: none; opacity: 1; visibility: visible; transform: none; transition: none; }
+  .nav-res-panel .nav-link { padding-left: 24px; }
   .site-nav { flex-wrap: nowrap; gap: 10px; padding: 10px 16px; }
   .nav-cart { order: 1; }
   .nav-profile { order: 2; }

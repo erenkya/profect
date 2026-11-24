@@ -39,7 +39,8 @@ export function Footer() {
       </div>
       <div className="footer-col">
         <div className="footer-title">Platform</div>
-        <Link href="/kurslar">Kurslar</Link>
+        <Link href="/kurslar">Eğitimler</Link>
+        <Link href="/programlar">Uzmanlık Alanları</Link>
         <Link href="/blog">Blog</Link>
         <Link href="/haberler">Haberler</Link>
       </div>
