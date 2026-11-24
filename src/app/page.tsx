@@ -11,6 +11,7 @@ import Image from "next/image";
 import { HomePosts } from "@/components/posts/HomePosts";
 import { listPublishedPosts, type PostListItem } from "@/lib/posts";
 import { ProgramCard } from "@/components/ProgramCard";
+import { ExpertMeetings } from "@/components/meetings/ExpertMeetings";
 import { getProgramOffer, listPublishedPrograms, type ProgramOffer } from "@/lib/programs";
 
 // Blog/haber bölümü ana sayfayı düşürmesin: okunamazsa bölüm gösterilmez.
@@ -259,6 +260,8 @@ export default async function HomePage() {
             </div>
           </section>
         )}
+
+        <ExpertMeetings />
 
         <HomePosts blog={blog} news={news} />
       </main>
