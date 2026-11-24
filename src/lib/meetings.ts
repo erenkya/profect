@@ -1,5 +1,6 @@
 import "server-only";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
+import crypto from "node:crypto";
 import pool from "@/lib/db";
 import { createToken, hashToken } from "@/lib/tokens";
 import type { ExpertId } from "@/data/experts";
@@ -64,6 +65,16 @@ export async function listAvailableDays(expert: ExpertId, durationMin: 15 | 30, 
   return days;
 }
 
+/**
+ * Yanıt linki tokenı: HMAC(JWT_SECRET, "meeting|id|rol"). Tekrar üretilebilir (sonraki maillere aynı link konabilsin diye);
+ * DB'de yalnızca SHA-256 özeti tutulur, ham token yalnızca mailde yaşar.
+ */
+export function meetingToken(id: number, role: "expert" | "visitor"): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET tanımlı değil.");
+  return crypto.createHmac("sha256", secret).update(`meeting|${id}|${role}`).digest("hex");
+}
+
 export async function createMeetingRequest(
   input: Omit<MeetingRequestInput, "turnstileToken"> & { userId: number | null },
   now = new Date(),
@@ -73,16 +84,18 @@ export async function createMeetingRequest(
   if (Number(recent[0].n) >= DAILY_REQUESTS_PER_EMAIL) return { error: "rate_limited" };
   const ctx = await loadContext(pool, input.expert);
   if (!isValidSlot({ ...ctx, durationMin: input.durationMin, now, startsAt: input.startsAt })) return { error: "slot_unavailable" };
-  const expertT = createToken();
-  const visitorT = createToken();
+  const placeholder = () => createToken().hash; // id belli olunca türetilmiş token özetiyle değiştirilir
   const [res] = await pool.query<ResultSetHeader>(
     `INSERT INTO meeting_requests (expert, duration_min, starts_at, ends_at, full_name, email, company, job_title, user_id, expert_token_hash, visitor_token_hash, token_expires_at)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
     [input.expert, input.durationMin, input.startsAt, endOf(input.startsAt, input.durationMin), input.fullName, input.email, input.company, input.jobTitle, input.userId,
-      expertT.hash, visitorT.hash, toUtcStr(now.getTime() + TOKEN_TTL_DAYS * 86_400_000)],
+      placeholder(), placeholder(), toUtcStr(now.getTime() + TOKEN_TTL_DAYS * 86_400_000)],
   );
+  const expertToken = meetingToken(res.insertId, "expert");
+  const visitorToken = meetingToken(res.insertId, "visitor");
+  await pool.query("UPDATE meeting_requests SET expert_token_hash = ?, visitor_token_hash = ? WHERE id = ?", [hashToken(expertToken), hashToken(visitorToken), res.insertId]);
   await pool.query("INSERT INTO meeting_request_events (meeting_id, actor, action, to_status) VALUES (?, 'visitor', 'create', 'pending')", [res.insertId]);
-  return { id: res.insertId, expertToken: expertT.raw, visitorToken: visitorT.raw };
+  return { id: res.insertId, expertToken, visitorToken };
 }
 
 export async function getMeeting(id: number): Promise<MeetingRow | null> {

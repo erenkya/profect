@@ -1,5 +1,5 @@
 import mysql from "mysql2/promise";
-import { applyMeetingAction, createMeetingRequest, createRule, deleteRule, getMeetingByToken, listAvailableDays, listSlotsForDay, updateMeetingDetails } from "../src/lib/meetings.ts";
+import { meetingToken, applyMeetingAction, createMeetingRequest, createRule, deleteRule, getMeetingByToken, listAvailableDays, listSlotsForDay, updateMeetingDetails } from "../src/lib/meetings.ts";
 import { requestSchema, ruleSchema } from "../src/lib/meeting-schemas.ts";
 // Uzman görüşme veri katmanı entegrasyon testi (gerçek DB). Kendi kurallarını/taleplerini oluşturur, sonunda siler (e-posta e2e-meet-*@example.invalid).
 // Kullanım:  npm run test:meetings
@@ -27,6 +27,7 @@ try {
   for (let i = 0; i < 4; i++) rl.push(await createMeetingRequest(input("rl", { startsAt: `${D} 11:30:00` })));
   check("aynı e-postaya günlük 3 talep sınırı", rl.slice(0, 3).every((x) => "id" in x) && rl[3].error === "rate_limited");
 
+  check("token türetilebilir (maillere aynı link)", meetingToken(a.id, "expert") === a.expertToken && meetingToken(a.id, "visitor") === a.visitorToken && a.expertToken !== a.visitorToken);
   const tok = await getMeetingByToken(a.expertToken);
   check("uzman tokenı → rol expert", tok?.role === "expert" && tok.meeting.id === a.id);
   check("ziyaretçi tokenı → rol visitor", (await getMeetingByToken(a.visitorToken))?.role === "visitor");
