@@ -81,17 +81,20 @@ export function MeetingBooking({ experts, siteKey, prefill }: Props) {
     <div>
       <div className="meet-stage" data-picked={expertId ?? ""}>
         {experts.map((x) => (
-          <button key={x.id} type="button" className={`meet-card${expertId === x.id ? " meet-card-on" : ""}`} onClick={() => pick(x.id)} aria-pressed={expertId === x.id} aria-label={`${x.name} ile görüşme planla`}>
+          <button key={x.id} type="button" data-tone={x.id === "kaan" ? "purple" : "blue"} className={`meet-card${expertId === x.id ? " meet-card-on" : ""}`} onClick={() => pick(x.id)} aria-pressed={expertId === x.id} aria-label={`${x.name} ile görüşme planla`}>
             <span className="meet-photo">
-              <Image src={x.photo} alt="" fill sizes="(max-width: 700px) 50vw, 30vw" style={{ objectFit: "cover" }} />
+              <span className="meet-glow" aria-hidden />
+              <span className="meet-ring" aria-hidden />
+              <Image src={x.photo} alt="" fill sizes="(max-width: 700px) 50vw, 30vw" />
             </span>
             <span className="meet-info">
               <strong className="meet-name">{x.name}</strong>
               <span className="meet-role">{x.role}</span>
               <span className="meet-topics">
-                {x.topics.map((t) => <span key={t} className="meet-topic">{t}</span>)}
+                {x.topics.map((t, i) => <span key={t} className="meet-topic" style={{ "--i": i } as React.CSSProperties}>{t}</span>)}
                 {!x.available && <span className="meet-soon">Takvim yakında açılacak</span>}
               </span>
+              <span className="meet-cta" aria-hidden>Görüşme planla →</span>
             </span>
           </button>
         ))}
