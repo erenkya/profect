@@ -8,8 +8,9 @@ const check = (name, cond, extra = "") => { cond ? pass++ : failN++; console.log
 const db = await mysql.createConnection({ host: process.env.DB_HOST, user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME, port: Number(process.env.DB_PORT || 3306), dateStrings: true });
 const stamp = Date.now();
 const D = new Date(Date.now() + 3 * 3600_000 + 12 * 86_400_000).toISOString().slice(0, 10);
+const FAKE_IP = `10.${stamp % 250}.${(stamp >> 8) % 250}.${(stamp >> 4) % 250}`; // her koşu kendi IP'si: bellek içi IP sınırı koşular arası taşmasın
 const call = async (path, { method = "GET", body } = {}) => {
-  const res = await fetch(B + path, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const res = await fetch(B + path, { method, headers: { "content-type": "application/json", "x-forwarded-for": FAKE_IP }, body: body ? JSON.stringify(body) : undefined });
   let json = null; try { json = await res.json(); } catch {}
   return { status: res.status, json };
 };
