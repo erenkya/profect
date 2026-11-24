@@ -27,7 +27,7 @@ const barlowCondensed = Barlow_Condensed({
 export const metadata: Metadata = {
   title: { default: "Profect — Perfect Your Profession.", template: "%s · Profect" },
   description:
-    "Profect’te alanında uzman eğitmenlerin hazırladığı kursları kendi hızında tamamla, final sınavını geç ve doğrulanabilir sertifikanı al.",
+    "Profect’te sektörün uzmanlarınca hazırlanan, güncel ve uygulanabilir eğitimlerle mesleğine hazırlan; final sınavını geç, doğrulanabilir sertifikanı al.",
 };
 
 export const viewport: Viewport = { themeColor: "#ffffff" };
