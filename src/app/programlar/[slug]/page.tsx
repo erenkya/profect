@@ -63,21 +63,21 @@ export default async function ProgramPage({ params }: Props) {
         <div aria-hidden data-fx="1" data-py="0.25" data-rot="0.04" data-br="45" style={{ position: "absolute", right: -80, top: 40, width: 420, height: 420, border: "1px solid var(--color-accent-2-300)", transform: "rotate(45deg)" }} />
         <div className="wrap" style={{ position: "relative", paddingBlock: "40px 64px" }}>
           <nav aria-label="Konum" style={{ display: "flex", gap: 8, fontSize: 14, marginBottom: 40, color: "var(--muted-55)" }}>
-            <Link href="/programlar" style={{ color: "inherit" }}>Programlar</Link>
+            <Link href="/programlar" style={{ color: "inherit" }}>Uzmanlık Alanları</Link>
             <span aria-hidden>/</span>
-            <span>{program.category || "Uzmanlık Programı"}</span>
+            <span>{program.category || "Uzmanlık Alanı"}</span>
           </nav>
           <div style={{ maxWidth: 760 }}>
             <div data-reveal="1" style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 18, flexWrap: "wrap" }}>
               <span className="tag tag-accent">{program.code}</span>
-              <span className="tag tag-neutral">{courses.length} kurs</span>
+              <span className="tag tag-neutral">{courses.length} eğitim</span>
               <span className="tag tag-outline">Program sertifikalı</span>
               {!program.is_published && <span className="tag tag-neutral">Taslak</span>}
             </div>
             <h1 data-reveal="1" data-delay="100" style={{ fontSize: "clamp(48px,6vw,84px)", lineHeight: 0.94, textTransform: "uppercase", margin: "0 0 22px" }}>{program.title}</h1>
             <p data-reveal="1" data-delay="200" style={{ fontSize: 19, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", textWrap: "pretty", marginBottom: 28 }}>{program.description}</p>
             <div data-reveal="1" data-delay="300" style={{ display: "flex", gap: 28, flexWrap: "wrap", fontSize: 15 }}>
-              <span>{courses.length} kurs · {lessons} ders</span>
+              <span>{courses.length} eğitim · {lessons} ders</span>
               <span>Ayrı ayrı <strong style={{ fontWeight: 600 }}>{formatPrice(calc.listTotal)}</strong></span>
             </div>
             {introVideo ? (
@@ -145,7 +145,7 @@ export default async function ProgramPage({ params }: Props) {
               <Corners />
               <div className="card-kicker" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 8 }}><Award size={16} strokeWidth={1.5} aria-hidden /> Program sertifikası</div>
               <p className="card-body" style={{ fontSize: 16, margin: 0 }}>
-                Her kursu tamamladığında o kursun sertifikasını kazanırsın. Programdaki tüm kursların sertifikasını aldığında program sertifikan otomatik olarak hazırlanır. Kursları dilediğin sırayla tamamlayabilirsin.
+                Her eğitimi tamamladığında o eğitimin sertifikasını kazanırsın. Uzmanlık alanındaki tüm eğitimlerin sertifikasını aldığında program sertifikan otomatik olarak hazırlanır. Eğitimleri dilediğin sırayla tamamlayabilirsin.
               </p>
             </div>
           </div>
