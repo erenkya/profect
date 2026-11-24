@@ -45,3 +45,10 @@ export const ruleSchema = z
   .refine((r) => r.recurrence === "once" || !!r.startsOn, { message: "Tekrarlı kural için başlangıç günü gerekli.", path: ["startsOn"] })
   .refine((r) => r.recurrence !== "weekly" || r.weekdays > 0, { message: "En az bir gün seçin.", path: ["weekdays"] });
 export type RuleInput = z.infer<typeof ruleSchema>;
+
+export const adminActionSchema = z.object({
+  action: z.enum(["accept", "decline", "counter", "set_link", "cancel", "update"]),
+  startsAt: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:00$/).optional(),
+  meetingUrl: meetingUrlSchema.optional(),
+  note: oneLine(1, 500).optional(),
+});

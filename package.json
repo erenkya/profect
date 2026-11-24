@@ -30,6 +30,7 @@
     "test:company": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-company.mjs",
     "test:meetings": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning --import ./scripts/ts-register.mjs scripts/test-meetings.mjs",
     "test:meetings-api": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning --import ./scripts/ts-register.mjs scripts/test-meetings-api.mjs",
+    "test:meetings-admin": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning --import ./scripts/ts-register.mjs scripts/test-meetings-admin.mjs",
     "test:verify": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-email-verification.mjs"
   },
   "dependencies": {
