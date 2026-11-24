@@ -54,6 +54,10 @@ try {
   check("ziyaretçi bekleyen talebi iptal eder", (await patch(m3.visitorToken, { action: "cancel" })).json?.status === "cancelled");
   check("sayfa: uzman yanıt sayfası açılır", (await fetch(`${B}/gorusme/yanit/${m2.expertToken}`)).status === 200);
   check("sayfa: ziyaretçi sayfası açılır", (await fetch(`${B}/gorusme/${m2.visitorToken}`)).status === 200);
+  check("planla sayfası: geçerli uzman 200", (await fetch(`${B}/gorusme/planla/kaan`)).status === 200);
+  check("planla sayfası: geçersiz uzman 404", (await fetch(`${B}/gorusme/planla/xyz`)).status === 404);
+  const home = await (await fetch(`${B}/`)).text();
+  check("ana sayfa: kartlar planlama sayfasına bağlanır", home.includes('href="/gorusme/planla/kaan"') && home.includes('href="/gorusme/planla/tugrul"'));
   check("sayfa: geçersiz token 404", (await fetch(`${B}/gorusme/${"0".repeat(64)}`)).status === 404);
 } finally {
   await db.query("DELETE e FROM meeting_request_events e JOIN meeting_requests m ON m.id = e.meeting_id WHERE m.email LIKE ?", [`e2e-meet-${stamp}-%`]);

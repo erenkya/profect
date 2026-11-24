@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { FormMessage } from "@/components/auth/AuthShell";
 
 type Expert = { id: "kaan" | "tugrul"; name: string; role: string; photo: string; topics: string[]; available: boolean };
-type Props = { experts: Expert[]; siteKey: string; prefill: { name: string; email: string } | null };
+type Props = { expert: Expert; siteKey: string; prefill: { name: string; email: string } | null };
 
 const MONTHS = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
 const DAYS = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
@@ -17,8 +16,8 @@ async function getJson(url: string) {
   return (await res.json().catch(() => null)) as { success?: boolean; days?: string[]; slots?: string[]; message?: string } | null;
 }
 
-export function MeetingBooking({ experts, siteKey, prefill }: Props) {
-  const [expertId, setExpertId] = useState<Expert["id"] | null>(null);
+export function MeetingBooking({ expert, siteKey, prefill }: Props) {
+  const expertId = expert.id;
   const [duration, setDuration] = useState<15 | 30 | null>(null);
   const [days, setDays] = useState<string[] | null>(null);
   const [day, setDay] = useState<string | null>(null);
@@ -29,12 +28,9 @@ export function MeetingBooking({ experts, siteKey, prefill }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
-  const expert = experts.find((e) => e.id === expertId) ?? null;
-
-  const pick = (id: Expert["id"]) => { setExpertId(id); setDuration(null); setDays(null); setDay(null); setSlots(null); setSlot(null); setError(""); };
 
   useEffect(() => {
-    if (!expertId || !duration) return;
+    if (!duration) return;
     let live = true;
     setDays(null); setDay(null); setSlots(null); setSlot(null);
     getJson(`/api/gorusme/slots?expert=${expertId}&duration=${duration}`).then((j) => { if (live) setDays(j?.days ?? []); });
@@ -42,7 +38,7 @@ export function MeetingBooking({ experts, siteKey, prefill }: Props) {
   }, [expertId, duration]);
 
   useEffect(() => {
-    if (!expertId || !duration || !day) return;
+    if (!duration || !day) return;
     let live = true;
     setSlots(null); setSlot(null);
     getJson(`/api/gorusme/slots?expert=${expertId}&duration=${duration}&day=${day}`).then((j) => { if (live) setSlots(j?.slots ?? []); });
@@ -51,7 +47,7 @@ export function MeetingBooking({ experts, siteKey, prefill }: Props) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!expertId || !duration || !day || !slot) return;
+    if (!duration || !day || !slot) return;
     setBusy(true); setError("");
     try {
       const res = await fetch("/api/gorusme", {
@@ -72,37 +68,16 @@ export function MeetingBooking({ experts, siteKey, prefill }: Props) {
     return (
       <div className="meet-panel" role="status" style={{ textAlign: "center" }}>
         <h3 style={{ fontSize: 28, marginBottom: 8 }}>Talebiniz alındı</h3>
-        <p style={{ margin: 0 }}>{expert?.name} için görüşme talebinizi ilettik. <strong>{form.email}</strong> adresine bir onay e-postası gönderdik; yanıt geldiğinde yine e-posta ile bilgilendirileceksiniz.</p>
+        <p style={{ margin: 0 }}>{expert.name} için görüşme talebinizi ilettik. <strong>{form.email}</strong> adresine bir onay e-postası gönderdik; yanıt geldiğinde yine e-posta ile bilgilendirileceksiniz.</p>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="meet-stage" data-picked={expertId ?? ""}>
-        {experts.map((x) => (
-          <button key={x.id} type="button" data-tone={x.id === "kaan" ? "purple" : "blue"} className={`meet-card${expertId === x.id ? " meet-card-on" : ""}`} onClick={() => pick(x.id)} aria-pressed={expertId === x.id} aria-label={`${x.name} ile görüşme planla`}>
-            <span className="meet-photo">
-              <span className="meet-glow" aria-hidden />
-              <span className="meet-ring" aria-hidden />
-              <Image src={x.photo} alt="" fill sizes="(max-width: 700px) 50vw, 30vw" />
-            </span>
-            <span className="meet-info">
-              <strong className="meet-name">{x.name}</strong>
-              <span className="meet-role">{x.role}</span>
-              <span className="meet-topics">
-                {x.topics.map((t, i) => <span key={t} className="meet-topic" style={{ "--i": i } as React.CSSProperties}>{t}</span>)}
-                {!x.available && <span className="meet-soon">Takvim yakında açılacak</span>}
-              </span>
-              <span className="meet-cta" aria-hidden>Görüşme planla →</span>
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {expert && (
-        <div className="meet-panel" style={{ marginTop: 28 }}>
-          <h3 style={{ fontSize: 26, marginBottom: 16 }}>{expert.name} ile görüşme</h3>
+      {(
+        <div className="meet-panel">
+          <h3 style={{ fontSize: 26, marginBottom: 16 }}>Görüşme bilgileri</h3>
           {!expert.available ? (
             <p style={{ margin: 0 }}>Bu uzmanın takvimi henüz açılmadı. Lütfen daha sonra tekrar bakın.</p>
           ) : (
