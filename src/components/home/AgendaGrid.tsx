@@ -19,14 +19,14 @@ export function AgendaGrid() {
         <div className="eyebrow">Şu anda profesyonellerin çözmeye çalıştığı problemler</div>
         <h2 id="agenda-title" className="h-section">Bunlardan hangisi sizin gündeminizde?</h2>
       </div>
-      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,170px),1fr))", gap: 16 }}>
+      <ul className="agenda-grid">
         {AGENDA.map((a, i) => {
           const Icon = ICONS[a.icon];
           return (
             <li key={a.id} data-reveal="1" data-delay={i * 80}>
-              <Link href={AGENDA_HREF} className="card" style={{ height: "100%", padding: 20, gap: 16, background: "#ffffff" }}>
+              <Link href={AGENDA_HREF} className="card agenda-card">
                 <Icon size={28} strokeWidth={1.5} aria-hidden color="var(--color-accent)" />
-                <span className="card-title" style={{ fontSize: 19 }}>{a.label}</span>
+                <span className="card-title">{a.label}</span>
               </Link>
             </li>
           );
