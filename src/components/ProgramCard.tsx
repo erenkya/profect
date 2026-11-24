@@ -34,15 +34,15 @@ export function ProgramCard({ offer, color, delay, loggedIn }: { offer: ProgramO
           </div>
           <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <span className="card-kicker" style={{ fontSize: 11 }}>{program.category || "Uzmanlık Programı"}</span>
-              <span className="tag tag-neutral">{courses.length} kurs</span>
+              <span className="card-kicker" style={{ fontSize: 11 }}>{program.category || "Uzmanlık Alanı"}</span>
+              <span className="tag tag-neutral">{courses.length} eğitim</span>
             </div>
             <div className="card-title" style={{ fontSize: 24, lineHeight: 1.1 }}>{program.title}</div>
             <div style={{ fontSize: 14, color: "color-mix(in srgb,var(--color-text) 62%,transparent)" }}>
-              {personal ? `Sahip olduğun ${calc.ownedCount} kurs düşüldü` : "Program sertifikalı"}
+              {personal ? `Sahip olduğun ${calc.ownedCount} eğitim düşüldü` : "Program sertifikalı"}
             </div>
             <div style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid var(--color-divider)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <span className="card-meta" style={{ fontSize: 13 }}>{courses.length} kurs · {lessons} ders</span>
+              <span className="card-meta" style={{ fontSize: 13 }}>{courses.length} eğitim · {lessons} ders</span>
               {offer.member ? (
                 <span className="tag tag-accent">Üyesin</span>
               ) : !offer.sellable ? (

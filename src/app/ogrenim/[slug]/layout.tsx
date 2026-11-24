@@ -37,13 +37,13 @@ export default async function LearnLayout({ children, params }: { children: Reac
         )}
         {previewing && (
           <div role="status" style={{ marginBottom: 24, padding: "10px 14px", border: "1px solid var(--color-accent-2-300)", background: "var(--color-accent-2-100)", fontSize: 14, display: "flex", gap: 12, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
-            <span>Ücretsiz önizleme — bu kursun ücretsiz derslerini {user ? "" : "giriş yapmadan "}inceleyebilirsin. İlerlemen kaydedilmez.</span>
-            <Link href={`/kurslar/${slug}`} className="btn btn-primary" style={{ padding: "6px 14px", fontSize: 14 }}>Kursa kaydol</Link>
+            <span>Ücretsiz önizleme — bu eğitimin ücretsiz derslerini {user ? "" : "giriş yapmadan "}inceleyebilirsin. İlerlemen kaydedilmez.</span>
+            <Link href={`/kurslar/${slug}`} className="btn btn-primary" style={{ padding: "6px 14px", fontSize: 14 }}>Eğitime kaydol</Link>
           </div>
         )}
         {!enrolled && !previewing && (
           <div role="status" style={{ marginBottom: 24, padding: "10px 14px", border: "1px solid var(--color-accent-2-300)", background: "var(--color-accent-2-100)", fontSize: 14 }}>
-            Yönetici önizlemesi — bu kursa kayıtlı değilsiniz, ilerlemeniz kaydedilmez.
+            Yönetici önizlemesi — bu eğitime kayıtlı değilsiniz, ilerlemeniz kaydedilmez.
           </div>
         )}
         {children}

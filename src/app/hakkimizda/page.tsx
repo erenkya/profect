@@ -6,7 +6,7 @@ import { FOUNDERS } from "@/data/courses";
 
 export const metadata: Metadata = {
   title: "Hakkımızda",
-  description: "Profect, kaliteli eğitimi herkes için erişilebilir yapmak ve öğrenilen her becerinin sınavla doğrulanmasını sağlamak amacıyla kuruldu.",
+  description: "Profect, gerçek iş deneyimini herkes için erişilebilir bir eğitim yolculuğuna dönüştürmek ve öğrenilen her becerinin sınavla doğrulanmasını sağlamak amacıyla kuruldu.",
 };
 
 export default function AboutPage() {
@@ -20,10 +20,10 @@ export default function AboutPage() {
         <div className="wrap" style={{ position: "relative", paddingBlock: "clamp(72px,10vw,150px)" }}>
           <div data-reveal="1" className="eyebrow" style={{ marginBottom: 20 }}>Hakkımızda</div>
           <h1 data-reveal="1" data-delay="100" style={{ fontSize: "clamp(52px,7.4vw,112px)", lineHeight: 0.92, textTransform: "uppercase", margin: "0 0 28px", maxWidth: 900 }}>
-            Öğrenmeyi <span style={{ color: "var(--color-accent)" }}>ölçülebilir</span> kılmak için kurduk
+            Mesleğinizin geleceğine <span style={{ color: "var(--color-accent)" }}>hazır olmanız</span> için kurduk
           </h1>
           <p data-reveal="1" data-delay="200" style={{ fontSize: 19, maxWidth: 560, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", textWrap: "pretty" }}>
-            Profect, kaliteli eğitimi herkes için erişilebilir yapmak ve öğrenilen her becerinin sınavla doğrulanmasını sağlamak amacıyla iki kurucu ortak tarafından hayata geçirildi.
+            Profect, gerçek iş deneyimini herkes için erişilebilir bir eğitim yolculuğuna dönüştürmek ve öğrenilen her becerinin sınavla doğrulanmasını sağlamak amacıyla iki kurucu ortak tarafından hayata geçirildi.
           </p>
         </div>
       </section>

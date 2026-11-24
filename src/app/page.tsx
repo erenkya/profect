@@ -11,6 +11,10 @@ import Image from "next/image";
 import { HomePosts } from "@/components/posts/HomePosts";
 import { listPublishedPosts, type PostListItem } from "@/lib/posts";
 import { ProgramCard } from "@/components/ProgramCard";
+import { StageStrip } from "@/components/home/StageStrip";
+import { AgendaGrid } from "@/components/home/AgendaGrid";
+import { ReferenceStrip } from "@/components/home/ReferenceStrip";
+import { quoteFor } from "@/data/journey";
 import { ExpertMeetings } from "@/components/meetings/ExpertMeetings";
 import { getProgramOffer, listPublishedPrograms, type ProgramOffer } from "@/lib/programs";
 
@@ -69,25 +73,25 @@ export default async function HomePage() {
               <div data-reveal="1" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
                 <span className="diamond brand-diamond" style={{ width: 10, height: 10 }} />
                 <span style={{ fontSize: 12, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--color-accent-700)", fontWeight: 600 }}>
-                  Güncel Müfredat · Küresel Standartlar · %100 Online · Sektör Uzmanı Eğitmenler
+                  Perfect Your Profession.
                 </span>
               </div>
-              <h1 style={{ fontSize: "clamp(60px,8.4vw,124px)", lineHeight: 0.9, letterSpacing: "-.02em", margin: "0 0 28px", fontWeight: 700 }}>
-                <span data-reveal="1" data-delay="0" style={{ display: "inline-block", color: "var(--color-accent-2)" }}>Perfect</span><br />
-                <span data-reveal="1" data-delay="120" style={{ display: "inline-block", color: "var(--color-accent)" }}>Your</span><br />
-                <span data-reveal="1" data-delay="240" style={{ display: "inline-block" }}>Profession</span>
+              <h1 style={{ fontSize: "clamp(40px,5.6vw,84px)", lineHeight: 0.98, letterSpacing: "-.02em", margin: "0 0 28px", fontWeight: 700 }}>
+                <span data-reveal="1" data-delay="0" style={{ display: "inline-block" }}>Mesleğiniz değişiyor.</span><br />
+                <span data-reveal="1" data-delay="180" style={{ display: "inline-block", color: "var(--color-accent)" }}>Siz ne kadar hazırsınız?</span>
               </h1>
               <p data-reveal="1" data-delay="360" style={{ fontSize: 19, lineHeight: 1.55, maxWidth: 500, color: "color-mix(in srgb,var(--color-text) 78%,transparent)", textWrap: "pretty", marginBottom: 36 }}>
-                Profect’te sektörün uzmanlarınca hazırlanan, sürekli güncellenen ve küresel standartlarla uyumlu kursları tamamen online, kendi hızında tamamlarsın. Her modülün sonunda sınava girer, final sınavını geçtiğinde doğrulanabilir sertifikanı alırsın.
+                Gerçek iş deneyimiyle geliştirilmiş eğitimler. Güncel bilgi. Uygulanabilir modeller. Yeni nesil öğrenme.
               </p>
               <div data-reveal="1" data-delay="480" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                 <Link href="/kurslar" className="btn btn-primary blueprint" style={{ fontSize: 18, padding: "14px 26px" }}>
                   <Corners />
-                  Kursları Keşfet
+                  Keşfetmeye Başla
                   <ArrowRight size={18} strokeWidth={1.5} />
                 </Link>
                 <a href="#nasil" className="btn btn-secondary" style={{ fontSize: 18, padding: "14px 26px" }}>Nasıl çalışır?</a>
               </div>
+              <StageStrip />
             </div>
 
             {/* hero composition */}
@@ -105,7 +109,7 @@ export default async function HomePage() {
               <div data-fx="1" data-py="-0.18" data-fl="8" data-ph="0" style={{ position: "absolute", left: 0, top: "6%", width: "min(300px,70%)" }}>
                 <div className="card blueprint elev-md" style={{ background: "#ffffff", padding: 18, gap: 10 }}>
                   <Corners />
-                  <div className="card-kicker" style={{ fontSize: 11 }}>Modül 3 / 6</div>
+                  <div className="card-kicker" style={{ fontSize: 11 }}>Yol haritan · Modül 3 / 6</div>
                   <div className="card-title" style={{ fontSize: 20 }}>{demoCourse}</div>
                   <div style={{ height: 6, background: "var(--color-accent-100)", position: "relative" }}>
                     <div style={{ position: "absolute", inset: "0 36% 0 0", background: "var(--color-accent)" }} />
@@ -120,7 +124,7 @@ export default async function HomePage() {
                 <div className="card blueprint elev-md" style={{ background: "#ffffff", padding: 18, gap: 8 }}>
                   <Corners />
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div className="card-kicker" style={{ fontSize: 11, color: "var(--color-accent-2)" }}>Final Sınavı</div>
+                    <div className="card-kicker" style={{ fontSize: 11, color: "var(--color-accent-2)" }}>Yetkinlik değerlendirmesi</div>
                     <span className="tag tag-accent">Geçti</span>
                   </div>
                   <div style={{ fontFamily: "var(--font-heading)", fontSize: 54, lineHeight: 1, fontWeight: 700, color: "var(--color-accent-2)" }}>%95</div>
@@ -133,7 +137,7 @@ export default async function HomePage() {
                   <Corners />
                   <Award size={34} strokeWidth={1.5} color="#4a2a9e" />
                   <div>
-                    <div style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600 }}>Sertifikan hazır</div>
+                    <div style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600 }}>Sertifikan hazır · yolculuğunun kanıtı</div>
                     <div style={{ fontSize: 12, color: "var(--muted-55)" }}>{DEMO_CERT.number} · Örnek</div>
                   </div>
                 </div>
@@ -141,6 +145,8 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+
+        <AgendaGrid />
 
         {/* FOUNDERS — iki yanda büyük fotoğraf, ortada metin */}
         <section className="wrap section-pad" style={{ paddingBottom: "clamp(56px,8vw,120px)" }}>
@@ -158,18 +164,22 @@ export default async function HomePage() {
             ))}
 
             <div data-reveal="1" data-delay="100" className="founders-copy">
-              <div className="eyebrow">01 — Kurucular</div>
-              <h2 className="h-section" style={{ margin: "0 auto 40px", maxWidth: 560 }}>İki kurucu, tek hedef: ölçülebilir öğrenme</h2>
+              <div className="eyebrow">Gerçek deneyim. Gerçek sonuçlar.</div>
+              <h2 className="h-section" style={{ margin: "0 auto 16px", maxWidth: 560 }}>Learn from people who’ve actually done it.</h2>
+              <p style={{ margin: "0 auto 40px", maxWidth: 420, fontSize: 16, lineHeight: 1.6, color: "var(--muted-72)" }}>
+                Teori değil. Gerçek kararlar. Gerçek problemler. Gerçek deneyim.
+              </p>
               <div style={{ display: "grid", gap: 36 }}>
                 {FOUNDERS.map((f) => (
                   <div key={f.n}>
                     <h3 style={{ fontSize: 34, textTransform: "uppercase", marginBottom: 10 }}>{f.name}</h3>
                     <p style={{ fontSize: 15, color: "var(--muted-72)", textWrap: "pretty", maxWidth: 440, margin: "0 auto 10px" }}>{f.short}</p>
+                    {quoteFor(f.n) && <p style={{ fontSize: 15, color: "var(--color-text)", textWrap: "pretty", maxWidth: 440, margin: "0 auto 10px" }}>“{quoteFor(f.n)}”</p>}
                     <a href={f.linkedin} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 15 }} aria-label={`${f.name} LinkedIn profili`}>LinkedIn →</a>
                   </div>
                 ))}
               </div>
-              <Link href="/hakkimizda" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px", marginTop: 36 }}>Hikâyemizi oku</Link>
+              <Link href="/hakkimizda" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px", marginTop: 36 }}>Hikâyeyi oku</Link>
             </div>
           </div>
         </section>
@@ -190,11 +200,11 @@ export default async function HomePage() {
         <section id="nasil" className="wrap section-pad anchor">
           <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 64 }}>
             <div>
-              <div className="eyebrow">02 — Nasıl çalışır</div>
-              <h2 className="h-section" style={{ maxWidth: 720 }}>Kayıttan sertifikaya üç adım</h2>
+              <div className="eyebrow">01 — Nasıl çalışır</div>
+              <h2 className="h-section" style={{ maxWidth: 720 }}>Bilgiden etkiye üç adım</h2>
             </div>
             <p style={{ maxWidth: 380, margin: 0, fontSize: 16, color: "color-mix(in srgb,var(--color-text) 70%,transparent)", textWrap: "pretty" }}>
-              Her kurs aynı yapıyı izler: dersler, ölçme ve belgelendirme. Ne öğrendiğini bilirsin, kanıtlayabilirsin.
+              Her eğitim aynı yapıyı izler: bilgi, karar ve etki. Ne öğrendiğini bilirsin, kanıtlayabilirsin.
             </p>
           </div>
           <div style={{ position: "relative" }}>
@@ -225,15 +235,17 @@ export default async function HomePage() {
           </div>
         </section>
 
+        <ReferenceStrip />
+
         {/* FEATURED COURSES */}
         <section className="wrap section-pad">
           <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 56 }}>
             <div>
-              <div className="eyebrow">03 — Öne çıkan kurslar</div>
-              <h2 className="h-section">Kariyerine değer katan kurslar</h2>
+              <div className="eyebrow">02 — Öne çıkan eğitimler</div>
+              <h2 className="h-section">Yolculuğuna değer katan eğitimler</h2>
             </div>
             <Link href="/kurslar" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px" }}>
-              Tüm kurslar
+              Tüm eğitimler
               <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
@@ -247,11 +259,11 @@ export default async function HomePage() {
           <section className="wrap section-pad" style={{ paddingTop: 0 }}>
             <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 56 }}>
               <div>
-                <div className="eyebrow">04 — Uzmanlık programları</div>
-                <h2 className="h-section" style={{ maxWidth: 720 }}>Birkaç kursu tek pakette topla</h2>
+                <div className="eyebrow">03 — Uzmanlık alanları</div>
+                <h2 className="h-section" style={{ maxWidth: 720 }}>Bir alanda derinleş: eğitimleri tek yolculukta topla</h2>
               </div>
               <Link href="/programlar" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px" }}>
-                Tüm programlar
+                Tüm uzmanlık alanları
                 <ArrowRight size={16} strokeWidth={1.5} />
               </Link>
             </div>

@@ -17,7 +17,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   // Hediye linkinden gelindiyse e-posta alıcı adresine kilitlenir (sunucu da kayıtta aynısını zorlar).
   const gift = isGiftToken(sp.hediye) ? await findGiftByToken(sp.hediye) : null;
   return (
-    <AuthShell title="Hesap oluştur" subtitle={gift ? "Hediyeni almak için bu e-posta adresiyle kayıt ol." : "Ücretsiz kaydol, kursları keşfet."}>
+    <AuthShell title="Hesap oluştur" subtitle={gift ? "Hediyeni almak için bu e-posta adresiyle kayıt ol." : "Ücretsiz kaydol, yolculuğunu başlat."}>
       {sp.hediye && !gift && <FormMessage kind="error">{GIFT_INVALID_MESSAGE}</FormMessage>}
       <RegisterForm siteKey={turnstileSiteKey()} next={next} lockedEmail={gift?.recipientEmail} giftToken={gift ? sp.hediye : undefined} />
     </AuthShell>

@@ -9,9 +9,9 @@ export function CourseInPrograms({ programs }: { programs: { slug: string; title
     <p style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 14, color: "var(--muted-72)", margin: "0 0 20px" }}>
       <Layers size={16} strokeWidth={1.5} aria-hidden style={{ flex: "none" }} />
       {programs.length === 1 ? (
-        <span>Bu kurs {link(programs[0])} programının parçası</span>
+        <span>Bu eğitim {link(programs[0])} uzmanlık alanının parçası</span>
       ) : (
-        <span>Bu kurs şu programların parçası: {programs.map((p, i) => <span key={p.slug}>{i > 0 && ", "}{link(p)}</span>)}</span>
+        <span>Bu eğitim şu uzmanlık alanlarının parçası: {programs.map((p, i) => <span key={p.slug}>{i > 0 && ", "}{link(p)}</span>)}</span>
       )}
     </p>
   );

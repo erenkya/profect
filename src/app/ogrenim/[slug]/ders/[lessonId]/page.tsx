@@ -71,8 +71,8 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
       {previewing && !nextOpen && (
         <div className="card blueprint lesson-card" style={{ background: "#fff", padding: 24, gap: 12, marginTop: 32, maxWidth: 560 }}>
           <div className="card-kicker" style={{ fontSize: 11 }}>Ücretsiz önizleme sona erdi</div>
-          <p style={{ margin: 0, fontSize: 16 }}>Devam etmek, sınavlara girmek ve sertifika almak için kursa kaydol.</p>
-          <div><Link href={`/kurslar/${slug}`} className="btn btn-primary">Kursa kaydol</Link></div>
+          <p style={{ margin: 0, fontSize: 16 }}>Devam etmek, sınavlara girmek ve sertifika almak için eğitime kaydol.</p>
+          <div><Link href={`/kurslar/${slug}`} className="btn btn-primary">Eğitime kaydol</Link></div>
         </div>
       )}
     </div>

@@ -6,9 +6,9 @@ export const courseColor = (i: number) => (i % 2 ? PURP : BLUE);
 export const courseDelay = (i: number) => (i % 3) * 120;
 
 export const STEPS = [
-  { n: "01", title: "Kursa kaydol", color: BLUE, delay: 0, body: "Video dersler, okumalar ve uygulamalı ödevlerle konuyu kendi hızında çalış. İlerlemen her cihazda kaldığın yerden devam eder.", tags: ["Video", "Okuma", "Proje"] },
-  { n: "02", title: "Sınavlara gir", color: INDIGO, delay: 150, body: "Kursun sonunda kapsamlı bir final sınavı seni bekler. Sonuçlarını anında görürsün.", tags: ["Final sınavı", "Anında sonuç", "Sertifika"] },
-  { n: "03", title: "Sertifikanı al", color: PURP, delay: 300, body: "Final sınavını geçtiğinde benzersiz numaralı, QR kodla doğrulanabilir sertifikan hesabına eklenir ve LinkedIn’de paylaşılabilir.", tags: ["QR doğrulama", "LinkedIn", "PDF"] },
+  { n: "01", title: "Bilgi", color: BLUE, delay: 0, body: "Video dersler, okumalar, vakalar ve uygulamalı ödevlerle konuyu kendi hızında çalış. İlerlemen her cihazda kaldığın yerden devam eder.", tags: ["Video", "Okuma", "Vaka"] },
+  { n: "02", title: "Karar", color: INDIGO, delay: 150, body: "Modül ve final sınavlarıyla kendini sına; sonuçlarını anında gör ve hazır olup olmadığına karar ver.", tags: ["Modül sınavı", "Final sınavı", "Anında sonuç"] },
+  { n: "03", title: "Etki", color: PURP, delay: 300, body: "Final sınavını geçtiğinde benzersiz numaralı, QR kodla doğrulanabilir sertifikan hesabına eklenir ve LinkedIn’de paylaşılabilir.", tags: ["QR doğrulama", "LinkedIn", "PDF"] },
 ];
 
 export const FOUNDERS = [

@@ -16,9 +16,9 @@ export async function ExpertMeetings() {
   return (
     <section className="wrap section-pad" style={{ paddingTop: 0 }} aria-labelledby="meet-title">
       <div data-reveal="1" style={{ textAlign: "center", marginBottom: 48 }}>
-        <div className="eyebrow">Uzmanlarla görüşme</div>
+        <div className="eyebrow">Kurumsal ve bireysel görüşme</div>
         <h2 id="meet-title" className="h-section" style={{ margin: "0 auto 12px", maxWidth: 720 }}>Kurucularımızla 30 dakikalık bir görüşme planlayın</h2>
-        <p style={{ margin: "0 auto", maxWidth: 560, fontSize: 16, color: "var(--muted-72)" }}>Konunuza uygun uzmanı seçin; gün ve saati bir sonraki adımda belirleyin.</p>
+        <p style={{ margin: "0 auto", maxWidth: 560, fontSize: 16, color: "var(--muted-72)" }}>Kendiniz ya da ekibiniz için konunuza uygun uzmanı seçin; gün ve saati bir sonraki adımda belirleyin.</p>
       </div>
       <div className="meet-stage">
         {EXPERT_IDS.map((id) => {

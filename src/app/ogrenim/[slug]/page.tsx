@@ -13,7 +13,7 @@ import type { RowDataPacket } from "mysql2";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const user = await getCurrentUser();
   const course = await getCourseBySlug((await params).slug, { includeDraft: user?.role === "admin" });
-  return { title: course?.title ?? "Kurs" };
+  return { title: course?.title ?? "Eğitim" };
 }
 
 export default async function CourseOverview({ params }: { params: Promise<{ slug: string }> }) {
@@ -55,7 +55,7 @@ export default async function CourseOverview({ params }: { params: Promise<{ slu
               {started ? "Devam Et" : "Başla"}
             </Link>
           ) : (
-            <span style={{ fontSize: 14, color: "var(--muted-55)" }}>Bu kursun içeriği henüz hazırlanıyor.</span>
+            <span style={{ fontSize: 14, color: "var(--muted-55)" }}>Bu eğitimin içeriği henüz hazırlanıyor.</span>
           )}
           {certCode ? (
             <Link href={`/sertifika/${certCode}`} className="btn btn-secondary" style={{ fontSize: 17, padding: "12px 24px" }}>Sertifikamı Gör</Link>
@@ -65,7 +65,7 @@ export default async function CourseOverview({ params }: { params: Promise<{ slu
         </div>
       </div>
 
-      {!tree.finalQuiz && <p style={{ fontSize: 14, color: "var(--muted-55)" }}>Bu kurs için henüz final sınavı tanımlanmadığından sertifika alınamaz.</p>}
+      {!tree.finalQuiz && <p style={{ fontSize: 14, color: "var(--muted-55)" }}>Bu eğitim için henüz final sınavı tanımlanmadığından sertifika alınamaz.</p>}
     </div>
   );
 }

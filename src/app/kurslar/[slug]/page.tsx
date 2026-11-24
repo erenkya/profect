@@ -87,7 +87,7 @@ export default async function CoursePage({ params }: Props) {
         <div aria-hidden data-fx="1" data-py="0.25" data-rot="0.04" data-br="45" style={{ position: "absolute", right: -80, top: 40, width: 420, height: 420, border: "1px solid var(--color-accent-2-300)", transform: "rotate(45deg)" }} />
         <div className="wrap" style={{ position: "relative", paddingBlock: "40px 64px" }}>
           <nav aria-label="Konum" style={{ display: "flex", gap: 8, fontSize: 14, marginBottom: 40, color: "var(--muted-55)" }}>
-            <Link href="/kurslar" style={{ color: "inherit" }}>Kurslar</Link>
+            <Link href="/kurslar" style={{ color: "inherit" }}>Eğitimler</Link>
             <span aria-hidden>/</span>
             <span>{course.category}</span>
           </nav>

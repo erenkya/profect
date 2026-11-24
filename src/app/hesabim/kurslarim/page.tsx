@@ -6,7 +6,7 @@ import { PageTitle } from "@/components/account/PageTitle";
 import { getCurrentUser } from "@/lib/auth";
 import { listMyCourses } from "@/lib/lms";
 
-export const metadata: Metadata = { title: "Kurslarım" };
+export const metadata: Metadata = { title: "Eğitimlerim" };
 
 export default async function MyCoursesPage() {
   const user = await getCurrentUser();
@@ -14,9 +14,9 @@ export default async function MyCoursesPage() {
   const courses = await listMyCourses(user.id);
   return (
     <>
-      <PageTitle title="Kurslarım" />
+      <PageTitle title="Eğitimlerim" />
       {courses.length === 0 ? (
-        <p style={{ color: "var(--muted-72)" }}>Henüz bir kursun yok. <Link href="/kurslar">Kursları keşfet →</Link></p>
+        <p style={{ color: "var(--muted-72)" }}>Henüz bir eğitimin yok. <Link href="/kurslar">Eğitimleri keşfet →</Link></p>
       ) : (
         <div className="course-grid acc-grid">
           {courses.map((c, i) => (

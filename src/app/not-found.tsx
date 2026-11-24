@@ -23,7 +23,7 @@ export default function NotFound() {
             Bu sayfa <span style={{ color: "var(--color-accent)" }}>bulunamadı</span>
           </h1>
           <p data-reveal="1" data-delay="200" style={{ fontSize: 19, maxWidth: 520, color: "color-mix(in srgb,var(--color-text) 74%,transparent)", textWrap: "pretty", marginBottom: 32 }}>
-            Aradığın sayfa taşınmış, silinmiş ya da adres yanlış yazılmış olabilir. Ana sayfaya dönebilir veya kurslara göz atabilirsin.
+            Aradığın sayfa taşınmış, silinmiş ya da adres yanlış yazılmış olabilir. Ana sayfaya dönebilir veya eğitimlere göz atabilirsin.
           </p>
           <div data-reveal="1" data-delay="250" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             <Link href="/" className="btn btn-primary blueprint">
@@ -31,7 +31,7 @@ export default function NotFound() {
               Ana sayfaya dön
             </Link>
             <Link href="/kurslar" className="btn btn-ghost">
-              Kursları incele →
+              Eğitimleri incele →
             </Link>
           </div>
         </div>

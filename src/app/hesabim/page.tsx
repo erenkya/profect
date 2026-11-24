@@ -16,7 +16,7 @@ export default async function AccountHome() {
   const [courses, certs, orders] = await Promise.all([listMyCourses(user.id), listMyCertificates(user.id), listMyOrders(user.id)]);
   const current = courses.find((c) => c.status === "active");
   const stats = [
-    { k: "Aktif kurs", v: courses.filter((c) => c.status === "active").length, href: "/hesabim/kurslarim" },
+    { k: "Aktif eğitim", v: courses.filter((c) => c.status === "active").length, href: "/hesabim/kurslarim" },
     { k: "Tamamlanan", v: courses.filter((c) => c.status === "completed").length, href: "/hesabim/kurslarim" },
     { k: "Sertifika", v: certs.length, href: "/hesabim/sertifikalarim" },
     { k: "Sipariş", v: orders.length, href: "/hesabim/siparislerim" },
@@ -42,7 +42,7 @@ export default async function AccountHome() {
       {current ? (
         <div style={{ maxWidth: 440, marginBottom: 40 }}><MyCourseCard c={current} /></div>
       ) : (
-        <p style={{ color: "var(--muted-72)", marginBottom: 40 }}>Devam eden bir kursun yok. <Link href="/kurslar">Kursları keşfet →</Link></p>
+        <p style={{ color: "var(--muted-72)", marginBottom: 40 }}>Devam eden bir eğitimin yok. <Link href="/kurslar">Eğitimleri keşfet →</Link></p>
       )}
 
       <CompanyCard userId={user.id} />
