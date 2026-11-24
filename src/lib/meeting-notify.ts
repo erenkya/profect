@@ -2,18 +2,24 @@ import "server-only";
 import { EXPERTS } from "@/data/experts";
 import { sendMeetingEmail } from "@/lib/mail";
 import { buildIcs } from "@/lib/meeting-ics";
+import type { MeetingAction, MeetingActor } from "@/lib/meeting-rules";
+import { formatWhen } from "@/lib/meeting-format";
 import { getMeeting, meetingToken, type MeetingRow } from "@/lib/meetings";
 
 export type MeetingEvent =
   | "requested" | "decided_accept" | "decided_decline" | "countered"
-  | "confirmed" | "updated" | "cancelled" | "visitor_replied";
+  | "confirmed" | "updated" | "cancelled" | "visitor_replied" | "visitor_cancelled";
 
-const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-const DAYS = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
-/** "2026-12-03 14:00:00" → "3 Aralık 2026 Perşembe, 14:00 (İstanbul saati)" */
-export function formatWhen(s: string): string {
-  const d = new Date(`${s.slice(0, 10)}T00:00:00Z`);
-  return `${Number(s.slice(8, 10))} ${MONTHS[Number(s.slice(5, 7)) - 1]} ${s.slice(0, 4)} ${DAYS[d.getUTCDay()]}, ${s.slice(11, 16)} (İstanbul saati)`;
+/** Bir aksiyondan sonra gönderilecek bildirim olayı. */
+export function notifyEventFor(action: MeetingAction, actor: MeetingActor): MeetingEvent {
+  switch (action) {
+    case "accept": return "decided_accept";
+    case "decline": return "decided_decline";
+    case "counter": return "countered";
+    case "set_link": return "confirmed";
+    case "visitor_accept": case "visitor_decline": return "visitor_replied";
+    case "cancel": return actor === "visitor" ? "visitor_cancelled" : "cancelled";
+  }
 }
 
 const summary = (m: MeetingRow, when = m.startsAt): [string, string][] => [
@@ -64,6 +70,10 @@ export async function notifyMeeting(event: MeetingEvent, meetingId: number, base
           details: detail, ...(accepted && { button: { label: "Toplantı Bağlantısını Gir", url: expertUrl } }), notice: "Bağlantı 30 gün geçerlidir." });
         break;
       }
+      case "visitor_cancelled":
+        await sendMeetingEmail({ to: expert.email, subject: `Görüşme talebi iptal edildi — ${m.fullName}`, title: "Talep iptal edildi",
+          intro: `${m.fullName} (${m.company}) görüşme talebini iptal etti.`, details: detail, notice: "Bu talep için başka bir işlem gerekmiyor." });
+        break;
       case "confirmed":
       case "updated": {
         if (!m.meetingUrl) return;

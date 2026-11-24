@@ -1,5 +1,5 @@
 import mysql from "mysql2/promise";
-import { createRule, deleteRule } from "../src/lib/meetings.ts";
+import { createMeetingRequest, createRule, deleteRule, meetingToken } from "../src/lib/meetings.ts";
 // Görüşme HTTP API testi (çalışan dev sunucu + gerçek DB). Kullanım: npm run dev (MAIL_DRY_RUN=true) → npm run test:meetings-api
 const B = process.env.BASE_URL ?? "http://localhost:3000";
 const T = "XXXX.DUMMY.TOKEN.XXXX";
@@ -33,6 +33,28 @@ try {
   check("talep: başarılı 200", okRes.status === 200 && okRes.json.success === true, JSON.stringify(okRes.json));
   const [rows] = await db.query("SELECT status, expert FROM meeting_requests WHERE email = ?", [`e2e-meet-${stamp}-api3@example.invalid`]);
   check("talep DB'de pending", rows.length === 1 && rows[0].status === "pending" && rows[0].expert === "tugrul");
+
+  // --- Yanıt akışı (token'lı PATCH) ---
+  const mk = async (n, startsAt) => createMeetingRequest({ expert: "tugrul", durationMin: 30, startsAt: `${D} ${startsAt}`, fullName: "E2E Ziyaretçi", email: `e2e-meet-${stamp}-flow${n}@example.invalid`, company: "E2E AŞ", jobTitle: "Müdür", userId: null });
+  const patch = (token, body) => call(`/api/gorusme/${token}`, { method: "PATCH", body });
+  const m1 = await mk(1, "14:00:00"), m2 = await mk(2, "14:30:00");
+  check("geçersiz token 410", (await patch("0".repeat(64), { action: "accept" })).status === 410);
+  check("ziyaretçi tokenı uzman aksiyonu yapamaz 403", (await patch(m1.visitorToken, { action: "accept" })).status === 403);
+  check("uzman tokenı ziyaretçi aksiyonu yapamaz 403", (await patch(m1.expertToken, { action: "visitor_accept" })).status === 403);
+  check("uzman kabul 200 → accepted", (await patch(m1.expertToken, { action: "accept" })).json?.status === "accepted");
+  check("ikinci kabul (zaten accepted) 409", (await patch(m1.expertToken, { action: "accept" })).status === 409);
+  check("http:// link 400", (await patch(m1.expertToken, { action: "set_link", meetingUrl: "http://meet.example.com/a" })).status === 400);
+  check("linksiz set_link 400", (await patch(m1.expertToken, { action: "set_link" })).status === 400);
+  check("https link → confirmed", (await patch(m1.expertToken, { action: "set_link", meetingUrl: "https://meet.example.com/a" })).json?.status === "confirmed");
+  check("geçersiz saat önerisi 409", (await patch(m2.expertToken, { action: "counter", startsAt: `${D} 20:00:00` })).status === 409);
+  check("geçerli öneri → counter_proposed", (await patch(m2.expertToken, { action: "counter", startsAt: `${D} 15:00:00` })).json?.status === "counter_proposed");
+  check("ziyaretçi öneriyi kabul → accepted", (await patch(m2.visitorToken, { action: "visitor_accept" })).json?.status === "accepted");
+  check("ziyaretçi onaylanmış talebi iptal edemez 409", (await patch(m2.visitorToken, { action: "cancel" })).status === 409);
+  const m3 = await mk(3, "15:30:00");
+  check("ziyaretçi bekleyen talebi iptal eder", (await patch(m3.visitorToken, { action: "cancel" })).json?.status === "cancelled");
+  check("sayfa: uzman yanıt sayfası açılır", (await fetch(`${B}/gorusme/yanit/${m2.expertToken}`)).status === 200);
+  check("sayfa: ziyaretçi sayfası açılır", (await fetch(`${B}/gorusme/${m2.visitorToken}`)).status === 200);
+  check("sayfa: geçersiz token 404", (await fetch(`${B}/gorusme/${"0".repeat(64)}`)).status === 404);
 } finally {
   await db.query("DELETE e FROM meeting_request_events e JOIN meeting_requests m ON m.id = e.meeting_id WHERE m.email LIKE ?", [`e2e-meet-${stamp}-%`]);
   await db.query("DELETE FROM meeting_requests WHERE email LIKE ?", [`e2e-meet-${stamp}-%`]);
