@@ -28,6 +28,7 @@
     "test:company-programs": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning --import ./scripts/ts-register.mjs scripts/test-company-programs.mjs",
     "test:company-manual-order": "node --env-file=.env scripts/test-company-manual-order.mjs",
     "test:company": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-company.mjs",
+    "test:meetings": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning --import ./scripts/ts-register.mjs scripts/test-meetings.mjs",
     "test:verify": "node --env-file=.env --experimental-strip-types --disable-warning=ExperimentalWarning scripts/test-email-verification.mjs"
   },
   "dependencies": {
