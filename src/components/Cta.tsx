@@ -14,15 +14,15 @@ export function Cta() {
       />
       <div className="wrap" style={{ position: "relative", paddingBlock: "clamp(72px,9vw,120px)" }}>
         <h2 data-reveal="1" style={{ fontSize: "clamp(44px,6vw,84px)", lineHeight: 0.95, textTransform: "uppercase", margin: "0 0 20px", maxWidth: 760, color: "#ffffff" }}>
-          İlk sertifikan bir kurs uzağında
+          Bir sonraki adımın bir eğitim uzağında
         </h2>
         <p data-reveal="1" data-delay="100" style={{ fontSize: 18, maxWidth: 480, color: "#ffffff", marginBottom: 32 }}>
-          Ücretsiz hesap aç, istediğin kursun ilk modülünü hemen izlemeye başla.
+          Ücretsiz hesap aç, istediğin eğitimin ilk modülünü hemen izlemeye başla.
         </p>
         <div data-reveal="1" data-delay="200" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
           <Link href="/kurslar" className="btn btn-primary blueprint cta-solid">
             <Corners />
-            Kursları incele
+            Eğitimleri incele
           </Link>
         </div>
       </div>

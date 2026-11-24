@@ -11,6 +11,7 @@ import Image from "next/image";
 import { HomePosts } from "@/components/posts/HomePosts";
 import { listPublishedPosts, type PostListItem } from "@/lib/posts";
 import { ProgramCard } from "@/components/ProgramCard";
+import { StageStrip } from "@/components/home/StageStrip";
 import { ExpertMeetings } from "@/components/meetings/ExpertMeetings";
 import { getProgramOffer, listPublishedPrograms, type ProgramOffer } from "@/lib/programs";
 
@@ -69,25 +70,25 @@ export default async function HomePage() {
               <div data-reveal="1" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
                 <span className="diamond brand-diamond" style={{ width: 10, height: 10 }} />
                 <span style={{ fontSize: 12, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--color-accent-700)", fontWeight: 600 }}>
-                  Güncel Müfredat · Küresel Standartlar · %100 Online · Sektör Uzmanı Eğitmenler
+                  Perfect Your Profession.
                 </span>
               </div>
-              <h1 style={{ fontSize: "clamp(60px,8.4vw,124px)", lineHeight: 0.9, letterSpacing: "-.02em", margin: "0 0 28px", fontWeight: 700 }}>
-                <span data-reveal="1" data-delay="0" style={{ display: "inline-block", color: "var(--color-accent-2)" }}>Perfect</span><br />
-                <span data-reveal="1" data-delay="120" style={{ display: "inline-block", color: "var(--color-accent)" }}>Your</span><br />
-                <span data-reveal="1" data-delay="240" style={{ display: "inline-block" }}>Profession</span>
+              <h1 style={{ fontSize: "clamp(40px,5.6vw,84px)", lineHeight: 0.98, letterSpacing: "-.02em", margin: "0 0 28px", fontWeight: 700 }}>
+                <span data-reveal="1" data-delay="0" style={{ display: "inline-block" }}>Mesleğiniz değişiyor.</span><br />
+                <span data-reveal="1" data-delay="180" style={{ display: "inline-block", color: "var(--color-accent)" }}>Siz ne kadar hazırsınız?</span>
               </h1>
               <p data-reveal="1" data-delay="360" style={{ fontSize: 19, lineHeight: 1.55, maxWidth: 500, color: "color-mix(in srgb,var(--color-text) 78%,transparent)", textWrap: "pretty", marginBottom: 36 }}>
-                Profect’te sektörün uzmanlarınca hazırlanan, sürekli güncellenen ve küresel standartlarla uyumlu kursları tamamen online, kendi hızında tamamlarsın. Her modülün sonunda sınava girer, final sınavını geçtiğinde doğrulanabilir sertifikanı alırsın.
+                Gerçek iş deneyimiyle geliştirilmiş eğitimler. Güncel bilgi. Uygulanabilir modeller. Yeni nesil öğrenme.
               </p>
               <div data-reveal="1" data-delay="480" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
                 <Link href="/kurslar" className="btn btn-primary blueprint" style={{ fontSize: 18, padding: "14px 26px" }}>
                   <Corners />
-                  Kursları Keşfet
+                  Keşfetmeye Başla
                   <ArrowRight size={18} strokeWidth={1.5} />
                 </Link>
                 <a href="#nasil" className="btn btn-secondary" style={{ fontSize: 18, padding: "14px 26px" }}>Nasıl çalışır?</a>
               </div>
+              <StageStrip />
             </div>
 
             {/* hero composition */}
@@ -105,7 +106,7 @@ export default async function HomePage() {
               <div data-fx="1" data-py="-0.18" data-fl="8" data-ph="0" style={{ position: "absolute", left: 0, top: "6%", width: "min(300px,70%)" }}>
                 <div className="card blueprint elev-md" style={{ background: "#ffffff", padding: 18, gap: 10 }}>
                   <Corners />
-                  <div className="card-kicker" style={{ fontSize: 11 }}>Modül 3 / 6</div>
+                  <div className="card-kicker" style={{ fontSize: 11 }}>Yol haritan · Modül 3 / 6</div>
                   <div className="card-title" style={{ fontSize: 20 }}>{demoCourse}</div>
                   <div style={{ height: 6, background: "var(--color-accent-100)", position: "relative" }}>
                     <div style={{ position: "absolute", inset: "0 36% 0 0", background: "var(--color-accent)" }} />
@@ -120,7 +121,7 @@ export default async function HomePage() {
                 <div className="card blueprint elev-md" style={{ background: "#ffffff", padding: 18, gap: 8 }}>
                   <Corners />
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div className="card-kicker" style={{ fontSize: 11, color: "var(--color-accent-2)" }}>Final Sınavı</div>
+                    <div className="card-kicker" style={{ fontSize: 11, color: "var(--color-accent-2)" }}>Yetkinlik değerlendirmesi</div>
                     <span className="tag tag-accent">Geçti</span>
                   </div>
                   <div style={{ fontFamily: "var(--font-heading)", fontSize: 54, lineHeight: 1, fontWeight: 700, color: "var(--color-accent-2)" }}>%95</div>
@@ -133,7 +134,7 @@ export default async function HomePage() {
                   <Corners />
                   <Award size={34} strokeWidth={1.5} color="#4a2a9e" />
                   <div>
-                    <div style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600 }}>Sertifikan hazır</div>
+                    <div style={{ fontFamily: "var(--font-heading)", fontSize: 18, fontWeight: 600 }}>Sertifikan hazır · yolculuğunun kanıtı</div>
                     <div style={{ fontSize: 12, color: "var(--muted-55)" }}>{DEMO_CERT.number} · Örnek</div>
                   </div>
                 </div>
