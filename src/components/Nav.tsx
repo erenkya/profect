@@ -21,6 +21,7 @@ export function Nav({ user, companyAdmin = false }: { user: SessionUser | null; 
   const [resOpen, setResOpen] = useState(false);
   const onResources = onBlog || onNews;
   const root = useRef<HTMLElement>(null);
+  const resBtn = useRef<HTMLButtonElement>(null);
   const menuId = useId();
   const resId = useId();
 
@@ -40,6 +41,8 @@ export function Nav({ user, companyAdmin = false }: { user: SessionUser | null; 
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        // Odak alt menünün içindeyken panel gizlenirse odak <body>'ye düşer: tetikleyici butona geri ver.
+        if (resOpen && root.current?.querySelector(".nav-res-panel")?.contains(document.activeElement)) resBtn.current?.focus();
         setOpen(false);
         setResOpen(false);
       }
@@ -75,6 +78,7 @@ export function Nav({ user, companyAdmin = false }: { user: SessionUser | null; 
         <Link className="nav-link" href="/hakkimizda" aria-current={onAbout ? "page" : undefined}>Hakkımızda</Link>
         <div className="nav-res" data-open={resOpen}>
           <button
+            ref={resBtn}
             type="button"
             className="nav-link nav-res-btn"
             aria-expanded={resOpen}

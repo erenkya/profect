@@ -95,7 +95,7 @@ export function LessonPlayer({ lessonId, type, videoReady, markdown, initiallyCo
     try {
       const res = await fetch(videoSrc, { headers: { Range: "bytes=0-0" }, cache: "no-store" });
       if (res.status === 401) msg = "Oturumun sona erdi. Lütfen yeniden giriş yap.";
-      else if (res.status === 403) msg = "Bu kursa erişimin yok.";
+      else if (res.status === 403) msg = "Bu eğitime erişimin yok.";
       else if (res.status === 404) msg = "Bu dersin video dosyası bulunamadı.";
       else if (res.status === 429) msg = "Bu video için günlük izleme sınırına ulaşıldı. Daha sonra tekrar dene.";
     } catch {

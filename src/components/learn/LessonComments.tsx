@@ -120,12 +120,12 @@ export function LessonComments({ lessonId, threads, canPost, canModerate = false
         <>
           <CommentForm lessonId={lessonId} placeholder="Bu dersle ilgili sorunu yaz — eğitmene e-postayla iletilir." submitLabel="Soruyu gönder" />
           <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--muted-55)" }}>
-            Yazdıkların adınla birlikte bu kursa kayıtlı katılımcılara ve eğitmene görünür. Hukuka aykırı, hakaret içeren ya da telif hakkı ihlal eden paylaşım yapma;
+            Yazdıkların adınla birlikte bu eğitime kayıtlı katılımcılara ve eğitmene görünür. Hukuka aykırı, hakaret içeren ya da telif hakkı ihlal eden paylaşım yapma;
             bu tür içerikler bildirim üzerine kaldırılır. <Link href="/icerik-bildirimi">İçerik bildirimi</Link>
           </p>
         </>
       ) : (
-        <p style={{ margin: 0, color: "var(--muted-55)" }}>Soru sormak için kursa kayıt olmalısın.</p>
+        <p style={{ margin: 0, color: "var(--muted-55)" }}>Soru sormak için eğitime kayıt olmalısın.</p>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 28 }}>
