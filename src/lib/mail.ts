@@ -22,7 +22,7 @@ function transporter() {
 }
 
 /** Gönderim: MAIL_DRY_RUN=true (yalnızca geliştirmede) iken e-posta yollanmaz, konsola yazılır — testler gerçek posta kutularını doldurmasın. */
-async function deliver(msg: { to: string; cc?: string; subject: string; html: string; text: string }) {
+async function deliver(msg: { to: string; cc?: string; subject: string; html: string; text: string; attachments?: { filename: string; content: string; contentType: string }[] }) {
   if (process.env.MAIL_DRY_RUN === "true" && process.env.NODE_ENV !== "production") {
     console.log(`[mail:dry-run] to=${msg.to}${msg.cc ? ` cc=${msg.cc}` : ""} subject=${msg.subject}\n${msg.text}`);
     return;
@@ -320,5 +320,40 @@ export async function sendGiftSenderEmail(g: { kind: "course" | "program"; to: s
     subject: "Hediyeniz hazır — Profect",
     html: layout("Hediyeniz Hazır", intro, "Hediye linki", g.url, notice),
     text: `${intro}\n\n${g.url}\n\n${notice}`,
+  });
+}
+
+/** Görüşme maili (uzmana ya da ziyaretçiye). Tüm kullanıcı değerleri `esc` ile kaçışlanır; başlık satırına CR/LF girmez. */
+export async function sendMeetingEmail(m: {
+  to: string; subject: string; title: string; intro: string; details?: [string, string][];
+  button?: { label: string; url: string }; notice: string; ics?: { content: string; cancel?: boolean };
+}) {
+  const oneLine = (v: string) => v.replace(/[\r\n]+/g, " ").trim();
+  const rows = (m.details ?? [])
+    .map(([k, v]) => `<tr><td style="padding:6px 12px 6px 0;font-size:13px;color:#6b6880;vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:6px 0;font-size:14px">${esc(v)}</td></tr>`)
+    .join("");
+  const button = m.button
+    ? `<p style="text-align:center;margin:28px 0"><a href="${esc(m.button.url)}" style="background:#3a5fdc;color:#fff;text-decoration:none;padding:12px 28px;font-weight:bold;display:inline-block">${esc(m.button.label)}</a></p>
+      <p style="font-size:12px;color:#6b6880;word-break:break-all">Buton çalışmazsa bağlantıyı tarayıcınıza yapıştırın:<br>${esc(m.button.url)}</p>`
+    : "";
+  const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><title>${esc(m.title)}</title></head>
+<body style="margin:0;background:#f6f6fb;font-family:Arial,sans-serif;color:#17142b">
+  <div style="max-width:560px;margin:24px auto;background:#fff;border:1px solid #dbe4fd">
+    <div style="background:#162357;color:#fff;padding:24px 28px">
+      <div style="font-size:22px;font-weight:bold;letter-spacing:.04em">PROFECT</div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px">${esc(m.title)}</div>
+    </div>
+    <div style="padding:28px">
+      <p style="font-size:15px;line-height:1.6;margin:0 0 20px">${esc(m.intro)}</p>
+      ${rows ? `<table style="border-collapse:collapse;margin:0 0 8px">${rows}</table>` : ""}
+      ${button}
+      <p style="font-size:13px;color:#6b6880;line-height:1.5;margin-top:20px">${esc(m.notice)}</p>
+    </div>
+  </div>
+</body></html>`;
+  const text = [m.title, "", m.intro, "", ...(m.details ?? []).map(([k, v]) => `${k}: ${v}`), ...(m.button ? ["", `${m.button.label}: ${m.button.url}`] : []), "", m.notice].join("\n");
+  await deliver({
+    to: oneLine(m.to), subject: oneLine(m.subject), html, text,
+    ...(m.ics && { attachments: [{ filename: "gorusme.ics", content: m.ics.content, contentType: `text/calendar; charset=utf-8; method=${m.ics.cancel ? "CANCEL" : "REQUEST"}` }] }),
   });
 }

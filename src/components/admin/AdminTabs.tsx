@@ -13,6 +13,7 @@ const TABS = [
   { href: "/admin/siparisler", label: "Siparişler" },
   { href: "/admin/iadeler", label: "İadeler" },
   { href: "/admin/kuponlar", label: "Kuponlar" },
+  { href: "/admin/gorusmeler", label: "Görüşmeler" },
   { href: "/admin/yazilar", label: "Blog & Haber" },
   { href: "/egitmen/sorular", label: "Sorular" },
 ];
