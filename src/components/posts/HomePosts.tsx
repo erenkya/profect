@@ -29,13 +29,13 @@ export function HomePosts({ blog, news }: { blog: PostListItem[]; news: PostList
       <div className="wrap section-pad">
         {blog.length > 0 && (
           <>
-            <Head eyebrow="05 — Blog" title="Öğren, ilham al, ilerle" type="blog" />
+            <Head eyebrow="04 — Blog" title="Öğren, ilham al, ilerle" type="blog" />
             <div className="course-grid">{blog.map((p, i) => <PostCard key={p.id} post={p} delay={courseDelay(i)} />)}</div>
           </>
         )}
         {news.length > 0 && (
           <div style={{ marginTop: blog.length > 0 ? "clamp(72px,8vw,120px)" : 0 }}>
-            <Head eyebrow="06 — Haberler" title="Profect’ten son haberler" type="news" />
+            <Head eyebrow="05 — Haberler" title="Profect’ten son haberler" type="news" />
             <div className="news-list">{news.map((p, i) => <NewsRow key={p.id} post={p} delay={i * 60} />)}</div>
           </div>
         )}

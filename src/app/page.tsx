@@ -241,11 +241,11 @@ export default async function HomePage() {
         <section className="wrap section-pad">
           <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 56 }}>
             <div>
-              <div className="eyebrow">03 — Öne çıkan kurslar</div>
-              <h2 className="h-section">Kariyerine değer katan kurslar</h2>
+              <div className="eyebrow">02 — Öne çıkan eğitimler</div>
+              <h2 className="h-section">Yolculuğuna değer katan eğitimler</h2>
             </div>
             <Link href="/kurslar" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px" }}>
-              Tüm kurslar
+              Tüm eğitimler
               <ArrowRight size={16} strokeWidth={1.5} />
             </Link>
           </div>
@@ -259,11 +259,11 @@ export default async function HomePage() {
           <section className="wrap section-pad" style={{ paddingTop: 0 }}>
             <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 56 }}>
               <div>
-                <div className="eyebrow">04 — Uzmanlık programları</div>
-                <h2 className="h-section" style={{ maxWidth: 720 }}>Birkaç kursu tek pakette topla</h2>
+                <div className="eyebrow">03 — Uzmanlık alanları</div>
+                <h2 className="h-section" style={{ maxWidth: 720 }}>Bir alanda derinleş: eğitimleri tek yolculukta topla</h2>
               </div>
               <Link href="/programlar" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px" }}>
-                Tüm programlar
+                Tüm uzmanlık alanları
                 <ArrowRight size={16} strokeWidth={1.5} />
               </Link>
             </div>

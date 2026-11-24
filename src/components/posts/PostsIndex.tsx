@@ -8,7 +8,7 @@ import { POST_TYPES, type PostType } from "@/lib/post-types";
 
 const INTRO: Record<PostType, string> = {
   blog: "Öğrenme, sertifikasyon ve kariyer üzerine rehberler, ipuçları ve uzman görüşleri.",
-  news: "Profect’ten yeni kurslar, duyurular ve sektörden güncel gelişmeler.",
+  news: "Profect’ten yeni eğitimler, duyurular ve sektörden güncel gelişmeler.",
 };
 
 /** /blog ve /haberler liste sayfaları. Blog kart ızgarası, haberler tarih sıralı liste olarak gösterilir. */
