@@ -141,6 +141,38 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* FOUNDERS — iki yanda büyük fotoğraf, ortada metin */}
+        <section className="wrap section-pad" style={{ paddingBottom: "clamp(56px,8vw,120px)" }}>
+          <div className="founders-stage">
+            {FOUNDERS.map((f, i) => (
+              <div key={f.n} data-reveal="1" data-delay={i * 150} className={`founder-photo founder-photo-${i}`}>
+                <div className="blueprint" style={{ aspectRatio: "4/5", overflow: "visible" }}>
+                  <Corners />
+                  <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+                    <Image src={f.photo} alt={f.name} fill sizes="(max-width: 900px) 50vw, 30vw" style={{ objectFit: "cover" }} priority={false} />
+                  </div>
+                  <span aria-hidden style={{ position: "absolute", left: 14, bottom: 12, fontFamily: "var(--font-heading)", fontSize: 44, lineHeight: 1, fontWeight: 700, color: "#ffffff", textShadow: "0 1px 12px rgba(23,20,43,.45)" }}>{f.n}</span>
+                </div>
+              </div>
+            ))}
+
+            <div data-reveal="1" data-delay="100" className="founders-copy">
+              <div className="eyebrow">01 — Kurucular</div>
+              <h2 className="h-section" style={{ margin: "0 auto 40px", maxWidth: 560 }}>İki kurucu, tek hedef: ölçülebilir öğrenme</h2>
+              <div style={{ display: "grid", gap: 36 }}>
+                {FOUNDERS.map((f) => (
+                  <div key={f.n}>
+                    <h3 style={{ fontSize: 34, textTransform: "uppercase", marginBottom: 10 }}>{f.name}</h3>
+                    <p style={{ fontSize: 15, color: "var(--muted-72)", textWrap: "pretty", maxWidth: 440, margin: "0 auto 10px" }}>{f.short}</p>
+                    <a href={f.linkedin} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 15 }} aria-label={`${f.name} LinkedIn profili`}>LinkedIn →</a>
+                  </div>
+                ))}
+              </div>
+              <Link href="/hakkimizda" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px", marginTop: 36 }}>Hikâyemizi oku</Link>
+            </div>
+          </div>
+        </section>
+
         {/* MARQUEE */}
         {marquee.length > 0 && <section aria-hidden style={{ overflow: "hidden", borderBottom: "1px solid var(--color-divider)", padding: "18px 0", background: "#ffffff" }}>
           <div data-marquee="1" style={{ display: "flex", width: "max-content", gap: 40, alignItems: "center", fontFamily: "var(--font-heading)", fontSize: 22, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--color-accent-800)" }}>
@@ -157,7 +189,7 @@ export default async function HomePage() {
         <section id="nasil" className="wrap section-pad anchor">
           <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 64 }}>
             <div>
-              <div className="eyebrow">01 — Nasıl çalışır</div>
+              <div className="eyebrow">02 — Nasıl çalışır</div>
               <h2 className="h-section" style={{ maxWidth: 720 }}>Kayıttan sertifikaya üç adım</h2>
             </div>
             <p style={{ maxWidth: 380, margin: 0, fontSize: 16, color: "color-mix(in srgb,var(--color-text) 70%,transparent)", textWrap: "pretty" }}>
@@ -188,38 +220,6 @@ export default async function HomePage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        </section>
-
-        {/* FOUNDERS — iki yanda büyük fotoğraf, ortada metin */}
-        <section className="wrap section-pad" style={{ paddingBottom: "clamp(56px,8vw,120px)" }}>
-          <div className="founders-stage">
-            {FOUNDERS.map((f, i) => (
-              <div key={f.n} data-reveal="1" data-delay={i * 150} className={`founder-photo founder-photo-${i}`}>
-                <div className="blueprint" style={{ aspectRatio: "4/5", overflow: "visible" }}>
-                  <Corners />
-                  <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
-                    <Image src={f.photo} alt={f.name} fill sizes="(max-width: 900px) 50vw, 30vw" style={{ objectFit: "cover" }} priority={false} />
-                  </div>
-                  <span aria-hidden style={{ position: "absolute", left: 14, bottom: 12, fontFamily: "var(--font-heading)", fontSize: 44, lineHeight: 1, fontWeight: 700, color: "#ffffff", textShadow: "0 1px 12px rgba(23,20,43,.45)" }}>{f.n}</span>
-                </div>
-              </div>
-            ))}
-
-            <div data-reveal="1" data-delay="100" className="founders-copy">
-              <div className="eyebrow">02 — Kurucular</div>
-              <h2 className="h-section" style={{ margin: "0 auto 40px", maxWidth: 560 }}>İki kurucu, tek hedef: ölçülebilir öğrenme</h2>
-              <div style={{ display: "grid", gap: 36 }}>
-                {FOUNDERS.map((f) => (
-                  <div key={f.n}>
-                    <h3 style={{ fontSize: 34, textTransform: "uppercase", marginBottom: 10 }}>{f.name}</h3>
-                    <p style={{ fontSize: 15, color: "var(--muted-72)", textWrap: "pretty", maxWidth: 440, margin: "0 auto 10px" }}>{f.short}</p>
-                    <a href={f.linkedin} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 15 }} aria-label={`${f.name} LinkedIn profili`}>LinkedIn →</a>
-                  </div>
-                ))}
-              </div>
-              <Link href="/hakkimizda" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px", marginTop: 36 }}>Hikâyemizi oku</Link>
             </div>
           </div>
         </section>

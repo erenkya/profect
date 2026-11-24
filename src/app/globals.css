@@ -87,8 +87,8 @@ button { font: inherit; }
   gap: clamp(14px, 2.4vw, 32px);
   flex-wrap: wrap;
 }
-.site-nav .nav-link { font-family: var(--font-heading); font-size: 16px; letter-spacing: 0.02em; }
-.site-nav a.btn { font-size: 15px; }
+.site-nav .nav-link { font-family: var(--font-heading); font-size: 16px; letter-spacing: 0.02em; font-weight: 700; }
+.site-nav a.btn { font-size: 15px; font-weight: 700; }
 /* Masaüstünde .nav-menu kutu üretmez; bağlantılar header'ın doğrudan flex çocuğu gibi akar. */
 .nav-menu { display: contents; }
 .nav-menu .nav-link { order: 1; }
