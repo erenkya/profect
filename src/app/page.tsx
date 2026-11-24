@@ -12,6 +12,9 @@ import { HomePosts } from "@/components/posts/HomePosts";
 import { listPublishedPosts, type PostListItem } from "@/lib/posts";
 import { ProgramCard } from "@/components/ProgramCard";
 import { StageStrip } from "@/components/home/StageStrip";
+import { AgendaGrid } from "@/components/home/AgendaGrid";
+import { ReferenceStrip } from "@/components/home/ReferenceStrip";
+import { quoteFor } from "@/data/journey";
 import { ExpertMeetings } from "@/components/meetings/ExpertMeetings";
 import { getProgramOffer, listPublishedPrograms, type ProgramOffer } from "@/lib/programs";
 
@@ -143,6 +146,8 @@ export default async function HomePage() {
           </div>
         </section>
 
+        <AgendaGrid />
+
         {/* FOUNDERS — iki yanda büyük fotoğraf, ortada metin */}
         <section className="wrap section-pad" style={{ paddingBottom: "clamp(56px,8vw,120px)" }}>
           <div className="founders-stage">
@@ -159,18 +164,22 @@ export default async function HomePage() {
             ))}
 
             <div data-reveal="1" data-delay="100" className="founders-copy">
-              <div className="eyebrow">01 — Kurucular</div>
-              <h2 className="h-section" style={{ margin: "0 auto 40px", maxWidth: 560 }}>İki kurucu, tek hedef: ölçülebilir öğrenme</h2>
+              <div className="eyebrow">Gerçek deneyim. Gerçek sonuçlar.</div>
+              <h2 className="h-section" style={{ margin: "0 auto 16px", maxWidth: 560 }}>Learn from people who’ve actually done it.</h2>
+              <p style={{ margin: "0 auto 40px", maxWidth: 420, fontSize: 16, lineHeight: 1.6, color: "var(--muted-72)" }}>
+                Teori değil. Gerçek kararlar. Gerçek problemler. Gerçek deneyim.
+              </p>
               <div style={{ display: "grid", gap: 36 }}>
                 {FOUNDERS.map((f) => (
                   <div key={f.n}>
                     <h3 style={{ fontSize: 34, textTransform: "uppercase", marginBottom: 10 }}>{f.name}</h3>
                     <p style={{ fontSize: 15, color: "var(--muted-72)", textWrap: "pretty", maxWidth: 440, margin: "0 auto 10px" }}>{f.short}</p>
+                    {quoteFor(f.n) && <p style={{ fontSize: 15, color: "var(--color-text)", textWrap: "pretty", maxWidth: 440, margin: "0 auto 10px" }}>“{quoteFor(f.n)}”</p>}
                     <a href={f.linkedin} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ fontSize: 15 }} aria-label={`${f.name} LinkedIn profili`}>LinkedIn →</a>
                   </div>
                 ))}
               </div>
-              <Link href="/hakkimizda" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px", marginTop: 36 }}>Hikâyemizi oku</Link>
+              <Link href="/hakkimizda" className="btn btn-secondary" style={{ fontSize: 16, padding: "11px 20px", marginTop: 36 }}>Hikâyeyi oku</Link>
             </div>
           </div>
         </section>
@@ -191,11 +200,11 @@ export default async function HomePage() {
         <section id="nasil" className="wrap section-pad anchor">
           <div data-reveal="1" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24, marginBottom: 64 }}>
             <div>
-              <div className="eyebrow">02 — Nasıl çalışır</div>
-              <h2 className="h-section" style={{ maxWidth: 720 }}>Kayıttan sertifikaya üç adım</h2>
+              <div className="eyebrow">01 — Nasıl çalışır</div>
+              <h2 className="h-section" style={{ maxWidth: 720 }}>Bilgiden etkiye üç adım</h2>
             </div>
             <p style={{ maxWidth: 380, margin: 0, fontSize: 16, color: "color-mix(in srgb,var(--color-text) 70%,transparent)", textWrap: "pretty" }}>
-              Her kurs aynı yapıyı izler: dersler, ölçme ve belgelendirme. Ne öğrendiğini bilirsin, kanıtlayabilirsin.
+              Her eğitim aynı yapıyı izler: bilgi, karar ve etki. Ne öğrendiğini bilirsin, kanıtlayabilirsin.
             </p>
           </div>
           <div style={{ position: "relative" }}>
@@ -225,6 +234,8 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+
+        <ReferenceStrip />
 
         {/* FEATURED COURSES */}
         <section className="wrap section-pad">
