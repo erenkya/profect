@@ -3,15 +3,20 @@ import nodemailer from "nodemailer";
 import { VAT_PERCENT } from "@/lib/vat";
 
 function transporter() {
-  const user = process.env.GOOGLE_MAIL_USER;
-  const pass = process.env.GOOGLE_APP_PASSWORD?.replace(/\s+/g, "");
+  // SMTP_* (Turkticaret vb.) öncelikli; tanımlı değilse eski GOOGLE_* değerlerine düşer.
+  const user = process.env.SMTP_USER || process.env.GOOGLE_MAIL_USER;
+  const rawPass = process.env.SMTP_PASSWORD ?? process.env.GOOGLE_APP_PASSWORD;
+  // Google uygulama şifresindeki boşluklar silinir; gerçek posta şifresine dokunulmaz.
+  const pass = process.env.SMTP_PASSWORD ? rawPass : rawPass?.replace(/\s+/g, "");
   if (!user || !pass) throw new Error("E-posta bilgileri tanımlı değil.");
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
+  const port = Number(process.env.SMTP_PORT) || 465;
   return {
     from: user,
     t: nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
+      host,
+      port,
+      secure: port === 465,
       auth: { user, pass },
       // Takılan bir SMTP bağlantısı kayıt/giriş isteğini dakikalarca bekletmesin: hızlı hata ver, kullanıcı "Kodu tekrar gönder" der.
       connectionTimeout: 8_000,
